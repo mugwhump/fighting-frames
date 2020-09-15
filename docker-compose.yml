@@ -1,0 +1,22 @@
+version: "3.7"
+
+services:
+    couchdb:
+        image: apache/couchdb:3
+        volumes:
+            # this is a named volume for database storage
+            - couchdata:/opt/couchdb/data
+            # host volume/bind mounts to map couchdb's config and logging to local directories
+            # couch docker image creates docker.ini in local.d folder
+            - ~/ff/couchmounts/config:/opt/couchdb/etc/local.d
+            # must enable logging in config
+            - ~/ff/couchmounts/logs:/opt/couchdb/log
+        environment:
+            COUCHDB_USER: admin
+            COUCHDB_PASSWORD: password #specify this differently for committing
+        ports:
+            - 5984:5984
+    #ionic:
+
+volumes:
+    couchdata:
