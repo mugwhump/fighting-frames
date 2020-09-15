@@ -1,5 +1,7 @@
 {
   "name": "fite",
-  "integrations": {},
+  "integrations": {
+    "capacitor": {}
+  },
   "type": "react"
 }
