@@ -23,6 +23,19 @@ interface AppPage {
 }
 
 const appPages: AppPage[] = [
+// Insert new items here
+  {
+    title: 'Game',
+    url: '/page/Game',
+    iosIcon: mailOutline,
+    mdIcon: mailSharp
+  },
+  {
+    title: 'Test',
+    url: '/page/Test',
+    iosIcon: mailOutline,
+    mdIcon: mailSharp
+  },
   {
     title: 'Inbox',
     url: '/page/Inbox',
