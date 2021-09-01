@@ -1,0 +1,17 @@
+# from https://blog.knoldus.com/deployment-with-docker-in-ionic/
+FROM node:13-alpine as buildimage
+WORKDIR /app
+COPY package*.json /app/
+RUN npm install -g ionic
+RUN npm install
+COPY ./ /app/
+#RUN npm run-script build:prod <-complains about prod part
+RUN npm run-script build
+# this is using nginx to serve the webapp, not ionic serve
+FROM nginx:alpine
+RUN rm -rf /usr/share/nginx/html/*
+# copies local files into image
+COPY --from=buildimage /app/build/ /usr/share/nginx/html/
+#build with docker build -t ionicserverino:v1 .
+#run container with docker run -d --name ionicNginx -p 6969:80 ionicserverino:v1
+#can access http://localhost:6969/index.html in FF but not chrome for some reason

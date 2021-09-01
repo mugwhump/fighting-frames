@@ -13,7 +13,7 @@ const Page: React.FC = () => {
       <IonHeader>
         <IonToolbar>
           <IonButtons slot="start">
-            <IonMenuButton />
+            <IonMenuButton auto-hide={false} />
           </IonButtons>
           <IonTitle>{name}</IonTitle>
         </IonToolbar>

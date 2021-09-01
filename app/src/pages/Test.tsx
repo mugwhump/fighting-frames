@@ -1,10 +1,9 @@
 import { IonButtons, IonContent, IonHeader, IonMenuButton, IonPage, IonTitle, IonToolbar, IonInput, IonItem, useIonViewDidEnter, IonButton } from '@ionic/react';
 import React, { useState } from 'react';
 import { useParams } from 'react-router';
-import ExploreContainer from '../components/ExploreContainer';
 import './Page.css';
 import PouchDB from 'pouchdb';
-import { getDB, pullDB, pushDB, syncDB } from '../services/pouch';
+import { remote, getDB, pullDB, pushDB,/* syncDB, remote */} from '../services/pouch';
 
 //Could extend the router props if wanted to. Pass in db as prop from parent?
 type TestProps = {
@@ -16,16 +15,26 @@ const Test: React.FC<TestProps> = ({propNum, propStr}) => {
 
   const { name } = useParams<{ name: string; }>(); //router has its own props
   const [text, setText] = useState<string>('default'); //guess this is for my text entry thing
-  let db : PouchDB.Database; //this seems to have it undefined 
+  //let db : PouchDB.Database; //this seems to have it undefined, can't assign in viewEnter?
+  let db : PouchDB.Database = getDB('test');
 
-  function pushButton() {
-    setText("Pushed da button!");
+  /*
+  useEffect(() => {
+    console.log(gameId+"~~useEffect, called only on initial render if empty array given for watch variables");
+    return () => console.log("~~useEffect cleanup fun called on unmount");
+  }, [] ); //if no empty array, called on EVERY RENDER
+  useEffect(() => {
+    console.log(gameId+"~~useEffect, called on every render");
+  });
+  */
+
+
+  function getFirstDoc(callback: (doc: any) => void) : void {
     db.allDocs().then((docs : PouchDB.Core.AllDocsResponse<{}>) => {
       if(docs.rows.length > 0) {
         let docInfo = docs.rows[0]; 
         db.get(docInfo.id).then((doc : any ) => {
-          console.log(doc['title']);
-          pushDB(db);
+          callback(doc);
         });
       }
       console.log('got da thingy :DD');
@@ -34,10 +43,33 @@ const Test: React.FC<TestProps> = ({propNum, propStr}) => {
     });
   }
 
+  function getDocById(id: string, callback: (doc: any) => void) : void {
+    db.get(id).then((doc : any ) => {
+      callback(doc);
+      console.log('got specific doc');
+    }).catch((err) => {
+      console.log(err);
+    });
+  }
+
+  function pushButton() {
+    setText("Pushed da button!");
+    getFirstDoc((doc) => {
+      console.log(doc['title'] + ", new title: " + text);
+      //doc.title = text; //no worky?
+      //db.put(doc);
+      db.put({_id: doc._id, _rev: doc._rev, title: text});
+      pushDB(db);
+      console.log('got da thingy :DD');
+    });
+  }
+
   useIonViewDidEnter(() => {
     console.log('ion view did enter event fired');
-    db = getDB('test');
     pullDB(db);
+    getDocById("_design/testdesign", (doc) => {
+      setText(doc.title);
+    });
   });
 
   return (
@@ -58,7 +90,7 @@ const Test: React.FC<TestProps> = ({propNum, propStr}) => {
           </IonToolbar>
         </IonHeader>
         <IonItem>
-          <IonInput value={text}></IonInput>
+          <IonInput value={text} onIonChange={e => setText(e.detail.value!)}></IonInput>
         </IonItem> 
         <IonButton onClick={() => pushButton()}>Push</IonButton>
       </IonContent>

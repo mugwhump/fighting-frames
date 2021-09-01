@@ -8,13 +8,83 @@ import {
   IonMenu,
   IonMenuToggle,
   IonNote,
+  IonButton,
 } from '@ionic/react';
+//import { menuController } from '@ionic/core';
 
 import React from 'react';
 import { useLocation } from 'react-router-dom';
-import { archiveOutline, archiveSharp, bookmarkOutline, heartOutline, heartSharp, mailOutline, mailSharp, paperPlaneOutline, paperPlaneSharp, trashOutline, trashSharp, warningOutline, warningSharp } from 'ionicons/icons';
+import { archiveOutline, archiveSharp, bookmarkOutline, bookmarkSharp, heartOutline, heartSharp, mailOutline, mailSharp, paperPlaneOutline, paperPlaneSharp, trashOutline, trashSharp, warningOutline, warningSharp } from 'ionicons/icons';
 import './Menu.css';
+//import PouchDB from 'pouchdb';
+import { useDoc } from 'use-pouchdb'
+//import * as myPouch from '../services/pouch';
+import { DBListDoc } from '../types/characterTypes';
+//import DBProvider from './DBProvider';
+//import GameMenu from './GameMenu';
+import { Action, TestContext, useTestDispatch, withContext, Preferences, LocalData } from './TestProvider';
 
+const TestSwitcher = (props: any) => {
+  const dispatch = useTestDispatch();
+  console.log("RENDERED TESTSWITCHER WEEWOOWEEWOO");
+  function testToggleAutoDownload() {
+    console.log(`toggling autodownload from ${props.autoDownload} to ${!props.autoDownload}`);
+    const current = props.autoDownload;
+    const action: Action = {actionType: "changePreferences", preferences: {showTutorials: props.showTutorials, autoDownload: !current}};
+    dispatch(action);
+  }
+  return (
+    <div>
+          <IonButton type="button" onClick={() => testToggleAutoDownload()}>TEST TOGGLE, autoDL = {props.autoDownload ? "ye" : "ne"}</IonButton>
+    </div>
+  )
+}
+const WrappedTestSwitcher = withContext( ((state: LocalData)=> {return state.preferences}) )(TestSwitcher);
+
+const Menu: React.FC = () => {
+  const location = useLocation(); //access current page url and update when it changes
+  const { doc, loading, state, error } = useDoc<PouchDB.Core.Document<DBListDoc>>("top/list", {db: "remoteTop"}); 
+
+  if (state === 'error') {
+    console.error("heckin errorino in Menu: " + error?.message);
+    return (<span>heckin errorino in menu: {error?.message}</span>);
+  }
+  // loading is true even after the doc loads
+  if (loading && doc == null) {
+    console.log("Menu Loading: "+loading+", doc: "+JSON.stringify(doc));
+    return (<h1> loadin in menu</h1>);
+  }
+
+  return (
+    <>
+      <IonContent>
+        <IonList id="inbox-list">
+          <IonListHeader>Select Game</IonListHeader>
+          <IonNote>not tekken tho</IonNote>
+          {doc!.dbs.map((db, index) => {
+            let url: string = "/game/"+db.id;
+            return (
+                <IonItem className={location.pathname.includes(url) ? 'selected' : ''} 
+                  routerLink={url} routerDirection="forward" key={index} lines="none" detail={false}>
+             {/*<IonMenuToggle key={index} autoHide={false}>*/}
+              {/*onClick={() => openMenu(db.id)}*/} 
+                  <IonIcon slot="start" ios={bookmarkOutline} md={bookmarkSharp} />
+                  <IonLabel>{db.name}</IonLabel>
+              {/*</IonMenuToggle> */} 
+                </IonItem>
+            );
+          })}
+          <WrappedTestSwitcher />
+        </IonList>
+      </IonContent>
+
+  </>
+  );
+};
+
+export default Menu;
+
+/*
 interface AppPage {
   url: string;
   iosIcon: string;
@@ -23,13 +93,6 @@ interface AppPage {
 }
 
 const appPages: AppPage[] = [
-// Insert new items here
-  {
-    title: 'Game',
-    url: '/page/Game',
-    iosIcon: mailOutline,
-    mdIcon: mailSharp
-  },
   {
     title: 'Test',
     url: '/page/Test',
@@ -42,49 +105,17 @@ const appPages: AppPage[] = [
     iosIcon: mailOutline,
     mdIcon: mailSharp
   },
-  {
-    title: 'Outbox',
-    url: '/page/Outbox',
-    iosIcon: paperPlaneOutline,
-    mdIcon: paperPlaneSharp
-  },
-  {
-    title: 'Favorites',
-    url: '/page/Favorites',
-    iosIcon: heartOutline,
-    mdIcon: heartSharp
-  },
-  {
-    title: 'Archived',
-    url: '/page/Archived',
-    iosIcon: archiveOutline,
-    mdIcon: archiveSharp
-  },
-  {
-    title: 'Trash',
-    url: '/page/Trash',
-    iosIcon: trashOutline,
-    mdIcon: trashSharp
-  },
-  {
-    title: 'Spam',
-    url: '/page/Spam',
-    iosIcon: warningOutline,
-    mdIcon: warningSharp
-  }
 ];
+      <IonMenu menuId={"menu-"+currentDB} contentId="main" disabled={false} type="overlay">
+        <IonContent>
+          <IonList>
+            <IonMenuToggle>
+            <IonItem onClick={() => openMenu("top")}>Top</IonItem> 
+            </IonMenuToggle>
+          </IonList>
+        </IonContent>
+      </IonMenu>
 
-const labels = ['Family', 'Friends', 'Notes', 'Work', 'Travel', 'Reminders'];
-
-const Menu: React.FC = () => {
-  const location = useLocation();
-
-  return (
-    <IonMenu contentId="main" type="overlay">
-      <IonContent>
-        <IonList id="inbox-list">
-          <IonListHeader>Inbox</IonListHeader>
-          <IonNote>hi@ionicframework.com</IonNote>
           {appPages.map((appPage, index) => {
             return (
               <IonMenuToggle key={index} autoHide={false}>
@@ -95,20 +126,4 @@ const Menu: React.FC = () => {
               </IonMenuToggle>
             );
           })}
-        </IonList>
-
-        <IonList id="labels-list">
-          <IonListHeader>Labels</IonListHeader>
-          {labels.map((label, index) => (
-            <IonItem lines="none" key={index}>
-              <IonIcon slot="start" icon={bookmarkOutline} />
-              <IonLabel>{label}</IonLabel>
-            </IonItem>
-          ))}
-        </IonList>
-      </IonContent>
-    </IonMenu>
-  );
-};
-
-export default Menu;
+          */

@@ -1,0 +1,10 @@
+FROM node:12.16.3
+
+WORKDIR Home/Documents/xxxx/ionic
+
+//Install Ionic and Cordova
+RUN npm i -g ionic cordova
+
+//Show ionic cli command
+ENTRYPOINT [“ionic”]
+CMD [“serve”, “8100”]

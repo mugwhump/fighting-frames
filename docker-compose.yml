@@ -17,6 +17,8 @@ services:
         ports:
             - 5984:5984
     #ionic:
+        #build: app/
+        # not sure if need volumes, but what ports in container to map?
 
 volumes:
     couchdata:
