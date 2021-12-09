@@ -7,7 +7,7 @@ import { useLocation } from 'react-router-dom'; //TESTING
 interface ContainerProps {
   name: string;
 }
-
+/*
 //const PrefUser = (text: string, prefs: Preferences) => {
 interface Prefs {
   text: string,
@@ -36,7 +36,7 @@ const CredUser: React.FC<Creds> = ({text, creds}) => {
 }
 const WrappedPrefUser = withContext( ((state: LocalData)=> {return {prefs: state.preferences}}) )(PrefUser);
 const WrappedCredUser = withContext( ((state: LocalData)=> {return {creds: state.credentials}}) )(CredUser);
-
+*/
 const ExploreContainer: React.FC<ContainerProps> = ({ name }) => {
 
   return (
@@ -45,8 +45,8 @@ const ExploreContainer: React.FC<ContainerProps> = ({ name }) => {
       <p>Explore <a target="_blank" rel="noopener noreferrer" href="https://ionicframework.com/docs/components">UI Components</a> and my nipples</p>
       <p><Link to="/game/sc6">SC6</Link></p>
       <p><Link to="/game/sc6/character/talim">taleem</Link></p>
-      <WrappedPrefUser text="prefs here" />
-      <WrappedCredUser text="creds here" />
+      {/*<WrappedPrefUser text="prefs here" />*/}
+      {/*<WrappedCredUser text="creds here" />*/}
     </div>
   );
 };

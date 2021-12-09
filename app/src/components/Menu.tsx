@@ -12,75 +12,120 @@ import {
 } from '@ionic/react';
 //import { menuController } from '@ionic/core';
 
-import React from 'react';
+import React, { useEffect } from 'react';
 import { useLocation } from 'react-router-dom';
-import { archiveOutline, archiveSharp, bookmarkOutline, bookmarkSharp, heartOutline, heartSharp, mailOutline, mailSharp, paperPlaneOutline, paperPlaneSharp, trashOutline, trashSharp, warningOutline, warningSharp } from 'ionicons/icons';
+import { cloudDoneOutline, cloudDownloadOutline, cloudOfflineOutline, skullOutline } from 'ionicons/icons';
+import { CreateAnimation, Animation } from '@ionic/react';
 import './Menu.css';
-//import PouchDB from 'pouchdb';
 import { useDoc } from 'use-pouchdb'
-//import * as myPouch from '../services/pouch';
-import { DBListDoc } from '../types/characterTypes';
-//import DBProvider from './DBProvider';
-//import GameMenu from './GameMenu';
-import { Action, TestContext, useTestDispatch, withContext, Preferences, LocalData } from './TestProvider';
+import { useDocumentLocalRemoteSwitching } from '../services/pouch';
+import { DBListDoc, DBListDocItem } from '../types/characterTypes';
+import { StringSet } from '../types/utilTypes';
+import { withLocalContext, useLocalDispatch, Action as LocalAction } from './LocalProvider';
+import { withGameContext, useGameDispatch, DBStatus, DBTransitionState, Action as GameAction } from './GameProvider';
 
-const TestSwitcher = (props: any) => {
-  const dispatch = useTestDispatch();
-  console.log("RENDERED TESTSWITCHER WEEWOOWEEWOO");
-  function testToggleAutoDownload() {
-    console.log(`toggling autodownload from ${props.autoDownload} to ${!props.autoDownload}`);
-    const current = props.autoDownload;
-    const action: Action = {actionType: "changePreferences", preferences: {showTutorials: props.showTutorials, autoDownload: !current}};
-    dispatch(action);
-  }
-  return (
-    <div>
-          <IonButton type="button" onClick={() => testToggleAutoDownload()}>TEST TOGGLE, autoDL = {props.autoDownload ? "ye" : "ne"}</IonButton>
-    </div>
-  )
+export const MenuContainer: React.FC = () => {
+  //TODO: probably only need gameprovider stuff, not localprovider
+  const WrappedMenu = withGameContext((state) => {return {
+    usingLocal: state.usingLocal, 
+  }})(Menu);
+  return (<WrappedMenu />);
 }
-const WrappedTestSwitcher = withContext( ((state: LocalData)=> {return state.preferences}) )(TestSwitcher);
 
-const Menu: React.FC = () => {
+interface MenuProps {
+  usingLocal: boolean
+}
+
+//needs usingLocal. Maybe isOnline. 
+const Menu: React.FC<MenuProps> = ({usingLocal}) => {
+  //console.log("Render menu, usingLocal: " + usingLocal);
   const location = useLocation(); //access current page url and update when it changes
-  const { doc, loading, state, error } = useDoc<PouchDB.Core.Document<DBListDoc>>("top/list", {db: "remoteTop"}); 
+  const topDB: string = usingLocal ? "localTop" : "remoteTop";
+  const { doc, loading, state, error } = useDoc<PouchDB.Core.Document<DBListDoc>>("top/list", {db: topDB}); 
+  useDocumentLocalRemoteSwitching(state, error, usingLocal, 'Menu');
+  const gameDispatch = useGameDispatch();
+
+  //useEffect(() => { // dispatch changes Menu's state so can't do it during a render, must dispatch in hook. (In onClick events is fine?)
+    //if (state === 'error') {
+      //console.warn("Error loading document " + (usingLocal ? "locally" : "non-locally") + " in Menu: " + error?.message);
+      //gameDispatch({actionType: 'fetchFailure', error: error} as GameAction);
+    //}
+  //}, [state, error]);
 
   if (state === 'error') {
-    console.error("heckin errorino in Menu: " + error?.message);
+    console.log("MENU COMPLAINO");
     return (<span>heckin errorino in menu: {error?.message}</span>);
   }
   // loading is true even after the doc loads
   if (loading && doc == null) {
-    console.log("Menu Loading: "+loading+", doc: "+JSON.stringify(doc));
+    //console.log("Menu Loading: "+loading+", doc: "+JSON.stringify(doc));
     return (<h1> loadin in menu</h1>);
   }
 
+  //TODO: this doesn't need wantedDbs list, it's gonna need the whole DBStatus. So not localprovider, gameprovider.
+  //const WrappedMenuItem = withLocalContext((state) => {return {wantedDbs: state.wantedDbs}})(MenuItem);
+  const WrappedMenuItem = withGameContext((gameContext, props) => { return {status: gameContext.dbStatuses.get(props.dbListItem.id)}})(MenuItem);
+  //const WrappedMenuItem = withGameContext((state, dbListItem) => {return {status: state.dbStatuses.get((dbListItem.db === "sc6") ? "sc6" : "samsho")}})(MenuItem); //thinks all's samsho
+  //const WrappedMenuItem = withGameContext((state, dbListItem) => {return {status: state.dbStatuses.get("sc6")}})(MenuItem);
   return (
     <>
       <IonContent>
         <IonList id="inbox-list">
           <IonListHeader>Select Game</IonListHeader>
           <IonNote>not tekken tho</IonNote>
-          {doc!.dbs.map((db, index) => {
-            let url: string = "/game/"+db.id;
+          {doc!.dbs.map((dbListItem, index) => {
             return (
-                <IonItem className={location.pathname.includes(url) ? 'selected' : ''} 
-                  routerLink={url} routerDirection="forward" key={index} lines="none" detail={false}>
-             {/*<IonMenuToggle key={index} autoHide={false}>*/}
-              {/*onClick={() => openMenu(db.id)}*/} 
-                  <IonIcon slot="start" ios={bookmarkOutline} md={bookmarkSharp} />
-                  <IonLabel>{db.name}</IonLabel>
-              {/*</IonMenuToggle> */} 
-                </IonItem>
+              <WrappedMenuItem dbListItem={dbListItem} key={index} path={location.pathname} />
             );
           })}
-          <WrappedTestSwitcher />
         </IonList>
       </IonContent>
 
   </>
   );
 };
+
+//TODO: memoize?
+interface MenuItemProps {dbListItem: DBListDocItem, key: number, status: DBStatus, path: string}
+const MenuItem: React.FC<MenuItemProps> = ({dbListItem, key, status, path}) => {
+  const localDispatch = useLocalDispatch();
+  const url: string = "/game/"+dbListItem.id;
+  const isWanted: boolean = status.userWants;
+  const transition: DBTransitionState = status.currentTransition;
+  const playAnimation: boolean = transition === 'downloading' || transition === 'deleting';
+  let icon: string = cloudDownloadOutline;
+  if(isWanted && status.done) icon = cloudDoneOutline;
+
+  const localErrorIcon = (status.localError) ? (<IonIcon slot="end" md={skullOutline} />) : '';
+  const remoteErrorIcon = (status.remoteError) ? (<IonIcon slot="end" md={cloudOfflineOutline} />) : '';
+  //if(dbListItem.id==="samsho") console.log(`Menu item, playing=${playAnimation}, dbListItem=${JSON.stringify(dbListItem)}, status=${JSON.stringify(status)}`);
+
+  function setUserWants(event: any, wants: boolean) {
+    event.preventDefault();
+    event.stopPropagation();
+    const action: LocalAction = {actionType: 'setUserWants', db: dbListItem.id, userWants: wants};
+    localDispatch(action);
+  }
+  //TODO: disable button if local not enabled
+  return (
+    <IonItem className={path.includes(url) ? 'selected' : ''} 
+      routerLink={url} routerDirection="forward" lines="none" detail={false}>
+      {/*<IonMenuToggle key={index} autoHide={false}>*/}
+        {/*onClick={() => openMenu(db.id)}*/} 
+      <IonButton fill="clear" onClick={(e) => setUserWants(e, !isWanted)}>
+        <CreateAnimation duration={1000} iterations={Infinity} 
+          play={playAnimation} stop={!playAnimation} direction={'alternate'} easing={'ease-in-out'}
+          fromTo={[{ property: 'transform', fromValue: 'translateY(-3px)', toValue: 'translateY(3px)'}]} >
+          <IonIcon slot="start" md={icon} />
+        </CreateAnimation>
+      </IonButton> 
+      {localErrorIcon}
+      {remoteErrorIcon}
+      <IonLabel>{dbListItem.name}</IonLabel>
+    {/*</IonMenuToggle> */} 
+    </IonItem>
+  );
+}
 
 export default Menu;
 
@@ -105,25 +150,4 @@ const appPages: AppPage[] = [
     iosIcon: mailOutline,
     mdIcon: mailSharp
   },
-];
-      <IonMenu menuId={"menu-"+currentDB} contentId="main" disabled={false} type="overlay">
-        <IonContent>
-          <IonList>
-            <IonMenuToggle>
-            <IonItem onClick={() => openMenu("top")}>Top</IonItem> 
-            </IonMenuToggle>
-          </IonList>
-        </IonContent>
-      </IonMenu>
-
-          {appPages.map((appPage, index) => {
-            return (
-              <IonMenuToggle key={index} autoHide={false}>
-                <IonItem className={location.pathname === appPage.url ? 'selected' : ''} routerLink={appPage.url} routerDirection="none" lines="none" detail={false}>
-                  <IonIcon slot="start" ios={appPage.iosIcon} md={appPage.mdIcon} />
-                  <IonLabel>{appPage.title}</IonLabel>
-                </IonItem>
-              </IonMenuToggle>
-            );
-          })}
-          */
+];*/

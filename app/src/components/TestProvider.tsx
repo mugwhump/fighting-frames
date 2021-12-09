@@ -1,6 +1,6 @@
 import React, { useContext, useMemo, useRef, useReducer, useEffect, Dispatch, ReducerAction, useState } from 'react';
 import PouchDB from 'pouchdb';
-import { createContextSelector } from 'react-context-selector';
+// import { createContextSelector } from 'react-context-selector';
 import { usePouch } from 'use-pouchdb';
 
 export type Credentials = {
@@ -109,20 +109,16 @@ export function useTestDispatch(): Dispatch<ReducerAction<typeof LocalReducer>> 
 
 // (map) => (wc) => (props) => jsx
 export const withContext = (
-  //context: any = React.useContext(TestContext),
-  //context: any,
-  mapState: any,
-  //mapDispatchers: any = React.useContext(TestDispatchContext) TODO: enable this, write components to take dispatch as prop
-) => ((WrapperComponent: any) => {
-  function EnhancedComponent(props: any) {
-    const targetContext = useContext(TestContext);
-    const { ...statePointers } = mapState(targetContext);
+  mapState: (state: LocalData) => any,
+  //mapDispatchers: any = React.useContext(TestDispatchContext) // could use this, have components take dispatch as prop. Or just use hook
+) => ((WrapperComponent: React.FC<any>) => {
+  function EnhancedComponent(props: any){
+    const state: LocalData = useLocalData();
+    const { ...statePointers } = mapState(state);
     //const { ...dispatchPointers } = mapDispatchers(targetContext);
-    //WrapperComponent.displayName = "Shit";
-    return useMemo(
-      () => (
-        <WrapperComponent {...props} {...statePointers}  />
-      ),
+    const memoFunc:()=>JSX.Element = () => (<WrapperComponent {...props} {...statePointers}  />);
+    return useMemo<JSX.Element>(
+      memoFunc,
       [
         ...Object.values(statePointers),
         ...Object.values(props),

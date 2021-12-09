@@ -1,13 +1,11 @@
-import { IonMenu, IonRouterOutlet, IonSplitPane } from '@ionic/react';
-import React, { useEffect } from 'react';
+import { IonButton, IonMenu, IonRouterOutlet, IonSplitPane } from '@ionic/react';
+import React, { useEffect, useState } from 'react';
 import { Route } from 'react-router-dom';
 //import PouchDB from 'pouchdb';
-//import * as myPouch from '../services/pouch';
-import { useLocalSubset,  Action, Preferences } from './LocalProvider';
-import { useDoc } from 'use-pouchdb';
+import { useDocumentLocalRemoteSwitching } from '../services/pouch';
+import { useDoc, usePouch } from 'use-pouchdb';
 import Character from '../components/Character';
-import GameMenu from '../components/GameMenu';
-import { useGameId } from './GameProvider';
+import { useGameContext, useGameDispatch, Action as GameAction } from './GameProvider';
 import HeaderPage from '../components/HeaderPage';
 import { DesignDoc } from '../types/characterTypes';
 
@@ -15,39 +13,33 @@ type GameProps = {
 }
 
 const Game: React.FC<GameProps> = () => {
-  const gameId: string | null = useGameId();
-  //if (gameId === null) { //complains about hooks being used conditionally. Actually this seems unnecessary after I added Switches to router
-    //return (<span>NO RENDER FOR GAME, NULL GAMEID</span>); //every child must null check since react router still does another render when navigating away from game page
-  //};
+  const gameContext = useGameContext();
+  const gameId: string = gameContext.gameId; //TODO: Wrapper component. Note this will update after the provider switches DBs.
+  const gameDispatch = useGameDispatch();
   const { doc, loading, state, error } = useDoc<DesignDoc>("_design/columns"); 
-  const prefs: Preferences = useLocalSubset<Preferences>("preferences");
-  //const {data, dispatch}: ContextValueSubType<Preferences> = 
-      //useLocalDataSelector((contextVal: ContextValue) => {return {data: contextVal.data.preferences, dispatch: contextVal.dispatch}});
+  useDocumentLocalRemoteSwitching(state, error, gameContext.usingLocal, 'Game');
+  const database: PouchDB.Database = usePouch();
 
-  useEffect(() => {
-    console.log("Game rendered, here's da prefs: " + JSON.stringify(prefs));
-  });
+  //useEffect(() => {
+    //console.log("RENDER GAAAAAEYAAAAAAAAAAAAM ---------------------"+gameId);
+  //});
 
   if (state === 'error') {
-    console.error("heckin errorino in game " + JSON.stringify(gameId) + ": " + error?.message);
-    return (<span>heckin errorino in game: {JSON.stringify(gameId) + ": " + error?.message}</span>);
+    return (
+      <div>
+        <div>heckin errorino in game: {JSON.stringify(gameId) + ": " + error?.message}</div>
+        <IonButton type="button" onClick={() => gameDispatch({actionType: 'retry', db: gameId} as GameAction)}>Retry</IonButton>
+      </div>
+    );
   }
   // loading is true even after the doc loads
   if (loading && doc == null) {
-    console.log("Game Loading: "+loading+", doc: "+JSON.stringify(doc));
+    //console.log("Game Loading: "+loading+", doc: "+JSON.stringify(doc));
     return (<h1> loadin in game</h1>);
   }
 
   return (
     <>
-    {/*<IonSplitPane contentId="main-sub">*/}
-    {/* when side=end in nested split-pane, there's empty pane on left with this menu on right*/}
-    {/* when side=start in nested split-pane, top pane disappears when going from game back to index*/}
-    {/* if there's no nested split pane it doesn't show in Game/Character and top pane breaks when go back*/}
-      {/*<IonMenu side="start" menuId="subMenu" contentId="main-sub" type="overlay" disabled={false}>*/}
-        {/*<GameMenu id={id} topMenuCallback={() => {console.log("called topMenuCallback")}} />*/}
-      {/*</IonMenu>*/}
-      {/*<IonRouterOutlet id="main-sub" ionPage>*/}
         <Route exact path={"/game/" + gameId } >
           <HeaderPage title={gameId + "is the game id"}>
             DUHHHH DIS IS GAME PAGE
@@ -56,12 +48,11 @@ const Game: React.FC<GameProps> = () => {
             </HeaderPage>
           </Route>
         <Route exact path={"/game/" + gameId + "/character/:character"} >
-          <HeaderPage title={gameId + "is the game id, TEST: autodownload = " + prefs.autoDownload}>
+          <HeaderPage title={gameId + "is the game id"}>
             <Character columns={doc!.columnDefs} universalProps={doc!.universalPropDefs}/>
+            {/*<IonButton type="button" onClick={() => gameDispatch({actionType: 'fetchSuccess', usedLocal: gameContext.usingLocal} as GameAction)}>foo</IonButton>*/}
           </HeaderPage>
         </Route>
-      {/*</IonRouterOutlet>*/}
-    {/*</IonSplitPane>*/}
     </>
   );
 }

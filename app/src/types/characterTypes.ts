@@ -10,9 +10,13 @@ export type UniversalPropDef = {
 
 export type UniversalPropData = {
   propName: string,
-  outdated?: number | boolean, //false for up-to-date, true for mistake, version # for old patch properties
   data: any,
+  outdated?: number | boolean, //false for up-to-date, true for mistake, version # for old patch properties
 }
+/*export type UniversalPropData = {*/
+  /*[propName: string]: any,*/
+  /*outdated?: number | boolean, //false for up-to-date, true for mistake, version # for old patch properties*/
+/*}*/
 
 export type ColumnDef = {
   columnName: string,
@@ -31,7 +35,7 @@ export type Move = {
   category: string,
   //tags: string[], //will surely be useful for somethin
   outdated?: number | boolean, //false for up-to-date, true for mistake, version # for old patch properties
-  children?: Move[],
+  children?: Move[], //TODO: will this cause confusion with people unsure if moves should be their own things?
   columnProps: [ColumnData],
 }
 
@@ -42,11 +46,12 @@ export enum DataType { //these mostly determine the editing interface presented
   Txt = "TEXT"
 }
 
+export type DBListDocItem = {
+  id: string,
+  name: string 
+}
 export type DBListDoc = {
-  dbs: [{
-    id: string,
-    name: string
-  }]
+  dbs: [DBListDocItem]
 }
 
 export type DesignDoc = {
@@ -59,7 +64,7 @@ export type DesignDoc = {
 
 export type CharDoc = {
   charName: string,
-  updatedAt: Date,
+  updatedAt: Date, //remember validation functions run on replication if this is where I want to add this
   updatedBy: string,
   universalProps: UniversalPropData[],
   moves: Move[],

@@ -1,6 +1,6 @@
 import { IonModal, IonItem, IonButton, IonLabel, IonInput } from '@ionic/react';
 import React, { useState, useEffect } from 'react';
-import { useLocalSubset, useLocalDispatch, Credentials, CredentialStore, LocalData, Action, Preferences } from './LocalProvider';
+import { useLocalDispatch, Credentials, Action } from './LocalProvider';
 import PouchDB from 'pouchdb';
 import { usePouch } from 'use-pouchdb';
 import PouchAuth from 'pouchdb-authentication';
@@ -10,18 +10,17 @@ PouchDB.plugin(PouchAuth);
 type LoginModalProps = {
   db: string, 
   show: boolean;
+  creds: Credentials, //if none found, undefined
   onDismiss: () => void; //callbacks defined in caller using this 
   onLogin: (username: string) => void;
 }
 
 // Auto-fill with locally stored credentials, present error messages for failed logins
 // Assumes db is remote since there's no point logging in to a local db
-const LoginModal: React.FC<LoginModalProps> = ({db, show, onDismiss, onLogin}) => {
+const LoginModal: React.FC<LoginModalProps> = ({db, show, onDismiss, creds, onLogin}) => {
   const [username, setUsername] = useState<string>(''); 
   const [password, setPassword] = useState<string>(''); 
   const [errorText, setErrorText] = useState<string>('');
-  const credStore: CredentialStore = useLocalSubset<CredentialStore>("credentials");
-  const prefs: Preferences = useLocalSubset<Preferences>("preferences"); //FOR TESTING
   const dispatch = useLocalDispatch();
   //const {data, dispatch}: ContextValueSubType<CredentialStore> = 
       //useLocalDataSelector((contextVal : ContextValue) => {return {data: contextVal.data.credentials, dispatch: contextVal.dispatch}});
@@ -29,8 +28,14 @@ const LoginModal: React.FC<LoginModalProps> = ({db, show, onDismiss, onLogin}) =
   const database: PouchDB.Database = usePouch();
 
   useEffect(() => {
-    console.log("LoginModal rendered");
+    //console.log("LoginModal rendered");
   });
+  useEffect(() => {
+    return () => {
+      setErrorText('');
+      //console.log("LoginModal unmounted")
+    };
+  }, []);
 
   function login(e: any): void {
     e.preventDefault(); //need this or page reloads
@@ -54,7 +59,6 @@ const LoginModal: React.FC<LoginModalProps> = ({db, show, onDismiss, onLogin}) =
 
   function willPresent() {
     console.log("ionModalWillPresent fired");
-    let creds: Credentials = credStore[db];
     if (creds === undefined) {
       console.log("No stored credentials found for " + db);
     }
@@ -65,14 +69,9 @@ const LoginModal: React.FC<LoginModalProps> = ({db, show, onDismiss, onLogin}) =
   };
 
   function willDismiss(): void {
-    setErrorText('');
-  }
-
-  function testToggleAutoDownload() {
-    console.log(`toggling autodownload from ${prefs.autoDownload} to ${!prefs.autoDownload}`);
-    const current = prefs.autoDownload;
-    const action: Action = {actionType: "changePreferences", preferences: {...prefs, autoDownload: !current}};
-    dispatch(action);
+    //TODO:this should probably go here instead of effect cleanup, but 
+    //saving (or changing state then closing) gives a warning about "cannot perform react state update on an unmounted component"
+    //setErrorText(''); 
   }
 
   return (
@@ -94,7 +93,6 @@ const LoginModal: React.FC<LoginModalProps> = ({db, show, onDismiss, onLogin}) =
         <IonItem>
           <input type="submit" style={{display: "none"}}/> {/* enables enter key submission. TODO: test on mobile */}
           <IonButton type="button" onClick={() => onDismiss()}>Close</IonButton>
-          <IonButton type="button" onClick={() => testToggleAutoDownload()}>TEST TOGGLE</IonButton>
           <IonButton type="submit">Log In</IonButton>
         </IonItem>
       </form>

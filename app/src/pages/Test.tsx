@@ -3,7 +3,8 @@ import React, { useState } from 'react';
 import { useParams } from 'react-router';
 import './Page.css';
 import PouchDB from 'pouchdb';
-import { remote, getDB, pullDB, pushDB,/* syncDB, remote */} from '../services/pouch';
+import * as myPouch from '../services/pouch';
+import { remote, getDB, pullDB, pushDB, deleteDBWhichOutdatesDBReferences /*syncDB, remote */} from '../services/pouch';
 
 //Could extend the router props if wanted to. Pass in db as prop from parent?
 type TestProps = {
@@ -16,7 +17,7 @@ const Test: React.FC<TestProps> = ({propNum, propStr}) => {
   const { name } = useParams<{ name: string; }>(); //router has its own props
   const [text, setText] = useState<string>('default'); //guess this is for my text entry thing
   //let db : PouchDB.Database; //this seems to have it undefined, can't assign in viewEnter?
-  let db : PouchDB.Database = getDB('test');
+  let db : PouchDB.Database = getDB('local-test');
 
   /*
   useEffect(() => {
@@ -52,8 +53,10 @@ const Test: React.FC<TestProps> = ({propNum, propStr}) => {
     });
   }
 
-  function pushButton() {
+  async function pushButton() {
     setText("Pushed da button!");
+    await deleteTest();
+    console.log("Baleet finito");
     getFirstDoc((doc) => {
       console.log(doc['title'] + ", new title: " + text);
       //doc.title = text; //no worky?
@@ -64,12 +67,30 @@ const Test: React.FC<TestProps> = ({propNum, propStr}) => {
     });
   }
 
+  async function deleteTest() {
+    await deleteDBWhichOutdatesDBReferences("test");
+    //deletion invalidates the old db reference, must make new one
+    //db = getDB('local-test');
+    console.log("Baleet ACTUALLY finito");
+  }
+
+  async function loginTest() {
+    //logging into one DB object that initially used basic auth will cause all DB objects for the same remote DB to use session auth
+    const pouch1: PouchDB.Database = myPouch.getDB(myPouch.remoteWithBasicCreds+"sc6");
+    let result = await pouch1.logIn("public","password");
+    const pouch2: PouchDB.Database = myPouch.getDB(myPouch.remote+"sc6");
+    let result2 = await pouch2.getSession();
+    console.log(`pouch1 login: ${JSON.stringify(result)}`);
+    console.log(`pouch2 login: ${JSON.stringify(result2)}`);
+  }
+
   useIonViewDidEnter(() => {
     console.log('ion view did enter event fired');
-    pullDB(db);
-    getDocById("_design/testdesign", (doc) => {
-      setText(doc.title);
-    });
+    loginTest();
+    //pullDB("test");
+    //getDocById("_design/testdesign", (doc) => {
+      //setText(doc.title);
+    //});
   });
 
   return (
