@@ -62,7 +62,6 @@ const Menu: React.FC<MenuProps> = ({usingLocal}) => {
     return (<h1> loadin in menu</h1>);
   }
 
-  //TODO: this doesn't need wantedDbs list, it's gonna need the whole DBStatus. So not localprovider, gameprovider.
   //const WrappedMenuItem = withLocalContext((state) => {return {wantedDbs: state.wantedDbs}})(MenuItem);
   const WrappedMenuItem = withGameContext((gameContext, props) => { return {status: gameContext.dbStatuses.get(props.dbListItem.id)}})(MenuItem);
   //const WrappedMenuItem = withGameContext((state, dbListItem) => {return {status: state.dbStatuses.get((dbListItem.db === "sc6") ? "sc6" : "samsho")}})(MenuItem); //thinks all's samsho

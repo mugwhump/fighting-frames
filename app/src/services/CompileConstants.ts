@@ -8,6 +8,7 @@ export let CompileConstants = {
   GAME_MATCH: "/game/:gameId",
   HOME_PATH: "/page/Inbox",
 
+  AUTH_TIMEOUT_SECONDS: 3600,
   DEFAULT_CREDENTIALS: {username: "public", password: "password"} as Credentials,
 } as const;
 

@@ -298,7 +298,6 @@ export const GameProvider: React.FC<GameProviderProps> = ({children, credentials
   const routeMatch = useRouteMatch<{gameId: string}>(CompileConstants.GAME_MATCH); //note for hooks, this returns new object every render
   const [gameId, dbListRef, deletionCallback] = useDBsForRouteMatch(routeMatch);
   if(!dbListRef || !dbListRef.current) throw new Error("dbListRef is somehow null");
-  //TODO: login with default *if* no current session with other user. Wait what
 
   function gameIdFromPath(path: string): string | null {
       const gameIdMatch = matchPath<{gameId: string}>(path, {path: CompileConstants.GAME_MATCH});
@@ -323,7 +322,7 @@ export const GameProvider: React.FC<GameProviderProps> = ({children, credentials
     return initState;
   }
 
-  function initNetworkStuff() {
+  function initNetworkPlugin() {
     // The Network plugin uses the Network Information API under the hood https://caniuse.com/netinfo
     // It's only supported on mobile browsers, on desktop it just says you're always online.
     const isAvailable = Capacitor.isPluginAvailable('Network');
@@ -336,7 +335,7 @@ export const GameProvider: React.FC<GameProviderProps> = ({children, credentials
 
   function initialize() {
     //TODO: start connectivity check
-    //initNetworkStuff();
+    //initNetworkPlugin();
     
     //TODO: if !userWants for current db, start off online
     setInitialized(true);
@@ -352,13 +351,11 @@ export const GameProvider: React.FC<GameProviderProps> = ({children, credentials
   // Handle DB changing and logging in. Default auth cookie determined by my couchDB settings (I set 1 hour for convenience)
   // Would like to not need to wait for login before initial fetch, but can't seem to change existing PouchDB object to use different creds.
   // Only solution appears to be swapping to a different non-credential PouchDB object, which makes usePouch re-fetch :/
+  // ^^Nevermind, I give db basic authorization which is used in initial calls, then login, and it switches to session auth
   useEffect(()=> {
     const remoteDB: PouchDB.Database = dbListRef.current.remote ?? dbListRef.current.remoteTop;
     function logIn(name: string, password: string) {
-      //setLoggingIn(true);
-      //console.log("DELAYING 500");
-      //setTimeout(() => {
-      //console.log("DELAYED 500");
+      setTimeout(() => {
       return remoteDB.logIn(name, password).then((response) => {
         console.log(`Successful login to ${gameId} as ${name}:${password}. Response: ${JSON.stringify(response)}`);
         dispatch({actionType: 'loginSuccess', db: gameId} as Action);
@@ -367,17 +364,16 @@ export const GameProvider: React.FC<GameProviderProps> = ({children, credentials
         //TODO: If failed with nonstandard user, retry with standard user?
         console.log(`Failed login to ${gameId} as ${name}:${password}. Response: ${JSON.stringify(reason)}`);
         dispatch({actionType: 'loginFailure', db: gameId} as Action);
-      }).finally(() => {
-        //setLoggingIn(false);
-      });
-      //}, 500);
+      })
+      }, 500);
     }
-    let creds = (credentials[gameId]) ?? CompileConstants.DEFAULT_CREDENTIALS;
+    //let creds = (credentials[gameId]) ?? CompileConstants.DEFAULT_CREDENTIALS;
+    let creds = CompileConstants.DEFAULT_CREDENTIALS;
     if(gameId !== state.gameId) { //if changing db or initially loading to non-homepage
       dispatch({actionType: 'changeCurrentDB', db: gameId} as Action);
-      logIn(creds.username, creds.password);
+      //logIn(creds.username, creds.password);
     }
-    else if(!initialized && gameId === "top") { //if initial load is to homepage
+    if(!initialized) { //if initial load 
       logIn(creds.username, creds.password);
     }
   }, [gameId, state.gameId, dbListRef, initialized]); 

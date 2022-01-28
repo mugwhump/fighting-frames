@@ -34,13 +34,12 @@ export function syncDB(db: PouchDB.Database, live: boolean) {
   return db;
 }
 
-//TODO: validation functions run at replication, so local design docs could reject a pull. 
-//Might be problem if local ddocs become outdated. Check whether ddocs will pull first.
-export async function pullDB(db: string) {
+//validation functions run at replication, so local design docs could reject a pull or have VDU function change mid-pull. 
+export async function pullDB(db: string, filterIDs: string[] = ["_design/validate"]) {
   if(db.indexOf("local-") !== -1) throw new Error("Provide only db id with no local- prefix");
   const database: PouchDB.Database = getDB("local-"+db);
   console.log("Initiating download for "+db);
-  return database.replicate.from(remoteWithBasicCreds + db);
+  return database.replicate.from(remoteWithBasicCreds + db, {doc_ids: filterIDs});
 }
 export async function deleteDBWhichOutdatesDBReferences(db: string) {
   if(db.indexOf("local-") !== -1) throw new Error("Provide only db id with no local- prefix");
@@ -67,7 +66,8 @@ export function usePersistentDBRefs(gameId: string): [MutableRefObject<{[key: st
   const [initialUsedDBs] = useState<Record<string, PouchDB.Database>>(() => {
     return {
     "local-top": getDB("local-top"),
-    [remote+"top"]: getDB(remote + "top"), //indexed by pouchDB key, NOT gameId
+    //[remote+"top"]: getDB(remote + "top"), //indexed by a useable pouchDB key/url, NOT just gameId. 
+    ["remote-top"]: getDB(remoteWithBasicCreds + "top"), //ACTUALLY let's not, remote indexes will just be "remote-gameId"
     }
   }); 
   //for some reason useRef isn't allowed to have an initialization function that only runs once
@@ -75,13 +75,15 @@ export function usePersistentDBRefs(gameId: string): [MutableRefObject<{[key: st
 
   const dbTop = useRef<{[key: string]: PouchDB.Database}>({
     localTop: usedDBs.current["local-top"],
-    remoteTop: usedDBs.current[remote+"top"],
+    //remoteTop: usedDBs.current[remote+"top"],
+    remoteTop: usedDBs.current["remote-top"],
   });
   //need local and remote keys to be there, but if it's initial load their actual DBs will be created below
   const dbAll = useRef<{[key: string]: PouchDB.Database}>({
     ...dbTop.current,
     local: usedDBs.current["local-top"],
-    remote: usedDBs.current[remote+"top"],
+    //remote: usedDBs.current[remote+"top"],
+    remote: usedDBs.current["remote-top"],
   });
 
   const deletionCallback = useCallback<DeletionCallbackType>((db) => {
@@ -101,11 +103,13 @@ export function usePersistentDBRefs(gameId: string): [MutableRefObject<{[key: st
 
   if(gameId !== "top") {
     const localKey = "local-"+gameId;
-    const remoteKey = remote+gameId;
+    //const remoteKey = remote+gameId;
+    const remoteKey = "remote-"+gameId;
     const curr: Record<string, PouchDB.Database> = usedDBs.current;
     //if DBs haven't been used before, create them
     if(!curr[localKey]) curr[localKey] = getDB("local-" + gameId); 
-    if(!curr[remoteKey]) curr[remoteKey] = getDB(remote + gameId); 
+    //if(!curr[remoteKey]) curr[remoteKey] = getDB(remote + gameId); 
+    if(!curr[remoteKey]) curr[remoteKey] = getDB(remoteWithBasicCreds + gameId); 
 
     dbAll.current.local = usedDBs.current[localKey];
     dbAll.current.remote = usedDBs.current[remoteKey];
