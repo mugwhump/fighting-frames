@@ -1,4 +1,4 @@
-import React, { useRef, Ref, useReducer, ReducerAction, Dispatch, useState, useEffect, useMemo, MutableRefObject } from 'react';
+import React, { useRef, Ref, useReducer, ReducerAction, Dispatch, useState, useEffect, useMemo, MutableRefObject, useCallback } from 'react';
 import { useLocation, useHistory, useRouteMatch, matchPath, match } from 'react-router';
 import { useIonViewDidEnter } from '@ionic/react';
 import { Provider } from 'use-pouchdb'
@@ -10,13 +10,15 @@ import CompileConstants from '../services/CompileConstants';
 import { shallowCompare } from '../services/util';
 import { StringSet, DBStatuses } from '../types/utilTypes';
 import { useLocalDispatch, Credentials, CredentialStore, Action as LocalAction} from './LocalProvider';
+import LoginModal from './LoginModal';
+import { setTimeout, clearTimeout } from 'timers';
 //This component will become the container for a game with corresponding db,
 //within which chars/docs will be displayed. Has <Provider> with overriding db
 
 //TODO: take a closer look at rendering behavior with this and LocalProvider...
 type GameProviderProps  = {
   children: React.ReactNode,
-  credentials: CredentialStore,
+  credentialStore: CredentialStore,
   wantedDbs: StringSet,
   localEnabled: boolean,
 }
@@ -289,12 +291,14 @@ function useDBsForRouteMatch(routeMatch: match<{gameId: string}> | null): [strin
   return [gameId, dbsRef, deletionCallback];
 }
 
-export const GameProvider: React.FC<GameProviderProps> = ({children, credentials, wantedDbs, localEnabled}) => {
+export const GameProvider: React.FC<GameProviderProps> = ({children, credentialStore, wantedDbs, localEnabled}) => {
   const location = useLocation();
   const [initialized, setInitialized] = useState<boolean>(false);
   //const [loggingIn, setLoggingIn] = useState<boolean>(false);
   const [state, dispatch] = useReducer(Reducer, initialState, initializeState); //initializes state with wantedDbs
-  const localDispatch = useLocalDispatch();
+  const [currentCreds, setCurrentCreds] = useState<Credentials>(CompileConstants.DEFAULT_CREDENTIALS);
+  const [showModal, setShowModal] = useState(false);
+  const loginTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
   const routeMatch = useRouteMatch<{gameId: string}>(CompileConstants.GAME_MATCH); //note for hooks, this returns new object every render
   const [gameId, dbListRef, deletionCallback] = useDBsForRouteMatch(routeMatch);
   if(!dbListRef || !dbListRef.current) throw new Error("dbListRef is somehow null");
@@ -348,36 +352,6 @@ export const GameProvider: React.FC<GameProviderProps> = ({children, credentials
         dispatch({actionType: "setUserWants", wantedDBs: wantedDbs} as Action);
   }, [wantedDbs]);
 
-  // Handle DB changing and logging in. Default auth cookie determined by my couchDB settings (I set 1 hour for convenience)
-  // Would like to not need to wait for login before initial fetch, but can't seem to change existing PouchDB object to use different creds.
-  // Only solution appears to be swapping to a different non-credential PouchDB object, which makes usePouch re-fetch :/
-  // ^^Nevermind, I give db basic authorization which is used in initial calls, then login, and it switches to session auth
-  useEffect(()=> {
-    const remoteDB: PouchDB.Database = dbListRef.current.remote ?? dbListRef.current.remoteTop;
-    function logIn(name: string, password: string) {
-      setTimeout(() => {
-      return remoteDB.logIn(name, password).then((response) => {
-        console.log(`Successful login to ${gameId} as ${name}:${password}. Response: ${JSON.stringify(response)}`);
-        dispatch({actionType: 'loginSuccess', db: gameId} as Action);
-      }).catch((reason) => {
-        //actually doesn't throw error if the DB doesn't exist at all
-        //TODO: If failed with nonstandard user, retry with standard user?
-        console.log(`Failed login to ${gameId} as ${name}:${password}. Response: ${JSON.stringify(reason)}`);
-        dispatch({actionType: 'loginFailure', db: gameId} as Action);
-      })
-      }, 500);
-    }
-    //let creds = (credentials[gameId]) ?? CompileConstants.DEFAULT_CREDENTIALS;
-    let creds = CompileConstants.DEFAULT_CREDENTIALS;
-    if(gameId !== state.gameId) { //if changing db or initially loading to non-homepage
-      dispatch({actionType: 'changeCurrentDB', db: gameId} as Action);
-      //logIn(creds.username, creds.password);
-    }
-    if(!initialized) { //if initial load 
-      logIn(creds.username, creds.password);
-    }
-  }, [gameId, state.gameId, dbListRef, initialized]); 
-
   //notice if a db is wanted but not downloading yet or needs to be deleted
   useEffect(()=> {
     function someDBIsDownloading(): boolean {
@@ -429,7 +403,6 @@ export const GameProvider: React.FC<GameProviderProps> = ({children, credentials
         return;
       }
       dispatch({actionType: "deleteDB", db: db} as Action);
-      //myPouch.deleteDBWhichOutdatesDBReferences(db).then(() => {
       deletionCallback(db).then(() => {
         dispatch({actionType: "deletionSuccess", db: db} as Action);
       }).catch((err) => {
@@ -459,6 +432,73 @@ export const GameProvider: React.FC<GameProviderProps> = ({children, credentials
     }
   }, [state.dbStatuses]);
 
+  // Handle DB changing and logging in. Default auth cookie determined by my couchDB settings (I set 1 hour for convenience)
+  // Would like to not need to wait for login before initial fetch, but can't seem to change existing PouchDB object to use different creds.
+  // Only solution appears to be swapping to a different non-credential PouchDB object, which makes usePouch re-fetch :/
+  // ^^Nevermind, I give db basic authorization which is used in initial calls, then login, and it switches to session auth
+  useEffect(()=> {
+    //let creds = (credentials[gameId]) ?? CompileConstants.DEFAULT_CREDENTIALS;
+    let creds = CompileConstants.DEFAULT_CREDENTIALS;
+    if(gameId !== state.gameId) { //if changing db or initially loading to non-homepage
+      dispatch({actionType: 'changeCurrentDB', db: gameId} as Action);
+      //logIn(creds.username, creds.password);
+    }
+    if(!initialized) { //if initial load 
+      logIn(creds.username, creds.password).then((response) => { 
+        console.log("Initial login success");
+      }).catch((err) => { 
+        console.log("Initial login failure");
+      });
+    }
+    return (() => {
+      if(loginTimer.current) clearTimeout(loginTimer.current);
+    });
+  }, [gameId, state.gameId, dbListRef, initialized]); 
+
+  useEffect(() => {
+    console.log("Current creds: "+currentCreds.username);
+  });
+  function logIn(name: string, password: string): Promise<PouchDB.Authentication.LoginResponse> {
+    const remoteDB: PouchDB.Database = dbListRef.current.remote ?? dbListRef.current.remoteTop;
+    //setTimeout(() => {
+    return remoteDB.logIn(name, password).then((response) => {
+      console.log(`Successful login to ${gameId} as ${name}:${password}. Response: ${JSON.stringify(response)}`);
+      if(name !== currentCreds.username) {
+        setCurrentCreds({username:name, password: password} as Credentials);
+      }
+
+      dispatch({actionType: 'loginSuccess', db: gameId} as Action);
+
+      if(loginTimer.current) clearTimeout(loginTimer.current);
+      loginTimer.current = setTimeout(() => {
+        console.log(`Login timer activated, logging in as ${name}/${password}`);
+        logIn(name, password);
+      }, CompileConstants.AUTH_TIMEOUT_SECONDS * 1000);
+      //}, 5000);
+      return response;
+    }).catch((reason) => {
+      //actually doesn't throw error if the DB doesn't exist at all
+      //TODO: If failed with nonstandard user, retry with standard user?
+      console.log(`Failed login to ${gameId} as ${name}:${password}. Response: ${JSON.stringify(reason)}`);
+      dispatch({actionType: 'loginFailure', db: gameId} as Action);
+      throw reason;
+    })
+    //}, 500);
+  }
+
+  function logInModalCallback(name: string, password: string): Promise<PouchDB.Authentication.LoginResponse> {
+    return logIn(name, password).then((response) => {
+      setShowModal(false);
+      return response;
+    });
+  }
+
+  //const logoutCallback = useCallback(() => {
+  function logoutCallback() {
+    console.log("Logging out, aka switching to default user");
+    logIn(CompileConstants.DEFAULT_CREDENTIALS.username, CompileConstants.DEFAULT_CREDENTIALS.password);
+  }
+  //}, [currentCreds]); //nah, don't want closure capture
 
   if(routeMatch == null) {
     //console.log("GameProvider sez: no gameId, using top");
@@ -469,12 +509,6 @@ export const GameProvider: React.FC<GameProviderProps> = ({children, credentials
       <span>Initializing GP...</span>
     );
   }
-  //allow to speed up by allowing loggingIn while usingLocal
-  //else if(loggingIn && !state.usingLocal) {
-    //return (
-      //<span>Logging in to {gameId}...</span>
-    //);
-  //}
   else if(state.gameId !== gameId) {
     console.log("gameId changed before changeDB had chance to dispatch, not rendering");
     return (
@@ -485,15 +519,33 @@ export const GameProvider: React.FC<GameProviderProps> = ({children, credentials
     return (
       <DispatchContext.Provider value={dispatch}>
         <GameContext.Provider value={state}>
-          <Provider default={state.usingLocal ? 'local' : 'remote'} databases={dbListRef.current}>
-            {children}
-          </Provider> 
+          <LoginInfoContext.Provider value={{currentCreds: currentCreds, setShowModal: setShowModal, logout: logoutCallback}}>
+            <LoginModal db={gameId} show={showModal} creds={credentialStore[gameId]} onDismiss={() => setShowModal(false)} logInModalCallback={logInModalCallback} />
+            <Provider default={state.usingLocal ? 'local' : 'remote'} databases={dbListRef.current}>
+              {children}
+            </Provider> 
+          </LoginInfoContext.Provider>
         </GameContext.Provider>
       </DispatchContext.Provider>
     );
   }
 };
 
+//If needed, can expand to pass memoized API object with multiple callbacks 
+//see https://medium.com/trabe/passing-callbacks-down-with-react-hooks-4723c4652aff
+export type LoginInfo = {
+  currentCreds: Credentials,
+  setShowModal: (showModal: boolean)=>void,
+  logout: ()=>void,
+}
+const LoginInfoContext = React.createContext<LoginInfo | null>(null);
+export function useLoginInfoContext(): LoginInfo {
+  const contextValue = React.useContext(LoginInfoContext);
+  if(contextValue === null) {
+    throw new Error("useLoginModalContext must be used within GameProvider");
+  }
+  return contextValue;
+}
 
 const GameContext = React.createContext<State>(initialState);
 export function useGameContext(): State {
@@ -523,7 +575,7 @@ export const withGameContext = (
     //const { ...dispatchPointers } = mapDispatchers(targetContext);
     const memoFunc:()=>JSX.Element = () => (<WrapperComponent {...props} {...statePointers}  />);
     useEffect(() => {
-      //return () => {console.log("GameContext WRAPPER unmounted")};
+      //return () => {console.log("GameContext WRAPPER unmounted")}; //wrappers unmount before wrapped component
     }, []);
     return useMemo<JSX.Element>(
       memoFunc,
@@ -539,31 +591,3 @@ export const withGameContext = (
   EnhancedComponent.displayName = `withContext(${getDisplayName(WrapperComponent)})`;
   return EnhancedComponent;
 });
-/*
-export const withGameContext = (
-  mapState: (state: State) => any,
-  //mapDispatchers: any = React.useContext(TestDispatchContext) // could use this, have components take dispatch as prop. Or just use hook
-) => ((WrapperComponent: React.FC<any>) => {
-  function EnhancedComponent(props: any){
-    const state: State = useGameContext();
-    const { ...statePointers } = mapState(state);
-    //const { ...dispatchPointers } = mapDispatchers(targetContext);
-    const memoFunc:()=>JSX.Element = () => (<WrapperComponent {...props} {...statePointers}  />);
-    useEffect(() => {
-      //return () => {console.log("GameContext WRAPPER unmounted")};
-    }, []);
-    return useMemo<JSX.Element>(
-      memoFunc,
-      [
-        ...Object.values(statePointers),
-        ...Object.values(props),
-      ]
-    );
-  }
-  function getDisplayName(com: any) {
-    return com.displayName || com.name || 'Component';
-  }
-  EnhancedComponent.displayName = `withContext(${getDisplayName(WrapperComponent)})`;
-  return EnhancedComponent;
-});
-*/

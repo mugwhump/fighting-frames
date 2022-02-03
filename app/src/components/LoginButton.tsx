@@ -1,8 +1,9 @@
 import { IonItem, IonIcon, IonButton, IonLabel, IonInput } from '@ionic/react';
 import { logInOutline, logInSharp } from 'ionicons/icons';
 import React, { useState } from 'react';
-import LoginModal from './LoginModal';
-import { withLocalContext, Credentials, CredentialStore, LocalData, Action, Preferences } from './LocalProvider';
+//import LoginModal from './LoginModal';
+import { useLoginInfoContext, LoginInfo } from './GameProvider';
+import CompileConstants from '../services/CompileConstants';
 
 type LoginButtonProps = {
   db: string 
@@ -10,25 +11,25 @@ type LoginButtonProps = {
 
 const LoginButton: React.FC<LoginButtonProps> = ({db}) => {
   const [showModal, setShowModal] = useState(false);
-  // TODO: Only render login button if not logged in, otherwise offer logout
+  const loginInfo: LoginInfo = useLoginInfoContext();
   // TODO: Only render at all if using remote db
   // What else will render differently depending on who you're logged in as?
 
-  //Wrapper seems to unmount before the modal does
-  const WrappedLoginModal = withLocalContext((state) => {return {creds: state.credentials[db]}})(LoginModal);
-
-  function onLogin(): void {
-    setShowModal(false);
+  if(loginInfo.currentCreds.username !== CompileConstants.DEFAULT_CREDENTIALS.username) {
+    //If logged in as non-default user
+    return (
+      <>
+      <div>Logged in as {loginInfo.currentCreds.username}</div>
+      <IonItem button className="login" onClick={() => loginInfo.logout()}>
+        <IonIcon slot="start" ios={logInOutline} md={logInSharp} />
+        <IonLabel>Log Out</IonLabel>
+      </IonItem>
+      </>
+    )
   }
-
-  function showModalFunc(e: React.MouseEvent<HTMLElement>): void { //doing this only because an arrow function in onClick is recreated every render
-    setShowModal(true);
-  }
-
   return (
     <>
-      <WrappedLoginModal db={db} show={showModal} onDismiss={() => setShowModal(false)} onLogin={onLogin} />
-      <IonItem button className="login" onClick={showModalFunc}>
+      <IonItem button className="login" onClick={() => loginInfo.setShowModal(true)}>
         <IonIcon slot="start" ios={logInOutline} md={logInSharp} />
         <IonLabel>Log In</IonLabel>
       </IonItem>

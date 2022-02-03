@@ -291,7 +291,7 @@ export const LocalProvider: React.FC = ({children}) => {
     return (
       <StateContext.Provider value={state}>
         <DispatchContext.Provider value={dispatch}>
-          <GameProvider credentials={state.credentials} wantedDbs={state.wantedDbs} localEnabled={state.preferences.localEnabled}>
+          <GameProvider credentialStore={state.credentials} wantedDbs={state.wantedDbs} localEnabled={state.preferences.localEnabled}>
             {children}
           </GameProvider>
         </DispatchContext.Provider>
