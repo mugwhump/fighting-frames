@@ -7,7 +7,7 @@ import DBProvider from './components/DBProvider';
 import GameMenu from './components/GameMenu';
 import { LocalProvider } from './components/LocalProvider';
 import React from 'react';
-import { IonApp, IonMenu, IonRouterOutlet, IonSplitPane } from '@ionic/react';
+import { IonApp, IonMenu, IonRouterOutlet, IonSplitPane, setupIonicReact } from '@ionic/react';
 import { IonReactRouter } from '@ionic/react-router';
 import { Redirect, Route, Switch } from 'react-router-dom';
 import { TestProvider } from './components/TestProvider';
@@ -32,18 +32,13 @@ import '@ionic/react/css/display.css';
 /* Theme variables */
 import './theme/variables.css';
 
+setupIonicReact(); //can add config here if desired.
 
 const App: React.FC = () => {
-  //const localTop : PouchDB.Database = myPouch.getDB("local-top");
-  //const remoteTop : PouchDB.Database = myPouch.getDB(myPouch.remote + "top");
-  //PouchDB.plugin(PouchAuth);
-
   return (
     <IonApp>
       <IonReactRouter>
         <LocalProvider>
-          {/*<Provider default="remoteTop" databases={{localTop: localTop, remoteTop: remoteTop}}>*/}
-          {/*<GameProvider> LocalProvider is rendering */}
             <IonSplitPane contentId="main-top"> 
             {/* Menu must be immediate child */}
               <IonMenu side="start" menuId="top" contentId="main-top" type="overlay" disabled={false}>
@@ -70,8 +65,6 @@ const App: React.FC = () => {
                 </Switch>
               </IonRouterOutlet>
             </IonSplitPane>
-          {/*</GameProvider>*/}
-          {/*</Provider>*/}
         </LocalProvider> 
       </IonReactRouter>
     </IonApp>
