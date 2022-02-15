@@ -1,4 +1,4 @@
-import { useIonViewDidEnter, IonButtons, IonContent, IonHeader, IonMenuButton, IonPage, IonTitle, IonToolbar } from '@ionic/react';
+import { useIonViewDidEnter, IonButtons, IonHeader, IonMenuButton, IonPage, IonTitle, IonToolbar } from '@ionic/react';
 import React  from 'react';
 type HeaderPageProps  = {
   title: string,
@@ -23,9 +23,7 @@ const HeaderPage: React.FC<HeaderPageProps > = ({title, children}) => {
         </IonToolbar>
       </IonHeader>
 
-      <IonContent fullscreen>
-        {children}
-      </IonContent>
+      {children}
     </IonPage>
   );
 };

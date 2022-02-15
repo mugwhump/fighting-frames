@@ -1,4 +1,4 @@
-import { IonRouterLink, IonLabel, IonButton, IonSegment, IonSegmentButton, IonFooter, IonToolbar, IonContent, IonItem, useIonViewDidEnter, IonGrid, IonRow } from '@ionic/react';
+import { IonRouterOutlet, IonTabs, IonTabBar, IonTabButton, IonLabel, IonButton, IonFooter, IonToolbar, IonContent, IonItem, useIonViewDidEnter, IonGrid, IonRow } from '@ionic/react';
 import React, { useState, useEffect }from 'react';
 import { SegmentChangeEventDetail } from '@ionic/core';
 import { useParams, useHistory, useLocation } from 'react-router';
@@ -22,9 +22,8 @@ export const Character: React.FC<CharProps> = ({gameId, columns, universalProps}
   const { character } = useParams<{ character: string; }>(); //router has its own props
   const { doc, loading, state, error } = useDoc<CharDoc>('character/'+character); 
   const baseUrl = "/game/"+gameId+"/character/"+character;
-  const [segmentValue, setSegmentValue] = useState<string>(baseUrl);
-  const location: string = useLocation().pathname;
-  const history = useHistory();
+  //const location: string = useLocation().pathname;
+  //const history = useHistory();
 
   useIonViewDidEnter(() => {
     //console.log('ion view did enter event fired in character character/'+character);
@@ -33,34 +32,7 @@ export const Character: React.FC<CharProps> = ({gameId, columns, universalProps}
   //useEffect(()=> {
     //setSegmentValue(location);
   //}, [location]);
-    useEffect(() => {
-        // clear alert on location change
-        const unlisten = history.listen((thing, thing2) => {
-          
-          console.log("Navigating, History changed: " + JSON.stringify(thing) + ", thing2: " + thing2);
-        });
 
-        // stop the listener when component unmounts
-        return unlisten;
-
-        // eslint-disable-next-line react-hooks/exhaustive-deps
-    }, []);
-
-  interface SegmentCustomEvent<T> extends CustomEvent {
-    target: HTMLIonSegmentElement;
-    detail: SegmentChangeEventDetail;
-  }
-  function changeSegment(event: CustomEvent<SegmentChangeEventDetail>) {
-  //function changeSegment(event: SegmentCustomEvent<SegmentChangeEventDetail>) {
-    event.preventDefault();
-    event.stopPropagation();
-    let url = event?.detail?.value || '';
-    if(url !== location && url !== segmentValue) {
-      console.log("Navigating to " + url + " from " + location + " old segment value="+segmentValue+", last action = " + history.action);
-      setSegmentValue(url);
-      history.push(url);
-    }
-  }
  
   if (state === 'error') {
     console.error("heckin errorino in Character: " + error?.message);
@@ -91,29 +63,19 @@ export const Character: React.FC<CharProps> = ({gameId, columns, universalProps}
       </IonGrid>
     </IonContent>
 
-    <IonFooter>
-      <IonToolbar>
-        <IonSegment onIonChange={changeSegment} value={location}>
-        {/*<IonSegment onIonChange={changeSegment}>*/}
-        {/*<IonSegment>*/}
-        {/*<Link to={baseUrl}>*/}
-          <IonSegmentButton value={baseUrl}>
+    <IonTabs>
+      <IonTabBar slot="bottom">
+          <IonTabButton tab="character/talim">
             <IonLabel>Default</IonLabel>
-          </IonSegmentButton>
-          {/*</Link>*/}
-        {/*<Link to={baseUrl+"/local-edit"}>*/}
-          <IonSegmentButton value={baseUrl+"/local-edit"}>
+          </IonTabButton>
+          <IonTabButton tab="character/talim/local-edit">
             <IonLabel>Edit</IonLabel>
-          </IonSegmentButton>
-          {/*</Link>*/}
-        {/*<Link to={baseUrl+"/versions"}>*/}
-          <IonSegmentButton value={baseUrl+"/versions"}>
+          </IonTabButton>
+          <IonTabButton tab="character/talim/versions">
             <IonLabel>Versions</IonLabel>
-          </IonSegmentButton>
-          {/*</Link>*/}
-        </IonSegment>
-      </IonToolbar>
-    </IonFooter>
+          </IonTabButton>
+      </IonTabBar>
+    </IonTabs>
     </>
   );
 };

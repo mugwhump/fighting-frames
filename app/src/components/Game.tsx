@@ -1,10 +1,11 @@
-import { IonButton, IonMenu, IonRouterOutlet, IonSplitPane } from '@ionic/react';
+import { IonContent, IonButton, IonMenu, IonRouterOutlet, IonSplitPane } from '@ionic/react';
 import React, { useEffect, useState } from 'react';
 import { Route } from 'react-router-dom';
 //import PouchDB from 'pouchdb';
 import { useDocumentLocalRemoteSwitching } from '../services/pouch';
 import { useDoc, usePouch } from 'use-pouchdb';
-import Character from '../components/Character';
+import { Character } from '../components/Character';
+import { Character as CharacterTabs } from '../components/Character-tabs';
 import { useGameContext, useGameDispatch, Action as GameAction } from './GameProvider';
 import HeaderPage from '../components/HeaderPage';
 import { DesignDoc } from '../types/characterTypes';
@@ -42,14 +43,16 @@ const Game: React.FC<GameProps> = () => {
     <>
         <Route exact path={"/game/" + gameId } >
           <HeaderPage title={gameId + "is the game id"}>
+            <IonContent fullscreen>
             DUHHHH DIS IS GAME PAGE
             {JSON.stringify(doc)}
             {/* using non-null assertion for doc */}
-            </HeaderPage>
-          </Route>
-        <Route exact path={"/game/" + gameId + "/character/:character"} >
+            </IonContent>
+          </HeaderPage>
+        </Route>
+        <Route path={"/game/" + gameId + "/character/:character"} >
           <HeaderPage title={gameId + "is the game id"}>
-            <Character columns={doc!.columnDefs} universalProps={doc!.universalPropDefs}/>
+            <CharacterTabs gameId={gameId} columns={doc!.columnDefs} universalProps={doc!.universalPropDefs}/>
             {/*<IonButton type="button" onClick={() => gameDispatch({actionType: 'fetchSuccess', usedLocal: gameContext.usingLocal} as GameAction)}>foo</IonButton>*/}
           </HeaderPage>
         </Route>
