@@ -35,11 +35,12 @@ export function syncDB(db: PouchDB.Database, live: boolean) {
 }
 
 //validation functions run at replication, so local design docs could reject a pull or have VDU function change mid-pull. 
-export async function pullDB(db: string, filterIDs: string[] = ["_design/validate"]) {
+//Thus, do not replicate the doc with VDU function
+export async function pullDB(db: string) {
   if(db.indexOf("local-") !== -1) throw new Error("Provide only db id with no local- prefix");
   const database: PouchDB.Database = getDB("local-"+db);
   console.log("Initiating download for "+db);
-  return database.replicate.from(remoteWithBasicCreds + db, {doc_ids: filterIDs});
+  return database.replicate.from(remoteWithBasicCreds + db, {selector: {"$not": {"_id": "_design/validate"}}}); //use selector blacklist
 }
 export async function deleteDBWhichOutdatesDBReferences(db: string) {
   if(db.indexOf("local-") !== -1) throw new Error("Provide only db id with no local- prefix");
