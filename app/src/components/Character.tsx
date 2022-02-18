@@ -1,6 +1,7 @@
-import { IonRouterLink, IonLabel, IonButton, IonSegment, IonSegmentButton, IonFooter, IonToolbar, IonContent, IonItem, useIonViewDidEnter, IonGrid, IonRow } from '@ionic/react';
+import { IonPopover, IonIcon, IonFab, IonFabButton, IonLabel, IonList, IonButton, IonSegment, IonSegmentButton, IonFooter, IonToolbar, IonContent, IonItem, IonGrid, IonRow } from '@ionic/react';
 import React, { useRef, useState, useEffect, MouseEvent }from 'react';
 import { SegmentChangeEventDetail, SegmentCustomEvent } from '@ionic/core';
+import { add, trashBin } from 'ionicons/icons';
 import { useParams, useHistory, useLocation } from 'react-router';
 import { Action } from 'history';
 import { Link } from 'react-router-dom';
@@ -38,6 +39,7 @@ export const Character: React.FC<CharProps> = ({gameId, columns, universalProps}
   const { doc: editDoc, loading: editLoading, state: editState, error: editError } = useDoc<CharDoc>(docEditId, {db: "local"}); 
   const currentDoc: CharDoc | null = (currentSegment === SegmentUrl.Edit) ? editDoc : doc;
   const localDatabase: PouchDB.Database = usePouch('local');
+  console.log("doc's ID:" + doc?._id);
 
   //given url expected to contain baseUrl
   function segmentFromUrl(url: string): SegmentUrl {
@@ -61,6 +63,7 @@ export const Character: React.FC<CharProps> = ({gameId, columns, universalProps}
     if(!doc) {
       throw new Error(`Base document for ${character} not yet loaded.`);
     }
+    // This is NOT a copy, same in-memory JSON obj
     const putDoc: PouchDB.Core.PutDocument<CharDoc> = doc; 
     putDoc._id = docEditId; 
     if(docExists) {
@@ -86,6 +89,9 @@ export const Character: React.FC<CharProps> = ({gameId, columns, universalProps}
     });
   }
  
+  function deleteLocal(e: any) {
+    console.log("BALEET local :D");
+  }
 
   //useEffect(()=>{
   if (editState === 'error') {
@@ -110,12 +116,33 @@ export const Character: React.FC<CharProps> = ({gameId, columns, universalProps}
     console.error("heckin errorino in Character: " + error?.message);
     return (<span>heckin errorino: {error?.message}</span>);
   }
-  if ((loading && doc == null) || (editLoading && editDoc == null)) {
+  if (currentDoc === null || (currentSegment === SegmentUrl.Base && loading && doc == null) || (currentSegment === SegmentUrl.Edit && editLoading && editDoc == null)) {
     return (<h1> loadin</h1>);
   }
+  let editFAB = (
+    <>
+    <IonFab id="editFAB" vertical="top" horizontal="end" slot="fixed">
+      <IonFabButton><IonIcon icon={add} /></IonFabButton>
+    </IonFab>
+    <IonPopover trigger="editFAB">
+      <IonContent>
+        <IonList>
+          <IonItem button={true} detail={false}>
+            <IonLabel>Delete</IonLabel>
+          </IonItem>
+          <IonItem button={true} detail={false}>
+            <IonLabel>Upload</IonLabel>
+          </IonItem>
+        </IonList>
+      </IonContent> 
+    </IonPopover>
+    </>
+  )
   return (
     <>
     <IonContent fullscreen>
+      {currentSegment === SegmentUrl.Edit && editFAB}
+      {/*{editFAB}*/}
       <IonGrid>
         <IonRow>
           <IonItem>
@@ -149,7 +176,7 @@ export const Character: React.FC<CharProps> = ({gameId, columns, universalProps}
           <IonSegmentButton onClick={clickedSegment} value={SegmentUrl.Edit}>
             <IonLabel>Edit</IonLabel>
           </IonSegmentButton>
-          {/*</Link>*/}
+        {/*</Link>*/}
         {/*<Link to={baseUrl+"/versions"}>*/}
           <IonSegmentButton onClick={clickedSegment} value={SegmentUrl.Versions}>
             <IonLabel>Versions</IonLabel>
