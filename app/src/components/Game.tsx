@@ -50,9 +50,10 @@ const Game: React.FC<GameProps> = () => {
             </IonContent>
           </HeaderPage>
         </Route>
+        {/*Keep in mind router params stop at slashes, so /character/bob/local-edit just has bob as the character*/}
         <Route path={"/game/" + gameId + "/character/:character"} >
           <HeaderPage title={gameId + "is the game id"}>
-            <CharacterTabs gameId={gameId} columns={doc!.columnDefs} universalProps={doc!.universalPropDefs}/>
+            <Character gameId={gameId} columns={doc!.columnDefs} universalProps={doc!.universalPropDefs}/>
             {/*<IonButton type="button" onClick={() => gameDispatch({actionType: 'fetchSuccess', usedLocal: gameContext.usingLocal} as GameAction)}>foo</IonButton>*/}
           </HeaderPage>
         </Route>

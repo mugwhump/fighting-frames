@@ -1,12 +1,13 @@
 import { IonRouterLink, IonLabel, IonButton, IonSegment, IonSegmentButton, IonFooter, IonToolbar, IonContent, IonItem, useIonViewDidEnter, IonGrid, IonRow } from '@ionic/react';
-import React, { useState, useEffect }from 'react';
-import { SegmentChangeEventDetail } from '@ionic/core';
+import React, { useRef, useState, useEffect, MouseEvent }from 'react';
+import { SegmentChangeEventDetail, SegmentCustomEvent } from '@ionic/core';
 import { useParams, useHistory, useLocation } from 'react-router';
 import { Action } from 'history';
 import { Link } from 'react-router-dom';
-import { useDoc } from 'use-pouchdb';
+import { useDoc, usePouch } from 'use-pouchdb';
 import {Move, ColumnDef, UniversalPropDef, CharDoc, UniversalPropData } from '../types/characterTypes';
 import MoveComponent from './MoveComponent';
+import { setTimeout } from 'timers';
 
 //Have child move components that are passed properties.
 //Shows universal character properties (health, backdash, speed, etc) at top.
@@ -18,55 +19,98 @@ type CharProps = {
   universalProps: UniversalPropDef[],
 }
 
+//these are suffixes that go at the end of the url
+enum SegmentUrl {
+  Base = '',
+  Edit = '/local-edit',
+  Versions = '/versions'
+}
+
 export const Character: React.FC<CharProps> = ({gameId, columns, universalProps}) => {
   const { character } = useParams<{ character: string; }>(); //router has its own props
-  const { doc, loading, state, error } = useDoc<CharDoc>('character/'+character); 
   const baseUrl = "/game/"+gameId+"/character/"+character;
-  const [segmentValue, setSegmentValue] = useState<string>(baseUrl);
-  const location: string = useLocation().pathname;
+  //const [segmentValue, setSegmentValue] = useState<string>(baseUrl);
   const history = useHistory();
+  const location: string = useLocation().pathname;
+  const currentSegment: SegmentUrl = segmentFromUrl(location);
+  const docEditId = 'character/'+character+SegmentUrl.Edit;
+  const { doc, loading, state, error } = useDoc<CharDoc>('character/'+character); 
+  const { doc: editDoc, loading: editLoading, state: editState, error: editError } = useDoc<CharDoc>(docEditId, {db: "local"}); 
+  const currentDoc: CharDoc | null = (currentSegment === SegmentUrl.Edit) ? editDoc : doc;
+  const localDatabase: PouchDB.Database = usePouch('local');
 
-  useIonViewDidEnter(() => {
-    //console.log('ion view did enter event fired in character character/'+character);
-  });
-
-  //useEffect(()=> {
-    //setSegmentValue(location);
-  //}, [location]);
-    useEffect(() => {
-        // clear alert on location change
-        const unlisten = history.listen((thing, thing2) => {
-          
-          console.log("Navigating, History changed: " + JSON.stringify(thing) + ", thing2: " + thing2);
-        });
-
-        // stop the listener when component unmounts
-        return unlisten;
-
-        // eslint-disable-next-line react-hooks/exhaustive-deps
-    }, []);
-
-  interface SegmentCustomEvent<T> extends CustomEvent {
-    target: HTMLIonSegmentElement;
-    detail: SegmentChangeEventDetail;
+  //given url expected to contain baseUrl
+  function segmentFromUrl(url: string): SegmentUrl {
+    if(url === baseUrl) return SegmentUrl.Base;
+    if(url === baseUrl + SegmentUrl.Edit) return SegmentUrl.Edit;
+    if(url === baseUrl + SegmentUrl.Versions) return SegmentUrl.Versions;
+    console.error("Non-matching url: "+url);
+    return SegmentUrl.Base;
   }
-  function changeSegment(event: CustomEvent<SegmentChangeEventDetail>) {
-  //function changeSegment(event: SegmentCustomEvent<SegmentChangeEventDetail>) {
-    event.preventDefault();
-    event.stopPropagation();
-    let url = event?.detail?.value || '';
-    if(url !== location && url !== segmentValue) {
-      console.log("Navigating to " + url + " from " + location + " old segment value="+segmentValue+", last action = " + history.action);
-      setSegmentValue(url);
-      history.push(url);
+
+  function clickedSegment(e: MouseEvent<HTMLIonSegmentButtonElement>) {
+    let url = baseUrl + (e?.currentTarget?.value || '');
+    history.push(url);
+  }
+
+  async function writeEditDoc(docExists: boolean = true) {
+    //if(!state.preferences.localEnabled) {
+      //console.log("Not saving local data since local disabled");
+      //return; //compiler wraps in immediately-resolved promise
+    //}
+    if(!doc) {
+      throw new Error(`Base document for ${character} not yet loaded.`);
     }
+    const putDoc: PouchDB.Core.PutDocument<CharDoc> = doc; 
+    putDoc._id = docEditId; 
+    if(docExists) {
+      const currentDoc = await localDatabase.get<CharDoc>(docEditId);
+      putDoc._rev = currentDoc._rev;
+    }
+    else {
+      putDoc._rev = undefined;
+    }
+    if(editDoc) {
+      putDoc._rev = editDoc._rev;
+    }
+    return await localDatabase.put(putDoc).then(() => {
+      console.log("Successful write to edit doc");
+    }).catch((err) => {
+      if(err.name === "conflict") { //if one write starts while another's in progress, 409 immediate conflict.
+        console.log(`conflict writing edit, retrying: ` + JSON.stringify(err));
+        writeEditDoc();
+      }
+      else {
+        throw(err);
+      }
+    });
   }
  
+
+  //useEffect(()=>{
+  if (editState === 'error') {
+    if(currentSegment === SegmentUrl.Edit) {
+      if(editError?.message === "missing") {
+        console.log(`Local editing doc ${docEditId} not found, creating.`);
+        writeEditDoc(false).then(() => {
+          //console.log("Called writeEditDoc");
+        }).catch((err) => {
+          console.error(err);
+          return(<span>Error loading local edit doc: {editError?.message}</span>);
+        });
+      }
+      else {
+        console.error("heckin errorino editing Character: " + editError?.message);
+        return(<span>Error loading local edit doc: {editError?.message}</span>);
+      }
+    }
+  }
+  //}, [stateEdit, errorEdit, currentSegment]);
   if (state === 'error') {
     console.error("heckin errorino in Character: " + error?.message);
     return (<span>heckin errorino: {error?.message}</span>);
   }
-  if (loading && doc == null) {
+  if ((loading && doc == null) || (editLoading && editDoc == null)) {
     return (<h1> loadin</h1>);
   }
   return (
@@ -75,17 +119,17 @@ export const Character: React.FC<CharProps> = ({gameId, columns, universalProps}
       <IonGrid>
         <IonRow>
           <IonItem>
-            <p>{doc!.charName} is the character (DB)</p><br />
+            <p>{currentDoc!.charName} is the character (DB)</p><br />
             <p>{JSON.stringify(doc)}</p>
           </IonItem>
         </IonRow>
-        {doc!.universalProps.map((prop: UniversalPropData) => {
+        {currentDoc!.universalProps.map((prop: UniversalPropData) => {
           const keys = Object.keys(prop);
           return (
             <div key={prop.propName}>{prop.propName}: {prop.data}</div>
           )
         })}
-        {doc!.moves.map((move: Move) => (
+        {currentDoc!.moves.map((move: Move) => (
           <MoveComponent key={move.moveName} move={move} columns={columns} />
         ))}
       </IonGrid>
@@ -93,21 +137,21 @@ export const Character: React.FC<CharProps> = ({gameId, columns, universalProps}
 
     <IonFooter>
       <IonToolbar>
-        <IonSegment onIonChange={changeSegment} value={location}>
+        <IonSegment value={segmentFromUrl(location)}>
         {/*<IonSegment onIonChange={changeSegment}>*/}
         {/*<IonSegment>*/}
         {/*<Link to={baseUrl}>*/}
-          <IonSegmentButton value={baseUrl}>
+          <IonSegmentButton onClick={clickedSegment} value={SegmentUrl.Base}>
             <IonLabel>Default</IonLabel>
           </IonSegmentButton>
           {/*</Link>*/}
         {/*<Link to={baseUrl+"/local-edit"}>*/}
-          <IonSegmentButton value={baseUrl+"/local-edit"}>
+          <IonSegmentButton onClick={clickedSegment} value={SegmentUrl.Edit}>
             <IonLabel>Edit</IonLabel>
           </IonSegmentButton>
           {/*</Link>*/}
         {/*<Link to={baseUrl+"/versions"}>*/}
-          <IonSegmentButton value={baseUrl+"/versions"}>
+          <IonSegmentButton onClick={clickedSegment} value={SegmentUrl.Versions}>
             <IonLabel>Versions</IonLabel>
           </IonSegmentButton>
           {/*</Link>*/}

@@ -64,6 +64,8 @@ export const Character: React.FC<CharProps> = ({gameId, columns, universalProps}
     </IonContent>
 
     <IonTabs>
+    <IonRouterOutlet>
+    </IonRouterOutlet>
       <IonTabBar slot="bottom">
           <IonTabButton tab="character/talim">
             <IonLabel>Default</IonLabel>
