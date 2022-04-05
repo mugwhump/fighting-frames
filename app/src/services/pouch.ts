@@ -67,8 +67,8 @@ export function usePersistentDBRefs(gameId: string): [MutableRefObject<{[key: st
   const [initialUsedDBs] = useState<Record<string, PouchDB.Database>>(() => {
     return {
     "local-top": getDB("local-top"),
-    //[remote+"top"]: getDB(remote + "top"), //indexed by a useable pouchDB key/url, NOT just gameId. 
-    ["remote-top"]: getDB(remoteWithBasicCreds + "top"), //ACTUALLY let's not, remote indexes will just be "remote-gameId"
+    "local-personal": getDB("local-personal"),
+    "remote-top": getDB(remoteWithBasicCreds + "top"), //remote indexes will just be "remote-gameId"
     }
   }); 
   //for some reason useRef isn't allowed to have an initialization function that only runs once
@@ -76,14 +76,13 @@ export function usePersistentDBRefs(gameId: string): [MutableRefObject<{[key: st
 
   const dbTop = useRef<{[key: string]: PouchDB.Database}>({
     localTop: usedDBs.current["local-top"],
-    //remoteTop: usedDBs.current[remote+"top"],
+    localPersonal: usedDBs.current["local-personal"],
     remoteTop: usedDBs.current["remote-top"],
   });
   //need local and remote keys to be there, but if it's initial load their actual DBs will be created below
   const dbAll = useRef<{[key: string]: PouchDB.Database}>({
     ...dbTop.current,
     local: usedDBs.current["local-top"],
-    //remote: usedDBs.current[remote+"top"],
     remote: usedDBs.current["remote-top"],
   });
 
@@ -104,12 +103,10 @@ export function usePersistentDBRefs(gameId: string): [MutableRefObject<{[key: st
 
   if(gameId !== "top") {
     const localKey = "local-"+gameId;
-    //const remoteKey = remote+gameId;
     const remoteKey = "remote-"+gameId;
     const curr: Record<string, PouchDB.Database> = usedDBs.current;
     //if DBs haven't been used before, create them
     if(!curr[localKey]) curr[localKey] = getDB("local-" + gameId); 
-    //if(!curr[remoteKey]) curr[remoteKey] = getDB(remote + gameId); 
     if(!curr[remoteKey]) curr[remoteKey] = getDB(remoteWithBasicCreds + gameId); 
 
     dbAll.current.local = usedDBs.current[localKey];
