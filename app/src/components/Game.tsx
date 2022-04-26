@@ -5,7 +5,6 @@ import { Route } from 'react-router-dom';
 import { useDocumentLocalRemoteSwitching } from '../services/pouch';
 import { useDoc, usePouch } from 'use-pouchdb';
 import { Character } from '../components/Character';
-import { Character as CharacterTabs } from '../components/Character-tabs';
 import { useGameContext, useGameDispatch, Action as GameAction } from './GameProvider';
 import HeaderPage from '../components/HeaderPage';
 import { DesignDoc } from '../types/characterTypes';
@@ -20,10 +19,6 @@ const Game: React.FC<GameProps> = () => {
   const { doc, loading, state, error } = useDoc<DesignDoc>("_design/columns"); 
   useDocumentLocalRemoteSwitching(state, error, gameContext.usingLocal, 'Game');
   const database: PouchDB.Database = usePouch();
-
-  //useEffect(() => {
-    //console.log("RENDER GAAAAAEYAAAAAAAAAAAAM ---------------------"+gameId);
-  //});
 
   if (state === 'error') {
     return (
@@ -53,7 +48,7 @@ const Game: React.FC<GameProps> = () => {
         {/*Keep in mind router params stop at slashes, so /character/bob/local-edit just has bob as the character*/}
         <Route path={"/game/" + gameId + "/character/:character"} >
           <HeaderPage title={gameId + "is the game id"}>
-            <Character gameId={gameId} columns={doc!.columnDefs} universalProps={doc!.universalPropDefs}/>
+            <Character gameId={gameId} columnDefs={doc!.columnDefs} universalPropDefs={doc!.universalPropDefs}/>
             {/*<IonButton type="button" onClick={() => gameDispatch({actionType: 'fetchSuccess', usedLocal: gameContext.usingLocal} as GameAction)}>foo</IonButton>*/}
           </HeaderPage>
         </Route>

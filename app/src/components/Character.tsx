@@ -1,4 +1,4 @@
-import { IonPopover, IonIcon, IonFab, IonFabButton, IonLabel, IonList, IonButton, IonSegment, IonSegmentButton, IonFooter, IonToolbar, IonContent, IonItem, IonGrid, IonRow } from '@ionic/react';
+import { useIonModal, useIonAlert, IonPopover, IonIcon, IonFab, IonFabButton, IonLabel, IonList, IonButton, IonSegment, IonSegmentButton, IonFooter, IonToolbar, IonContent, IonItem, IonGrid, IonRow } from '@ionic/react';
 import React, { useRef, useState, useEffect, MouseEvent }from 'react';
 import { SegmentChangeEventDetail, SegmentCustomEvent } from '@ionic/core';
 import { add, trashBin } from 'ionicons/icons';
@@ -6,8 +6,9 @@ import { useParams, useHistory, useLocation } from 'react-router';
 import { Action } from 'history';
 import { Link } from 'react-router-dom';
 import { useDoc, usePouch } from 'use-pouchdb';
-import {Move, ColumnDef, UniversalPropDef, CharDoc, UniversalPropData } from '../types/characterTypes';
-import MoveComponent from './MoveComponent';
+import {Move, ColumnDef, ColumnData, CharDoc, } from '../types/characterTypes';
+import EditCharacter from './EditCharacter';
+import MoveOrUniversalProps from './MoveOrUniversalProps';
 import { setTimeout } from 'timers';
 
 //Have child move components that are passed properties.
@@ -16,29 +17,31 @@ import { setTimeout } from 'timers';
 //If there's key needed for editing, prompt for it before bringing up interface
 type CharProps = {
   gameId: string,
-  columns: ColumnDef[],
-  universalProps: UniversalPropDef[],
+  columnDefs: ColumnDef[],
+  universalPropDefs: ColumnDef[],
 }
 
 //these are suffixes that go at the end of the url
-enum SegmentUrl {
+export enum SegmentUrl {
   Base = '',
   Edit = '/local-edit',
   Versions = '/versions'
 }
 
-export const Character: React.FC<CharProps> = ({gameId, columns, universalProps}) => {
+//TODO: sorting by some column, probably not in editing view?
+export const Character: React.FC<CharProps> = ({gameId, columnDefs, universalPropDefs}) => {
   const { character } = useParams<{ character: string; }>(); //router has its own props
   const baseUrl = "/game/"+gameId+"/character/"+character;
   //const [segmentValue, setSegmentValue] = useState<string>(baseUrl);
   const history = useHistory();
   const location: string = useLocation().pathname;
   const currentSegment: SegmentUrl = segmentFromUrl(location);
-  const docEditId = 'character/'+character+SegmentUrl.Edit;
   const { doc, loading, state, error } = useDoc<CharDoc>('character/'+character); 
-  const { doc: editDoc, loading: editLoading, state: editState, error: editError } = useDoc<CharDoc>(docEditId, {db: "local"}); 
-  const currentDoc: CharDoc | null = (currentSegment === SegmentUrl.Edit) ? editDoc : doc;
-  const localDatabase: PouchDB.Database = usePouch('local');
+  //const localDatabase: PouchDB.Database = usePouch('local');
+  //const [presentDeleteAlert, dismissDeleteAlert] = useIonAlert();
+  //const popOver = useRef<HTMLIonPopoverElement>(null); //there's also a usePopover hook
+  //const [currentMove, setCurrentMove] = useState<Move | null>(null);
+  //const [presentEditModal, dismissEditModal] = useIonModal()
   console.log("doc's ID:" + doc?._id);
 
   //given url expected to contain baseUrl
@@ -55,111 +58,47 @@ export const Character: React.FC<CharProps> = ({gameId, columns, universalProps}
     history.push(url);
   }
 
-  async function writeEditDoc(docExists: boolean = true) {
-    //if(!state.preferences.localEnabled) {
-      //console.log("Not saving local data since local disabled");
-      //return; //compiler wraps in immediately-resolved promise
-    //}
-    if(!doc) {
-      throw new Error(`Base document for ${character} not yet loaded.`);
-    }
-    // This is NOT a copy, same in-memory JSON obj
-    const putDoc: PouchDB.Core.PutDocument<CharDoc> = doc; 
-    putDoc._id = docEditId; 
-    if(docExists) {
-      const currentDoc = await localDatabase.get<CharDoc>(docEditId);
-      putDoc._rev = currentDoc._rev;
-    }
-    else {
-      putDoc._rev = undefined;
-    }
-    if(editDoc) {
-      putDoc._rev = editDoc._rev;
-    }
-    return await localDatabase.put(putDoc).then(() => {
-      console.log("Successful write to edit doc");
-    }).catch((err) => {
-      if(err.name === "conflict") { //if one write starts while another's in progress, 409 immediate conflict.
-        console.log(`conflict writing edit, retrying: ` + JSON.stringify(err));
-        writeEditDoc();
-      }
-      else {
-        throw(err);
-      }
-    });
-  }
- 
-  function deleteLocal(e: any) {
-    console.log("BALEET local :D");
-  }
 
-  //useEffect(()=>{
-  if (editState === 'error') {
-    if(currentSegment === SegmentUrl.Edit) {
-      if(editError?.message === "missing") {
-        console.log(`Local editing doc ${docEditId} not found, creating.`);
-        writeEditDoc(false).then(() => {
-          //console.log("Called writeEditDoc");
-        }).catch((err) => {
-          console.error(err);
-          return(<span>Error loading local edit doc: {editError?.message}</span>);
-        });
-      }
-      else {
-        console.error("heckin errorino editing Character: " + editError?.message);
-        return(<span>Error loading local edit doc: {editError?.message}</span>);
-      }
-    }
-  }
   //}, [stateEdit, errorEdit, currentSegment]);
   if (state === 'error') {
     console.error("heckin errorino in Character: " + error?.message);
     return (<span>heckin errorino: {error?.message}</span>);
   }
-  if (currentDoc === null || (currentSegment === SegmentUrl.Base && loading && doc == null) || (currentSegment === SegmentUrl.Edit && editLoading && editDoc == null)) {
+  if (loading && doc == null) {
     return (<h1> loadin</h1>);
   }
-  let editFAB = (
-    <>
-    <IonFab id="editFAB" vertical="top" horizontal="end" slot="fixed">
-      <IonFabButton><IonIcon icon={add} /></IonFabButton>
-    </IonFab>
-    <IonPopover trigger="editFAB">
-      <IonContent>
-        <IonList>
-          <IonItem button={true} detail={false}>
-            <IonLabel>Delete</IonLabel>
-          </IonItem>
-          <IonItem button={true} detail={false}>
-            <IonLabel>Upload</IonLabel>
-          </IonItem>
-        </IonList>
-      </IonContent> 
-    </IonPopover>
-    </>
-  )
+  if(!(doc?.charName && doc?.universalProps && doc?.moves)) {
+    return (<h1> Incomplete document</h1>);
+  }
+
+  let baseContent = (
+    <IonGrid>
+      <IonRow>
+        <IonItem>
+          <p>{doc.charName} is the character (DB)</p><br />
+          <p>{JSON.stringify(doc)}</p>
+        </IonItem>
+      </IonRow>
+      {
+        doc.universalProps.map((prop: ColumnData) => {
+          const keys = Object.keys(prop);
+          return (
+            <div key={prop.columnName}>{prop.columnName}: {prop.data}</div>
+          )
+        })}
+        {doc.moves.map((move: Move) => (
+          <MoveOrUniversalProps key={move.moveName} moveOrProps={move} columnDefs={columnDefs} />
+      ))}
+    </IonGrid>
+  );
+
   return (
     <>
     <IonContent fullscreen>
-      {currentSegment === SegmentUrl.Edit && editFAB}
-      {/*{editFAB}*/}
-      <IonGrid>
-        <IonRow>
-          <IonItem>
-            <p>{currentDoc!.charName} is the character (DB)</p><br />
-            <p>{JSON.stringify(doc)}</p>
-          </IonItem>
-        </IonRow>
-        {currentDoc!.universalProps.map((prop: UniversalPropData) => {
-          const keys = Object.keys(prop);
-          return (
-            <div key={prop.propName}>{prop.propName}: {prop.data}</div>
-          )
-        })}
-        {currentDoc!.moves.map((move: Move) => (
-          <MoveComponent key={move.moveName} move={move} columns={columns} />
-        ))}
-      </IonGrid>
+      {currentSegment === SegmentUrl.Base ?
+        baseContent :
+        <EditCharacter gameId={gameId} charDoc={doc} columnDefs={columnDefs} universalPropDefs={universalPropDefs} />
+      }
     </IonContent>
 
     <IonFooter>

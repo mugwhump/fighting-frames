@@ -62,6 +62,9 @@ export function printSession(database: PouchDB.Database) {
   });
 }
 
+// This hook returns a set of pouchDB references for the given gameID.
+// If gameId="top", it includes localTop, remoteTop, and localPersonal (where personal notes and edits are stored).
+// If otherwise, it also includes local and remote, the actual databases for the given game.
 export type DeletionCallbackType = (db: string)=>Promise<void>;
 export function usePersistentDBRefs(gameId: string): [MutableRefObject<{[key: string]: PouchDB.Database}>, DeletionCallbackType] {
   const [initialUsedDBs] = useState<Record<string, PouchDB.Database>>(() => {

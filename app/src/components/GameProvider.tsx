@@ -38,6 +38,7 @@ type State = {
   usingLocal: boolean,
   isOnline: boolean | null, //includes network issues and website issues, but not DB-specific or permissions issues
   dbStatuses: DBStatuses, //also includes top. If queried for db it has no info for, initializes it to initialDBStatus
+  //TODO: DBStatuses is a Map subclass, but react prefers easily serializable basic types for state... probably fine.
 }
 const initialState: State = {
   gameId: "top",
@@ -117,7 +118,7 @@ function Reducer(state: State, action: Action) {
         console.log(`Changing to undownloaded db ${action.db}, so switching to remote`);
         newState.usingLocal = false;
       }
-      //TODO:login
+      //Logging in as default handled by useEffects, logging in as non-default is manual
       break;
     }
     // isOnline and done(+userWants) are what prevents loops
@@ -341,7 +342,7 @@ export const GameProvider: React.FC<GameProviderProps> = ({children, credentialS
     //TODO: start connectivity check
     //initNetworkPlugin();
     
-    //TODO: if !userWants for current db, start off online
+    //TODO: if !userWants for current db, start off online. Actually no, changeCurrentDB action does that
     setInitialized(true);
   }
   useEffect(()=> {
@@ -432,10 +433,9 @@ export const GameProvider: React.FC<GameProviderProps> = ({children, credentialS
     }
   }, [state.dbStatuses]);
 
-  // Handle DB changing and logging in. Default auth cookie determined by my couchDB settings (I set 1 hour for convenience)
-  // Would like to not need to wait for login before initial fetch, but can't seem to change existing PouchDB object to use different creds.
-  // Only solution appears to be swapping to a different non-credential PouchDB object, which makes usePouch re-fetch :/
-  // ^^Nevermind, I give db basic authorization which is used in initial calls, then login, and it switches to session auth
+  // Handle DB changing and logging in. Default auth cookie determined by my couchDB settings (I set 1 hour for convenience).
+  // Start session as default user, who can read all DBs with same cookie. Higher-level users need manual login.
+  // I give db basic non-session authorization which is used in initial calls, then login, and it switches to session auth.
   useEffect(()=> {
     //let creds = (credentials[gameId]) ?? CompileConstants.DEFAULT_CREDENTIALS;
     let creds = CompileConstants.DEFAULT_CREDENTIALS;

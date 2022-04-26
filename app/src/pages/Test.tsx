@@ -5,6 +5,7 @@ import './Page.css';
 import PouchDB from 'pouchdb';
 import * as myPouch from '../services/pouch';
 import { remote, getDB, pullDB, pushDB, deleteDBWhichOutdatesDBReferences /*syncDB, remote */} from '../services/pouch';
+import { ColumnChange, ColumnChanges, ColumnData } from '../types/characterTypes';
 
 //Could extend the router props if wanted to. Pass in db as prop from parent?
 type TestProps = {
@@ -84,17 +85,44 @@ const Test: React.FC<TestProps> = ({propNum, propStr}) => {
     console.log(`pouch2 login: ${JSON.stringify(result2)}`);
   }
 
+  async function mapSerializationTest() {
+    let changeAdd = {
+      type: "add", 
+      new: {columnName: "boogers", data: "green"} as ColumnData,
+      old: null 
+    } as ColumnChange;
+    let changeModify = {
+      type: "modify", 
+      new: {columnName: "damage", data: 70} as ColumnData,
+      old: {columnName: "damage", data: 69} as ColumnData,
+    } as ColumnChange;
+    let changes: ColumnChanges = new ColumnChanges("testmove");
+    changes.set("boogers", changeAdd);
+    changes.set("damage", changeModify);
+    let putDoc: PouchDB.Core.PutDocument<Object> = Object.fromEntries(changes); 
+    putDoc._id = "changesTest";
+    putDoc._rev = (await db.get<ColumnChanges>("changesTest"))?._rev ?? undefined;
+    await db.put(putDoc);
+    let readDoc = await db.get<ColumnChanges>('changesTest');
+    // As long as ColumnChanges isn't the top-level document, _id and _rev won't fuck up the object entries
+    let deSerialized: ColumnChanges = new ColumnChanges("teestmove", Object.entries(readDoc));
+    console.log("Stored and read dem changes, " + JSON.stringify(deSerialized));
+  }
+
   useIonViewDidEnter(() => {
     console.log('ion view did enter event fired');
-    loginTest();
+    mapSerializationTest();
     //pullDB("test");
     //getDocById("_design/testdesign", (doc) => {
       //setText(doc.title);
     //});
   });
 
+  const mapToMap = new Map([[1,'one'],[2,'two']])
+
   return (
     <IonPage>
+    {mapToMap.forEach((v,k)=>{return(<span>v</span>)})}
       <IonHeader>
         <IonToolbar>
           <IonButtons slot="start">
