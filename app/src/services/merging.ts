@@ -1,80 +1,49 @@
-import type {CharDoc, ChangeList, ColumnChange, MoveConflicts, Conflict, MoveChanges, ColumnData, ColumnDef} from '../types/characterTypes'; //== 
-import { cloneDeep } from 'lodash';
+import type * as T from '../types/characterTypes'; //== 
+import { keyVals } from '../services/util';
+import { cloneDeep, isEqual } from 'lodash';
 
-export function applyChangeList(doc: CharDoc, changes: ChangeList) {
+export function applyChangeList(doc: T.CharDoc, changes: T.ChangeDoc) {
   //modify doc, don't return copy
 }
-export function generateConflicts(theirDoc: CharDoc, yourChanges: ChangeList): MoveConflicts[] {
+export function generateConflicts(theirDoc: T.CharDoc, yourChanges: T.ChangeDoc): T.MoveConflicts[] {
   //walk through your changes, creating a default resolution for any that auto-resolve, or resolution = null for conflicts
-  for(let change of yourChanges.moveChanges) {
-    let theirCols: ColumnData[];// = (change.moveName === "universalProps") ? theirDoc.universalProps : (theirDoc.SFDFSFSDF)
-    if(change.moveName === "universalProps") {
-      theirCols = theirDoc.universalProps;
-    } else {
-      //TODO: Finish
-    }
-  }
+  //for(let change of yourChanges.moveChanges) {
+    //let theirCols: T.ColumnData[];// = (change.moveName === "universalProps") ? theirDoc.universalProps : (theirDoc.SFDFSFSDF)
+    //if(change.moveName === "universalProps") {
+      //theirCols = theirDoc.universalProps;
+    //} else {
+      ////TODO: Finish
+    //}
+  //}
   return [];
 }
-export function getMoveConflict(theirCols: ColumnData[], yourChanges: MoveChanges): MoveConflicts | null{
+export function getMoveConflict(theirCols: T.ColumnData[], yourChanges: T.Changes): T.MoveConflicts | null{
   return null;
 }
-export function autoResolve(conflict: Conflict) {
+export function autoResolve(conflict: T.Conflict) {
   let {theirChange: theirs, yourChange: yours, original: og, resolution: res} = {...conflict};
-  // need deep compare for ColumnData
+  // need deep compare for T.ColumnData
   //if(theirs )
 }
-export function columnsMatch(a: ColumnData, b: ColumnData): Boolean {
-  return a.columnName === b.columnName && a.data === b.data;
-}
-// Note this doesn't do sorting, new columns are added to the end.
-export function getChangedCols(originals: Readonly<ColumnData[]>, changes: MoveChanges): ColumnData[] {
-  let newCols: ColumnData[] = [...originals];
-  // replace existing columns with changes
-  //for(const change of changes.modified) {
-    //const index = newCols.findIndex((col) => col.columnName === change.new.columnName);
-    //if(index !== -1) { //if there's a change to a column that's not present, ignore it
-      //newCols[index] = change.new;
-    //}
-  //}
-  //// add new columns to the end
-  //for(const addition of changes.added) {
-    //newCols.push(addition);
-  //}
-  //// delete specified columns
-  //for(const deletion of changes.deleted) {
-    //const index = newCols.findIndex((col) => col.columnName === deletion.columnName);
-    //if(index !== -1) { //if column was already deleted, ignore
-      //newCols.splice(index,1);
-    //}
-  //}
-  //Iterate over originals while modifying the copy
-  //TODO: test that deletion doesn't mess this up
-  originals.forEach((col, index) => {
-    const change: ColumnChange | undefined = changes.changes[col.columnName];
-    if(change.type === "modify") {
-      newCols[index] = change.new;
-    }
-    else if(change.type === "add") {
-      newCols.splice(index,1); //delete the original, new will be added below
-      console.warn(`Adding ${JSON.stringify(change)} to ${changes.moveName} despite existing data ${JSON.stringify(originals[index])}`);
+// Note this doesn't do sorting, new columns are added to the end. Returns a changed deep clone.
+// Returns empty object if every column was deleted.
+export function getChangedCols(originalCols: Readonly<T.Cols>, changes: T.Changes): T.Cols {
+  let newCols: T.Cols = cloneDeep<T.Cols>(originalCols);
+  for(const [key, change] of keyVals(changes)) {
+    if(!change) continue;
+    if(change.type === "modify" || change.type === "add") {
+      //if(change.type === "add" && originalCols[key] !== undefined) console.warn(`Adding ${JSON.stringify(change)} to move despite existing data ${JSON.stringify(originalCols[key])}`);
+      newCols[key] = change.new;
     }
     else if(change.type === "delete") {
-      newCols.splice(index,1);
+      delete newCols[key];
     }
-  });
-  //loop over looking for newly added columns
-  for(const key in changes.changes) {
-    let change: ColumnChange = changes.changes[key];
-    if(change.type === "add") {
-      newCols.push(change.new);
-    }
-  }
-  console.log(`Changed columns for ${changes.moveName} from ${JSON.stringify(originals)} to ${JSON.stringify(newCols)} `);
+  };
+  console.log(`Changed columns for ${changes.moveName} from ${JSON.stringify(originalCols)} to ${JSON.stringify(newCols)} `);
   return newCols;
 }
 
-//Can be called recursively on an array of MoveChanges using array.reduce and passing this function.
+//Can be called recursively on an array of T.Changes using array.reduce and passing this function.
 //Reconciles places where both changes touched same data, and combines changes to different data.
 //NewChanges assumes changes are made to RESULT of last changes.
 //If compress=true, it becomes a no-op if the final value matches the starting value, and the original is used for history.
@@ -86,7 +55,7 @@ export function getChangedCols(originals: Readonly<ColumnData[]>, changes: MoveC
 // Non-compressed vs just newChanges: Non-compressed includes previous changes newChanges didn't touch. Otherwise same.
 // What use is the history of a delta? Compressed allows rollback to original, 
 // uncompressed's history lets each column rollback 1 change. How's that useful?
-export function reduceChanges(accumulator: Readonly<MoveChanges>, newChanges: Readonly<MoveChanges>, compress: boolean = true): MoveChanges {
+export function reduceChanges(accumulator: Readonly<T.Changes>, newChanges: Readonly<T.Changes>, compress: boolean = true): T.Changes {
 /*
    {NOOP} means no change if og value = new value and compressing
    add -> add = [wonky] add
@@ -105,17 +74,56 @@ export function reduceChanges(accumulator: Readonly<MoveChanges>, newChanges: Re
 */
   //type columnChange = {
     //colName: string;
-    ////if not null, these MoveChanges must have 2 empty arrays, and 1 array with 1 item.
-    //oldChange: MoveChanges | null; 
-    //newChange: MoveChanges | null;
+    ////if not null, these T.Changes must have 2 empty arrays, and 1 array with 1 item.
+    //oldChange: T.Changes | null; 
+    //newChange: T.Changes | null;
   //}
-  let result: MoveChanges = cloneDeep<MoveChanges>(accumulator);
+  let result: T.Changes = cloneDeep<T.Changes>(accumulator);
   
   //iterate over newChanges, checking acc for changes to same column
   for(const key in newChanges) {
-    let change: ColumnChange = newChanges.changes[key];
+    //let change: T.ColumnChange = newChanges.changes[key];
   }
 
-
   return result;
+}
+//apply single change to column. Undefined originalData means it wasn't present.
+export function applyChange(originalData: T.ColumnData | undefined, change: T.ColumnChange): T.ColumnData | undefined {
+  if(change.type === "modify" || change.type === "add") {
+    return change.new;
+  }
+  else if(change.type === "delete") {
+    return undefined;
+  }
+}
+//used when reducing two MoveChanges which may touch different columns
+//oldChange is only used if newChange is missing
+export function reduceChange(oldChange: T.ColumnChange, newChange: T.ColumnChange): T.ColumnChange | null {
+  let newData: T.ColumnData | undefined;
+  throw new Error("Not implemented");
+}
+export function createChange<F extends T.ColumnData>(oldData: F | undefined, newData: F | undefined): T.ColumnChange<F> | null {
+    //CASE: no-op (returning to clonedChange's data, just exit)
+    //if(newData === changedData) {
+      // NAH, simpler to just overwrite an identical change
+    //}
+    //CASE: no-op
+    if(isEqual(oldData, newData)) {
+      return null;
+    }
+    //CASE: addition
+    else if(newData !== undefined && oldData === undefined) {
+      return {type: 'add', new: newData};
+    }
+    //CASE: modification
+    else if(newData !== undefined && oldData !== undefined) {
+      return {type: 'modify', new: newData, old: oldData};
+    }
+    //CASE: deletion
+    else if(newData === undefined && oldData !== undefined) {
+      return {type: 'delete', old: oldData};
+    }
+    else {
+      throw new Error(`unhandled case in createChange: oldData = ${oldData}, newData = ${newData}`);
+    }
 }

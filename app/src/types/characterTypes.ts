@@ -22,6 +22,24 @@
   /*[propName: string]: any,*/
 /*}*/
 
+export type MoveData = number | string;
+export type PropData = number | string | MoveOrder[];
+//export type DataValueTypes = MoveData | PropData;
+export type ColumnData = MoveData | PropData;
+//export type ColumnDataOld = {
+  //readonly columnName: string; //matches a ColumnDef.columnName
+  //readonly data: DataValueTypes
+//}
+export enum DataType { //these mostly determine the editing interface presented and if shown in a column (Str) vs on its own line (Txt)
+  Int = "INTEGER",
+  Num = "NUMBER", //floats are likely to be used for sizes/distances/speeds
+  Str = "STRING",
+  Txt = "TEXT",
+  Ord = "MOVE_ORDER",
+  //Img = "IMAGE", //would probably be a url or base64 blob
+  //List = "LIST", //array of strings, allowed values can be constrained. For move order and tags... but they want different interfaces...
+  //NumStr = "NUMERIC_STRING", //for things that are usually numeric/sortable, but can be strings like "KDN" or "STN" or "LAUNCH"
+};
 
 export type ColumnDef = {
   columnName: string,
@@ -37,49 +55,35 @@ export type ColumnDef = {
   maxSize?: number,
   cssRegexes?: {regex: RegExp, css: string} //TODO: can RegExp serialize?
 }
-export type ColumnData = {
-  readonly columnName: string; //matches a ColumnDef.columnName
-  readonly data: DataValueTypes
+export type ColumnDefs = {
+  [columnName: string]: ColumnDef | undefined;
 }
+
 //internal utility type lets us show empty columns with no data, or data with no definition (to prompt for deletion)
 //also useful for sorting/hiding columns
 export type ColumnDefAndData = {
-  def: ColumnDef | null;
-  data: ColumnData | null;
+  columnName: string;
+  def?: ColumnDef;
+  data?: ColumnData;
   display: boolean;
 }
-export type MoveData = {
-  [columnName: string]: DataValueTypes; //OR store {data: DataValueTypes}, more extensible. Could switch to that only once necessary...
+export interface Cols<T extends ColumnData = ColumnData> {
+  [columnName: string]: T | undefined; //forces checking that column's actually there... but keys can exist with value undefined, thus show up in loops :(
 }
-export type Move = {
-  //universal stuff
-  moveName: string, // Must enforce uniqueness. Child moves/followups could start with parent's name (or use a 'parent' column)
-  //category: string, // make a default column
-  //tags: string[], //better as column
-  //children?: Move[], //TODO: too confusing. To make a child move, include the parent's name in its name, or maybe have a 'parent' column, since editing IDs is risky
-  columnProps: ColumnData[],
+export interface MoveCols extends Cols<MoveData> {
 }
-// Convenience type for code that can handle either
-export type MoveOrProps = Move | ColumnData[];
-export function isMove(moveOrProp: MoveOrProps): moveOrProp is Move {
-  return (moveOrProp as Move).moveName !== undefined;
+export interface PropCols extends Cols<PropData> {
+  moveOrder: MoveOrder[];
 }
-// Typescript is structurally, not nominally typed, so two types that alias to the same type are interchangeable.
-// Can make them incompatible with a "brand": type ColumnName = string & {__columnBrand: any}
-//export type ColumnName = string;
-//export type MoveName = string;
-
-export enum DataType { //these mostly determine the editing interface presented and if shown in a column (Str) vs on its own line (Txt)
-  Int = "INTEGER",
-  Num = "NUMBER", //floats are likely to be used for sizes/distances/speeds
-  Str = "STRING",
-  Txt = "TEXT",
-  Ord = "MOVE_ORDER",
-  //Img = "IMAGE", //would probably be a url or base64 blob
-  //List = "LIST", //array of strings, allowed values can be constrained. For move order and tags... but they want different interfaces...
-  //NumStr = "NUMERIC_STRING", //for things that are usually numeric/sortable, but can be strings like "KDN" or "STN" or "LAUNCH"
-};
-export type DataValueTypes = number | string | string[];
+export interface MoveOrder {
+  name: string;
+  isCategory?: true;
+  indent?: number;
+}
+// Properties don't have an equivalent list type
+export type MoveList = {
+  [moveName: string]: MoveCols | undefined;
+}
 
 export type DBListDocItem = {
   id: string,
@@ -90,11 +94,9 @@ export type DBListDoc = {
 }
 
 export type DesignDoc = {
-  universalPropDefs: ColumnDef[],
-  columnDefs: ColumnDef[],
-  //different sections/categories have different column display options.
-  //categoryColumns: [{category: string, cols: Column[]}], 
-  //sorting options? Categories would be intermixed
+  displayName: string; //for the game. Probably unused since grabbed from DBListDocItem.name in top db
+  universalPropDefs: ColumnDefs,
+  columnDefs: ColumnDefs,
 }
 
 export type CharDoc = {
@@ -103,17 +105,74 @@ export type CharDoc = {
   updatedAt: Date, //remember validation functions run on replication if a VDU is where I want to add this... not running VDU locally then
   updatedBy: string,
   changeHistory: string[]; //array of changelist IDs used to create this
-  universalProps: ColumnData[],
-  moves: Move[],
+  universalProps: PropCols,
+  moves: MoveList,
   //movesObj: {[moveName: string]: MoveData}; //TODO: maybe do it this way?
 }
 
-export type ColumnChange = Modify | Add | Delete;
-//interface ColumnChangeParent {
-  //type: "modify" | "add" | "delete";
-  //new?: ColumnData;
-  //old?: ColumnData;
+//generics can enforce that both pieces of data in a modify change are the same
+export type ColumnChange<T extends ColumnData = ColumnData> = Modify<T> | Add<T> | Delete<T>;
+export interface Modify<T extends ColumnData = ColumnData> {
+  readonly type: "modify";
+  readonly new: T;
+  readonly old: T;
+}
+export interface Add<T extends ColumnData = ColumnData> {
+  readonly type: "add";
+  readonly new: T;
+}
+export interface Delete<T extends ColumnData = ColumnData> {
+  readonly type: "delete";
+  readonly old: T;
+}
+export interface Changes<T extends ColumnData = ColumnData> {
+  [columnName: string]: ColumnChange | undefined;
+}
+export interface MoveChanges extends Changes<MoveData> {
+}
+export interface PropChanges extends Changes<PropData> {
+  moveOrder?: ColumnChange<MoveOrder[]>;
+}
+export type MoveChangeList = {
+  [moveName: string]: MoveChanges | undefined;
+}
+export type ChangeDoc = {
+  id: string; //auto-generate?
+  updateDescription: string;
+  createdAt: Date;
+  createdBy: string; //couch username
+  baseRevision: string; //default view only shows changes based on current doc
+  previousChange: string; //previous change before this, can follow chain back to construct history even if doc is nuked
+  universalPropChanges?: PropChanges; //better to separate them, even at the cost of many undefined checks
+  moveChanges?: MoveChangeList;
+}
+
+
+// Represents a difference in a single piece of data generated by diff.
+// If theirChange === yourChange, or theirs is "unchanged", it's auto-resolvable. Otherwise, need manual resolution.
+//export type Diff = {
+  //theirChange: ColumnData | "unchanged" | "deleted",
+  //yourChange: ColumnData | "deleted", //if you didn't change, no record even generated, their changes just go through.
+  //original: ColumnData | "empty", 
 //}
+// EXAMPLES: Data/data/data = both changed. Data/data/empty = both added. Deleted/data/data = they deleted while you changed.
+// Deleted with empty can't happen since deletion is determined by original NOT being empty. 
+//TODO: let's rethink this once I get to it. 
+export type Conflict = {
+  theirChange: ColumnData | "deleted",
+  yourChange: ColumnData | "deleted", 
+  original: ColumnData | "empty", 
+  resolution: null | ColumnData | "deleted",
+}
+export type MoveConflicts = {
+  moveName: string, // set to universalProps if those changed
+  diffs: Conflict[],
+}
+
+
+/*
+
+export type ColumnChange = Modify | Add | Delete;
 export interface Modify {
   readonly type: "modify";
   readonly new: ColumnData;
@@ -130,15 +189,10 @@ export interface Delete {
 export interface MoveChanges {
   [columnName: string]: ColumnChange;
 }
-export type ChangeList = {
-  id: string; //auto-generate?
-  updateDescription: string;
-  createdAt: Date;
-  createdBy: string; //couch username
-  baseRevision: string; //default view only shows changes based on current doc
-  previousChange: string; //previous change before this, can follow chain back to construct history even if doc is nuked
-  moveChanges: {[moveName: string]: MoveChanges};
-}
+*/
+
+
+
 /*TODO: Maps vs objects? Maps have:
   + iterability in insertion order, probably more performant, can be reordered by recreating a new map e.g. new Map([...map].sort())
   + override set to validate data (but... could just manually call validator... and moving ColumnData's columnName into keys instead of stored props dodges that error...)
@@ -170,6 +224,25 @@ export interface MoveChangesOld {
   changes: {[columnName: string]: ColumnChange};
 }
 
+//export type Move = {
+  ////universal stuff
+  //moveName: string, // Must enforce uniqueness. 
+  ////category: string, // make a default column
+  ////tags: string[], //better as column
+  ////children?: Move[], //TODO: too confusing. To make a child move, include the parent's name in its name, or maybe have a 'parent' column, since editing IDs is risky
+  //columnProps: ColumnData[],
+//}
+//// Convenience type for code that can handle either
+//export type MoveOrProps = Move | ColumnData[];
+//export function isMove(moveOrProp: MoveOrProps): moveOrProp is Move {
+  //return (moveOrProp as Move).moveName !== undefined;
+//}
+// Typescript is structurally, not nominally typed, so two types that alias to the same type are interchangeable.
+// Can make them incompatible with a "brand": type ColumnName = string & {__columnBrand: any}
+//export type ColumnName = string;
+//export type MoveName = string;
+
+
 // Describes how a move is changed. If a col's value is modified, store both new and old columns. 
 // Can't tell just from this if adding/deleting an entire move or just adding/deleting cols in an existing one.
 //export type MoveChanges = {
@@ -190,23 +263,3 @@ export interface MoveChangesOld {
   //moveChanges: MoveChanges[]; //if universalProps were changed, include them as an object with moveName=universalProps
 //}
 
-// Represents a difference in a single piece of data generated by diff.
-// If theirChange === yourChange, or theirs is "unchanged", it's auto-resolvable. Otherwise, need manual resolution.
-//export type Diff = {
-  //theirChange: ColumnData | "unchanged" | "deleted",
-  //yourChange: ColumnData | "deleted", //if you didn't change, no record even generated, their changes just go through.
-  //original: ColumnData | "empty", 
-//}
-// EXAMPLES: Data/data/data = both changed. Data/data/empty = both added. Deleted/data/data = they deleted while you changed.
-// Deleted with empty can't happen since deletion is determined by original NOT being empty. 
-//TODO: let's rethink this once I get to it. 
-export type Conflict = {
-  theirChange: ColumnData | "deleted",
-  yourChange: ColumnData | "deleted", 
-  original: ColumnData | "empty", 
-  resolution: null | ColumnData | "deleted",
-}
-export type MoveConflicts = {
-  moveName: string, // set to universalProps if those changed
-  diffs: Conflict[],
-}

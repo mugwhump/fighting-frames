@@ -5,7 +5,7 @@ import './Page.css';
 import PouchDB from 'pouchdb';
 import * as myPouch from '../services/pouch';
 import { remote, getDB, pullDB, pushDB, deleteDBWhichOutdatesDBReferences /*syncDB, remote */} from '../services/pouch';
-import { ColumnChange, ColumnChanges, ColumnData } from '../types/characterTypes';
+import { ColumnChange, Changes, ColumnData } from '../types/characterTypes';
 
 //Could extend the router props if wanted to. Pass in db as prop from parent?
 type TestProps = {
@@ -88,24 +88,24 @@ const Test: React.FC<TestProps> = ({propNum, propStr}) => {
   async function mapSerializationTest() {
     let changeAdd = {
       type: "add", 
-      new: {columnName: "boogers", data: "green"} as ColumnData,
+      new: "green" as ColumnData,
       old: null 
     } as ColumnChange;
     let changeModify = {
       type: "modify", 
-      new: {columnName: "damage", data: 70} as ColumnData,
-      old: {columnName: "damage", data: 69} as ColumnData,
+      new:  70 as ColumnData,
+      old: 69 as ColumnData,
     } as ColumnChange;
-    let changes: ColumnChanges = new ColumnChanges("testmove");
-    changes.set("boogers", changeAdd);
-    changes.set("damage", changeModify);
-    let putDoc: PouchDB.Core.PutDocument<Object> = Object.fromEntries(changes); 
+    let changes: Changes = {} as Changes;
+    changes.boogers = changeAdd;
+    changes.damage = changeModify;
+    let putDoc: PouchDB.Core.PutDocument<Object> = changes; 
     putDoc._id = "changesTest";
-    putDoc._rev = (await db.get<ColumnChanges>("changesTest"))?._rev ?? undefined;
+    putDoc._rev = (await db.get<Changes>("changesTest"))?._rev ?? undefined;
     await db.put(putDoc);
-    let readDoc = await db.get<ColumnChanges>('changesTest');
-    // As long as ColumnChanges isn't the top-level document, _id and _rev won't fuck up the object entries
-    let deSerialized: ColumnChanges = new ColumnChanges("teestmove", Object.entries(readDoc));
+    let readDoc = await db.get<Changes>('changesTest');
+    // As long as Changes isn't the top-level document, _id and _rev won't fuck up the object entries
+    let deSerialized: Changes = readDoc;
     console.log("Stored and read dem changes, " + JSON.stringify(deSerialized));
   }
 

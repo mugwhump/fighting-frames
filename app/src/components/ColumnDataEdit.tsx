@@ -1,35 +1,33 @@
 import { IonInput, IonTextarea, IonItem, IonButton, IonLabel } from '@ionic/react';
 import React, { useState, useEffect } from 'react';
-import { Move, ColumnDef, ColumnData, DataType, DataValueTypes } from '../types/characterTypes';
+import { ColumnDef, ColumnData, DataType } from '../types/characterTypes';
+import { isMoveOrder, strToColData } from '../services/util';
 
 
 type ColumnDataEditProps  = {
   //show: boolean;
-  colData: ColumnData | null; //if null, data was deleted or not entered yet despite this column having a definition
+  columnName: string;
   colDef: ColumnDef;
+  colData?: ColumnData; //if missing, data was deleted or not entered yet despite this column having a definition
   //TODO: show old data + "deleting this" marker? Revert/restore/delete buttons, which require changes? Or put that in modal?
-  editSingleColumn: (newData: ColumnData, oldData: ColumnData | null) => void; //to return edited column data, called repeatedly as data is edited
+  editSingleColumn: (columnName: string, newData?: ColumnData) => void; //to return edited column data, called repeatedly as data is edited. Undefined for "empty" data.
 }
 
-const ColumnDataEdit: React.FC<ColumnDataEditProps> = ({colData, colDef, editSingleColumn}) => {
-  const [inputData, setInputData] = useState<DataValueTypes | null>(colData?.data || null);
-  if(colData === null && colDef === null) return (<span>Data and definition can't both be null</span>);
+const ColumnDataEdit: React.FC<ColumnDataEditProps> = ({columnName, colData, colDef, editSingleColumn}) => {
+  const [inputData, setInputData] = useState<ColumnData | null>(colData || null);
+  //if(colData === null && colDef === null) return (<span>Data and definition can't both be null</span>);
   let inputType: "number" | "text" = "text"; //ionic allows more possible types
   let isTextArea: boolean = false;
   const debounceTime: number = 500; //number of MS after keystroke to wait before triggering input change event. 
-
 
   interface InputChangeEventDetail {
     value: string | undefined | null;
   }
   //function dataChanged(e: CustomEvent<InputChangeEventDetail>) {
-  function dataChanged(value: DataValueTypes) {
-    console.log("Column data changed to " + value);
-    //let value: DataValueTypes;
-    //const value: number = parseInt(e?.detail?.value ?? '0');
-    //switch(colDef.dataType) {
-    const newData = {columnName: colDef.columnName, data: value} as ColumnData;
-    editSingleColumn(newData, colData);
+  function dataChanged(value: string) {
+    //console.log("Column data changed to " + value);
+    //TODO: make sure any arrays have been deep cloned
+    editSingleColumn(columnName, strToColData(value, colDef.dataType));
   }
 
   function resetChanges(): void {
@@ -58,7 +56,10 @@ const ColumnDataEdit: React.FC<ColumnDataEditProps> = ({colData, colDef, editSin
       throw new Error("Unknown DataType: "+colDef.dataType);
     }
   }
-
+  // special handling of arrays
+  if(inputData && isMoveOrder(inputData)) {
+    return <div>Move Order: {JSON.stringify(inputData)}</div> 
+  }
   return (
     <IonInput value={inputData} type={inputType} debounce={debounceTime} onIonChange={(e) => {dataChanged(e.detail.value!)}}></IonInput>
   );

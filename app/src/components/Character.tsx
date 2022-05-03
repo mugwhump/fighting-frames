@@ -6,9 +6,11 @@ import { useParams, useHistory, useLocation } from 'react-router';
 import { Action } from 'history';
 import { Link } from 'react-router-dom';
 import { useDoc, usePouch } from 'use-pouchdb';
-import {Move, ColumnDef, ColumnData, CharDoc, } from '../types/characterTypes';
+import {MoveOrder, ColumnDef, ColumnDefs, ColumnData, Cols, PropCols, MoveCols, CharDoc, } from '../types/characterTypes';
+import { requiredPropDefs } from '../types/internalColumns';
 import EditCharacter from './EditCharacter';
 import MoveOrUniversalProps from './MoveOrUniversalProps';
+import { CategoryAndChildRenderer } from './CategoryAndChildRenderer';
 import { setTimeout } from 'timers';
 
 //Have child move components that are passed properties.
@@ -17,8 +19,8 @@ import { setTimeout } from 'timers';
 //If there's key needed for editing, prompt for it before bringing up interface
 type CharProps = {
   gameId: string,
-  columnDefs: ColumnDef[],
-  universalPropDefs: ColumnDef[],
+  columnDefs: ColumnDefs,
+  universalPropDefs: ColumnDefs,
 }
 
 //these are suffixes that go at the end of the url
@@ -32,17 +34,20 @@ export enum SegmentUrl {
 export const Character: React.FC<CharProps> = ({gameId, columnDefs, universalPropDefs}) => {
   const { character } = useParams<{ character: string; }>(); //router has its own props
   const baseUrl = "/game/"+gameId+"/character/"+character;
-  //const [segmentValue, setSegmentValue] = useState<string>(baseUrl);
   const history = useHistory();
   const location: string = useLocation().pathname;
   const currentSegment: SegmentUrl = segmentFromUrl(location);
   const { doc, loading, state, error } = useDoc<CharDoc>('character/'+character); 
-  //const localDatabase: PouchDB.Database = usePouch('local');
-  //const [presentDeleteAlert, dismissDeleteAlert] = useIonAlert();
-  //const popOver = useRef<HTMLIonPopoverElement>(null); //there's also a usePopover hook
-  //const [currentMove, setCurrentMove] = useState<Move | null>(null);
-  //const [presentEditModal, dismissEditModal] = useIonModal()
+  const moveOrder: MoveOrder[] = doc?.universalProps?.moveOrder || [];
+  addRequiredDefs();
   console.log("doc's ID:" + doc?._id);
+
+  // required column definitions are inserted, overwriting whatever might have been in db
+  function addRequiredDefs() {
+    for(const def of requiredPropDefs) {
+      universalPropDefs[def.columnName] = def;
+    }
+  }
 
   //given url expected to contain baseUrl
   function segmentFromUrl(url: string): SegmentUrl {
@@ -59,7 +64,6 @@ export const Character: React.FC<CharProps> = ({gameId, columnDefs, universalPro
   }
 
 
-  //}, [stateEdit, errorEdit, currentSegment]);
   if (state === 'error') {
     console.error("heckin errorino in Character: " + error?.message);
     return (<span>heckin errorino: {error?.message}</span>);
@@ -67,6 +71,7 @@ export const Character: React.FC<CharProps> = ({gameId, columnDefs, universalPro
   if (loading && doc == null) {
     return (<h1> loadin</h1>);
   }
+  //TODO: this doesn't fly for freshly-made docs... then again, latter two should be empty objects which are truthy...
   if(!(doc?.charName && doc?.universalProps && doc?.moves)) {
     return (<h1> Incomplete document</h1>);
   }
@@ -79,16 +84,28 @@ export const Character: React.FC<CharProps> = ({gameId, columnDefs, universalPro
           <p>{JSON.stringify(doc)}</p>
         </IonItem>
       </IonRow>
-      {
+      {/*
         doc.universalProps.map((prop: ColumnData) => {
           const keys = Object.keys(prop);
           return (
             <div key={prop.columnName}>{prop.columnName}: {prop.data}</div>
           )
+        })
+        */}
+        <MoveOrUniversalProps moveName="universalProps" columns={doc.universalProps} columnDefs={universalPropDefs} />
+        {moveOrder.map((moveOrCat: MoveOrder) => {
+          const {name, isCategory, indent} = {...moveOrCat};
+          let moveCols = doc.moves[name];
+          //console.log("rendering moveorcat:"+JSON.stringify(moveOrCat)+", cols:"+JSON.stringify(moveCols));
+          return (
+            <CategoryAndChildRenderer key={name} name={name} isCategory={isCategory} >
+            {moveCols !== undefined
+              ? <MoveOrUniversalProps moveName={name} indentLevel={indent} columns={moveCols} columnDefs={columnDefs} />
+              : <div>No data for move {name}</div>
+            }
+            </CategoryAndChildRenderer> 
+          );
         })}
-        {doc.moves.map((move: Move) => (
-          <MoveOrUniversalProps key={move.moveName} moveOrProps={move} columnDefs={columnDefs} />
-      ))}
     </IonGrid>
   );
 
