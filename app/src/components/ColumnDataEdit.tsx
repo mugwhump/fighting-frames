@@ -1,6 +1,7 @@
 import { IonInput, IonTextarea, IonItem, IonButton, IonLabel } from '@ionic/react';
 import React, { useState, useEffect } from 'react';
-import { ColumnDef, ColumnData, DataType } from '../types/characterTypes';
+import MoveOrdererButton from './MoveOrdererButton';
+import { ColumnDef, ColumnData, DataType, MoveOrder } from '../types/characterTypes';
 import { isMoveOrder, strToColData } from '../services/util';
 
 
@@ -14,11 +15,13 @@ type ColumnDataEditProps  = {
 }
 
 const ColumnDataEdit: React.FC<ColumnDataEditProps> = ({columnName, colData, colDef, editSingleColumn}) => {
-  const [inputData, setInputData] = useState<ColumnData | null>(colData || null);
+  const [inputData, setInputData] = useState<ColumnData | undefined>(colData || undefined); //only moveOrder gets updated
   //if(colData === null && colDef === null) return (<span>Data and definition can't both be null</span>);
   let inputType: "number" | "text" = "text"; //ionic allows more possible types
   let isTextArea: boolean = false;
   const debounceTime: number = 500; //number of MS after keystroke to wait before triggering input change event. 
+
+  console.log("ColDataEdit rendered with data "+colData);
 
   interface InputChangeEventDetail {
     value: string | undefined | null;
@@ -27,7 +30,13 @@ const ColumnDataEdit: React.FC<ColumnDataEditProps> = ({columnName, colData, col
   function dataChanged(value: string) {
     //console.log("Column data changed to " + value);
     //TODO: make sure any arrays have been deep cloned
-    editSingleColumn(columnName, strToColData(value, colDef.dataType));
+    const newData = strToColData(value, colDef.dataType);
+    setInputData(newData);
+    editSingleColumn(columnName, newData);
+  }
+  function moveOrderChanged(moveOrder: MoveOrder[]) {
+    editSingleColumn('moveOrder', moveOrder);
+    setInputData(moveOrder);
   }
 
   function resetChanges(): void {
@@ -52,13 +61,16 @@ const ColumnDataEdit: React.FC<ColumnDataEditProps> = ({columnName, colData, col
       //);
       break;
     }
+    case DataType.Ord: {
+      break;
+    }
     default: {
       throw new Error("Unknown DataType: "+colDef.dataType);
     }
   }
   // special handling of arrays
-  if(inputData && isMoveOrder(inputData)) {
-    return <div>Move Order: {JSON.stringify(inputData)}</div> 
+  if(inputData && isMoveOrder(inputData, colDef.dataType)) {
+    return <MoveOrdererButton moveOrder={inputData} changeMoveOrder={moveOrderChanged} />
   }
   return (
     <IonInput value={inputData} type={inputType} debounce={debounceTime} onIonChange={(e) => {dataChanged(e.detail.value!)}}></IonInput>

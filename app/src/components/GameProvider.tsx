@@ -130,11 +130,11 @@ function Reducer(state: State, action: Action) {
           //TODO:Online failed, diagnose network error, or other errors like online but wrong resource name, etc
           switch(action.error.name) {
             //low-level fetch API will throw TypeErrors when no connectivity
-            case "TypeError" : 
+            case "TypeError" : break;
             //happens for made-up db
-            case "not_found" :
+            case "not_found" : break;
             //bad uname/pw
-            case "unauthorized" :
+            case "unauthorized" : break;
           }
           if(!state.dbStatuses.get(state.gameId).userWants) {
             //if user never wanted it it ain't there, give up
@@ -161,11 +161,11 @@ function Reducer(state: State, action: Action) {
             //if it says "Failed to execute 'transaction' on 'IDBDatabase': The database connection is closing.", means using outdated Database object after destroying.
             //Also getting after failure to fetch from db that couldn't dl (in this case because unauthorized). Uhh maybe not?
             //Can also happen if user is private browsing in FF, which disables localStorage
-            case "InvalidStateError" : 
+            case "InvalidStateError" : break;
             //regular 404, given for made-up DB
-            case "not_found" : 
+            case "not_found" : break;
             //"Version change transaction was aborted in upgradeneeded event handler." Can happen when execution is paused in breakpoints.
-            case "indexed_db_went_bad" :
+            case "indexed_db_went_bad" : break;
           }
           if(state.isOnline === false || currentStatus.remoteError !== null) {
             console.log("Fetchfailed locally after failing remotely, not retrying.");

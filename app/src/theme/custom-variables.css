@@ -1,0 +1,5 @@
+/*Variables defined by me, not ionic. Include in top level component.*/
+
+:root {
+    --indent-spacer-width: 16px;
+}

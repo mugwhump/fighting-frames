@@ -38,22 +38,23 @@ export enum DataType { //these mostly determine the editing interface presented 
   Ord = "MOVE_ORDER",
   //Img = "IMAGE", //would probably be a url or base64 blob
   //List = "LIST", //array of strings, allowed values can be constrained. For move order and tags... but they want different interfaces...
-  //NumStr = "NUMERIC_STRING", //for things that are usually numeric/sortable, but can be strings like "KDN" or "STN" or "LAUNCH"
+  NumStr = "NUMERIC_STRING", //for things that are usually numeric/sortable, but can be strings like "KDN" or "STN" or "LAUNCH"
 };
 
 export type ColumnDef = {
   columnName: string,
   displayName?: string, //allows easier changing. Show columnName if absent.
   dataType: DataType,
-  // Things db admins can set as required (damage etc) vs universalProps *I* can set as required (character display name, row order)
+  defaultShow: boolean, //TODO: this only really makes sense for metadata columns
+  // Things db admins can set as required (damage etc) vs universalProps *I* can set as required (character display name, move order)
   // If they're my requirements, hardcode that into the codebase
-  required: boolean; //TODO: add this. Columns like "parent" aren't required. Can't submit without required columns.
-  defaultShow: boolean,
-  //allowedValues?: DataValueTypes[],//this allows arrays with mixed types 
-  allowedValues?: string[] | number[];//mostly for strings or tags. For Numeric Strings, says the allowed strings.
+  required: boolean; // Can't submit without required columns.
+  allowedValues?: string[];//mostly for strings or tags. For Numeric Strings, says the allowed strings.
+  forbiddenValues?: string[]; //for moveNames
   minSize?: number, //length of strings, number of tags, value of number
   maxSize?: number,
-  cssRegexes?: {regex: RegExp, css: string} //TODO: can RegExp serialize?
+  allowedRegex?: RegExp; //TODO: can RegExp serialize?
+  cssRegex?: {regex: RegExp, css: string}; //TODO: can RegExp serialize?
 }
 export type ColumnDefs = {
   [columnName: string]: ColumnDef | undefined;
@@ -130,8 +131,11 @@ export interface Changes<T extends ColumnData = ColumnData> {
 }
 export interface MoveChanges extends Changes<MoveData> {
 }
+export interface NewMoveChanges extends MoveChanges {
+  moveName: Add<string>; //purely internal, removed before written to db
+}
 export interface PropChanges extends Changes<PropData> {
-  moveOrder?: ColumnChange<MoveOrder[]>;
+  moveOrder?: Modify<MoveOrder[]>; //moveOrder is always there, creating char doc makes empty array
 }
 export type MoveChangeList = {
   [moveName: string]: MoveChanges | undefined;

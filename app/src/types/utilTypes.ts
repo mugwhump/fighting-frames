@@ -28,6 +28,11 @@ export class DBStatuses extends Map<string, DBStatus> {
     return Array.from(super.entries());
   }
 }
+
+export type FieldError = {
+  columnName: string;
+  message: string;
+}
 //cannot override [] accessor without proxies, and then my custom accessor gives false positives if anything checks for existence of property, eg stringify checking for toJSON
 //Also cannot add custom methods to children of Records since method is another property whose value is expected to be the Record's value type
 //type DBStatuses = Record<string, DBStatus>; 

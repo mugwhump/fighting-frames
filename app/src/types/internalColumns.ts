@@ -28,5 +28,12 @@ export const requiredPropDefs: Readonly<ColumnDef[]> = [moveOrderColumnDef];
 
 // --------------------- MOVE COLUMNS --------------------
 
-//Should be edited alongside order, children gotta be after parent. Reordering parent must reorder children.
-//But it's not a universalProp...
+export const moveNameColumnDef: ColumnDef = {
+  columnName: "moveName",
+  displayName: "Move Name",
+  dataType: DataType.Str,
+  required: true,
+  forbiddenValues: ["universalProps","moveName","moveOrder","displayName"],
+  minSize: 1,
+  defaultShow: true,
+}

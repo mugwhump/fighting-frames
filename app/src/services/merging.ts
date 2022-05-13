@@ -1,5 +1,5 @@
 import type * as T from '../types/characterTypes'; //== 
-import { keyVals } from '../services/util';
+import { keys, keyVals } from '../services/util';
 import { cloneDeep, isEqual } from 'lodash';
 
 export function applyChangeList(doc: T.CharDoc, changes: T.ChangeDoc) {
@@ -25,10 +25,15 @@ export function autoResolve(conflict: T.Conflict) {
   // need deep compare for T.ColumnData
   //if(theirs )
 }
+
+// Returns columns with changes applied. If columns are null (eg for new move), creates columns from changes.
 // Note this doesn't do sorting, new columns are added to the end. Returns a changed deep clone.
 // Returns empty object if every column was deleted.
-export function getChangedCols(originalCols: Readonly<T.Cols>, changes: T.Changes): T.Cols {
-  let newCols: T.Cols = cloneDeep<T.Cols>(originalCols);
+export function getChangedCols(originalCols: Readonly<T.Cols> | undefined, changes: T.Changes | undefined): T.Cols {
+  let newCols: T.Cols = originalCols ? cloneDeep<T.Cols>(originalCols) : {};
+  if(!changes && !originalCols) throw new Error("originalCols and changes cannot both be undefined");
+  if(!changes) return newCols; 
+
   for(const [key, change] of keyVals(changes)) {
     if(!change) continue;
     if(change.type === "modify" || change.type === "add") {
@@ -43,21 +48,12 @@ export function getChangedCols(originalCols: Readonly<T.Cols>, changes: T.Change
   return newCols;
 }
 
-//Can be called recursively on an array of T.Changes using array.reduce and passing this function.
-//Reconciles places where both changes touched same data, and combines changes to different data.
-//NewChanges assumes changes are made to RESULT of last changes.
-//If compress=true, it becomes a no-op if the final value matches the starting value, and the original is used for history.
-//Set to false if combining changes from multiple people and want history of every step. 
-//Point is to make a useable delta from original state... only "compressing" actually does that.
-//If you want to apply long list of canon changes (which I don't yet), non-compressed allows that without constantly applying change to state.
-// A modify B modify C modify D = compressed produces A-modify-D, uncompressed produces C-modify-D
-// A-modify-D is a delta representing shortest path from A to D, lets you roll back to A
-// Non-compressed vs just newChanges: Non-compressed includes previous changes newChanges didn't touch. Otherwise same.
-// What use is the history of a delta? Compressed allows rollback to original, 
-// uncompressed's history lets each column rollback 1 change. How's that useful?
-export function reduceChanges(accumulator: Readonly<T.Changes>, newChanges: Readonly<T.Changes>, compress: boolean = true): T.Changes {
+/** Can be called recursively on an array of T.Changes using array.reduce and passing this function.
+Reconciles places where both changes touched same data, and combines changes to different data.
+Returns null if changes cancel each other out */
+export function reduceChanges(accumulator: Readonly<T.Changes>, newChanges: Readonly<T.Changes>): T.Changes | null {
 /*
-   {NOOP} means no change if og value = new value and compressing
+   {NOOP} means no change if og value = new value 
    add -> add = [wonky] add
    add -> delete = NOOP {NOOP}
    add -> modify = add
@@ -68,34 +64,36 @@ export function reduceChanges(accumulator: Readonly<T.Changes>, newChanges: Read
    modify -> delete = delete 
    modify -> modify = modify {NOOP}
    RULES
-   1) if compressing and og value = new value (including "deleted"), noop.
-   2) modify/delete store acc's old value if compressing 
-   3) if not compressing, just do union of accumulator and newChanges, with latter taking priority if same column has eg add and delete and modify
+   1) if og value = new value (including "deleted"), noop.
+   2) modify/delete store acc's old value 
 */
-  //type columnChange = {
-    //colName: string;
-    ////if not null, these T.Changes must have 2 empty arrays, and 1 array with 1 item.
-    //oldChange: T.Changes | null; 
-    //newChange: T.Changes | null;
-  //}
   let result: T.Changes = cloneDeep<T.Changes>(accumulator);
   
   //iterate over newChanges, checking acc for changes to same column
-  for(const key in newChanges) {
-    //let change: T.ColumnChange = newChanges.changes[key];
+  for(const [key, newChange] of keyVals(newChanges)) {
+    if(!newChange) continue;
+    const accChange: T.ColumnChange | undefined = result[key];
+    if(accChange) {
+      const oldValue: T.ColumnData | undefined = (accChange.type !== "add") ? accChange.old : undefined;
+      const newValue: T.ColumnData | undefined = (newChange.type !== "delete") ? newChange.new : undefined;
+      const combinedChange: T.ColumnChange | null = createChange(oldValue, newValue);
+      if(!combinedChange) { //if no-op
+        delete result[key];
+      }
+      else {
+        result[key] = combinedChange;
+      }
+    }
+    else { 
+      result[key] = newChange;
+    }
   }
-
+  if(keys(result).length ===0) {
+    return null;
+  }
   return result;
 }
-//apply single change to column. Undefined originalData means it wasn't present.
-export function applyChange(originalData: T.ColumnData | undefined, change: T.ColumnChange): T.ColumnData | undefined {
-  if(change.type === "modify" || change.type === "add") {
-    return change.new;
-  }
-  else if(change.type === "delete") {
-    return undefined;
-  }
-}
+
 //used when reducing two MoveChanges which may touch different columns
 //oldChange is only used if newChange is missing
 export function reduceChange(oldChange: T.ColumnChange, newChange: T.ColumnChange): T.ColumnChange | null {
@@ -127,3 +125,17 @@ export function createChange<F extends T.ColumnData>(oldData: F | undefined, new
       throw new Error(`unhandled case in createChange: oldData = ${oldData}, newData = ${newData}`);
     }
 }
+
+
+//let order: T.MoveOrder[] = [{name:"a"}, {name:"b", indent:2}];
+//let order2: T.MoveOrder[] = [{name:"c"}, {name:"d", indent:3}];
+//let testChanges: T.Changes = {
+  //"apples": {type: "modify", new: 70, old: 69},
+  ////"cupsize": {type: "add", new: "AAA"},
+  //"oranges": {type: "delete", old: order},
+//}
+//let testChanges2: T.Changes = {
+  //"apples": {type: "delete", old: 7000},
+  ////"cupsize": {type: "add", new: "AAA"},
+  //"oranges": {type: "modify", new: order, old: "PENIS"},
+//}

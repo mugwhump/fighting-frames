@@ -6,10 +6,15 @@ import { useParams, useHistory, useLocation } from 'react-router';
 import { Action } from 'history';
 import { Link } from 'react-router-dom';
 import { useDoc, usePouch } from 'use-pouchdb';
-import {MoveOrder, MoveCols, ColumnDef, ColumnDefs, ColumnData, ColumnChange, CharDoc, ChangeDoc, MoveChanges, Changes, MoveConflicts } from '../types/characterTypes';
-import { getConflictsByMoveName, getChangeListMoveOrder, keys } from '../services/util';
+import {MoveOrder, MoveCols, ColumnDef, ColumnDefs, ColumnData, ColumnChange, CharDoc, ChangeDoc, MoveChanges, Changes, NewMoveChanges, PropChanges, Modify, MoveConflicts } from '../types/characterTypes';
+import type { FieldError } from '../types/utilTypes'; //==
+import { moveNameColumnDef } from '../types/internalColumns';
+import { getConflictsByMoveName, getChangeListMoveOrder, keys, deleteMoveChange, addMoveChange } from '../services/util';
+import { reduceChanges } from '../services/merging';
 import MoveOrUniversalProps from './MoveOrUniversalProps';
-import { CategoryAndChildRenderer } from './CategoryAndChildRenderer';
+import NewMoveButton from './NewMoveButton';
+import CategoryAndChildRenderer  from './CategoryAndChildRenderer';
+import MoveOrdererModal from './MoveOrdererModal';
 import { SegmentUrl } from './Character';
 import { cloneDeep } from 'lodash';
 
@@ -61,49 +66,46 @@ export const EditCharacter: React.FC<EditCharProps> = ({gameId, charDoc, columnD
   //keep individual moveChanges and moveConflicts pure, though.
   //TODO: just use existing local db with no revisions or conflict? Need some changes to Local Provider then... and can't sync in future... use conflicty one?
   const localPersonalDatabase: PouchDB.Database = usePouch('localPersonal'); 
-  const [presentDeleteAlert, dismissDeleteAlert] = useIonAlert();
+  const [presentAlert, dismissAlert] = useIonAlert(); //used for deletion confirmation, new move conflicts, other
   const popOver = useRef<HTMLIonPopoverElement>(null); //there's also a usePopover hook
+  const [presentMoveOrder, dismissMoveOrder] = useIonModal(MoveOrdererModal, {
+      moveOrder: moveOrder,
+      changeMoveOrder: changeMoveOrder,
+      onDismiss: triggerMoveOrderDismissal
+  });
 
   function isEmptyChangeList(): boolean {
     return changeList === emptyChangeList.current;
   }
 
-   //TODO: receive MoveChanges, add to changeList (parse out deleted or new moves), write to local
+   //TODO: receive MoveChanges, add to changeList, write to local
    //Validate (ensure moveName isn't empty, is unique)
    //resets are when moveChanges is null, don't want empty object
-   //Order followups after their parent
-  function editMove(moveName: string, moveChanges: Changes | null) { 
-    console.log("Edited move:" + JSON.stringify(moveChanges));
-  }
    //TODO: every MoveOrProps is rerendering 10 times because it says editMove has changed... callback stops that, but then rerenders are caused by parent
-  const editMoveCallback = useCallback<(moveName: string, moveChanges: Changes | null)=>void>((moveName, moveChanges) => {
+  const editMoveCallback = useCallback<(moveName: string, moveChanges: Changes | null, isDeletion?: boolean)=>void> ((moveName, moveChanges, isDeletion=false) => {
+    // Check if we need to change moveOrder due to deletion or addition of move
+    // Consolidation of addition->deletion is handled in Modal.
+    //TODO: does new move interface also specify move position? Or add to bottom and manually move it after? Both options must change moveOrder anyway...
+    if(isDeletion) {
+
+    }
     if(moveChanges === null) {
       if(moveName === "universalProps" && changeList.universalPropChanges) {
         delete changeList.universalPropChanges;
       }
-      else if(changeList.moveChanges) {
-        delete changeList.moveChanges[moveName];
-        if(keys(changeList.moveChanges).length === 0) {
-          delete changeList.moveChanges;
-        }
-      }
+      else deleteMoveChange(changeList, moveName);
     }
     else {
       if(moveName === "universalProps") {
         changeList.universalPropChanges = moveChanges;
       }
       else {
-        if(changeList.moveChanges) {
-          changeList.moveChanges[moveName] = moveChanges;
-        }
-        else { //if this is the first moveChange
-          changeList.moveChanges = {[moveName]: moveChanges};
-        }
+        addMoveChange(changeList, moveName, moveChanges);
       }
     }
 
     //if changeList is now empty, set it to emptyChangeList
-    //TODO:  Test alla this deletion shit.
+    //TODO:  Test alla this change deletion shit.
     if(!changeList.universalPropChanges && ! changeList.moveChanges) {
       setChangeList(emptyChangeList.current);
     }
@@ -111,7 +113,80 @@ export const EditCharacter: React.FC<EditCharProps> = ({gameId, charDoc, columnD
       setChangeList({...changeList}); // let react know to re-render
     }
     console.log(`Edited ${moveName} in callback:` + JSON.stringify(moveChanges));
-  }, []);
+  }, [changeList]);
+
+
+  //const addMoveCallback = useCallback<(moveName: string, moveChanges: MoveChanges)=> void> ((moveName, moveChanges) => {
+  const addMoveCallback = useCallback<(moveChanges: NewMoveChanges)=> void> ((moveChanges) => {
+    const moveName = moveChanges.moveName.new;
+    delete moveChanges.moveName;
+    //consolidate deletion->addition into modification, check for existing changes and merge them. Addition->deletion handled in Modal... or maybe not?
+    const oldChanges: MoveChanges | null = changeList?.moveChanges?.[moveName] || null;
+    const newOrMergedChanges: Changes | null = oldChanges ? reduceChanges(oldChanges, moveChanges) : moveChanges;
+
+    if(!newOrMergedChanges) {
+      //if re-adding deleted move, no change. Still prompt to re-add to moveOrder though.
+      console.warn("No changes to move.");
+      deleteMoveChange(changeList, moveName);
+    }
+    // Prompt for new move position+indentation
+    console.log(`Adding new move ${moveName} with changes ${JSON.stringify(newOrMergedChanges)}`);
+
+    // add to the bottom of moveOrder with a change to universalProps
+    let newMoveOrder = cloneDeep<MoveOrder[]>(moveOrder);
+    newMoveOrder.push({name: moveName});
+    let moveOrderChange: Modify<MoveOrder[]> = {type: "modify", new: newMoveOrder, old: changeList.universalPropChanges?.moveOrder?.old ?? moveOrder};
+    let newUniversalPropChange: PropChanges = {...changeList.universalPropChanges, moveOrder: moveOrderChange};
+    //TODO: if this addition is actually a no-op, probably want to delete here...
+    addMoveChange(changeList, moveName, newOrMergedChanges ?? moveChanges);
+    changeList.universalPropChanges = newUniversalPropChange;
+    setChangeList({...changeList});
+    presentAlert(
+      {
+        header: "Reorder move",
+        message: "Would you like to reorder this move?",
+        buttons: [
+          { text: 'No', role: 'cancel' },
+          { text: 'Yes', handler: presentMoveOrder }
+        ], 
+        onDidDismiss: (e) => { 
+          if(popOver.current) {
+            popOver.current.dismiss();
+          }
+        },
+      }
+    );
+
+  }, [changeList, moveOrder, presentAlert, presentMoveOrder]);
+
+
+  // Return column definitions with an added initial definition for movename, which includes currently existing moves as forbidden values
+  function getAddMoveColumnDefs(): ColumnDefs {
+    let moveNameDef = {...moveNameColumnDef};
+    if(!moveNameDef.forbiddenValues) return columnDefs;
+    let forbidden = [...moveNameDef.forbiddenValues];
+    for(const item of moveOrder) {
+      if(!item.isCategory) {
+        forbidden.push(item.name);
+      }
+    }
+    moveNameDef.forbiddenValues = forbidden;
+    return {moveName: moveNameDef, ...columnDefs};
+  }
+
+  function changeMoveOrder(newMoveOrder: MoveOrder[]) {
+    console.log("MoveOrder changed: "+JSON.stringify(moveOrder));
+    //let newMoveOrder = cloneDeep<MoveOrder[]>(moveOrder); already gets cloned
+    //newMoveOrder.push({name: moveName}); already added don't need
+    let moveOrderChange: Modify<MoveOrder[]> = {type: "modify", new: newMoveOrder, old: moveOrder};
+    let newUniversalPropChange: PropChanges = {...changeList.universalPropChanges, moveOrder: moveOrderChange};
+    changeList.universalPropChanges = newUniversalPropChange;
+    setChangeList({...changeList});
+  }
+  function triggerMoveOrderDismissal() {
+    dismissMoveOrder();
+    dismissAlert();
+  }
 
 
   async function writeChangeList(docExists: boolean = true) {
@@ -150,7 +225,7 @@ export const EditCharacter: React.FC<EditCharProps> = ({gameId, charDoc, columnD
     console.log("BALEET local :D");
     try {
       console.log("Deleted local edit");
-      await dismissDeleteAlert();
+      await dismissAlert();
       if(popOver.current) {
         await popOver.current.dismiss(); //popover must be destroyed before navigating away or react freaks out
       }
@@ -163,23 +238,24 @@ export const EditCharacter: React.FC<EditCharProps> = ({gameId, charDoc, columnD
     }
   }
 
+  function dismissPopOver() { popOver.current && popOver.current.dismiss() }
   let editFAB = (
     <>
     <IonFab id="editFAB" vertical="top" horizontal="end" slot="fixed">
       <IonFabButton><IonIcon icon={add} /></IonFabButton>
     </IonFab>
-    <IonPopover ref={popOver} trigger="editFAB">
+    <IonPopover ref={popOver} trigger="editFAB" >
       <IonContent>
         <IonList>
-          <IonItem button={true} detail={false} onClick={()=>presentDeleteAlert(
+          <IonItem button={true} detail={false} onClick={()=>presentAlert(
             {
               header: "Confirm deletion",
               message: "You have unuploaded changes, are you sure you want to delete your local edits of this character's frame data?",
               buttons: [
                 { text: 'Cancel', role: 'cancel' },
                 { text: 'Delete', handler: deleteLocal }
-              ]
-              , onDidDismiss: (e) => { console.log("Dismissed deletion alert"); 
+              ], 
+              onDidDismiss: (e) => { 
                 if(popOver.current) {
                   popOver.current.dismiss();
                 }
@@ -188,6 +264,7 @@ export const EditCharacter: React.FC<EditCharProps> = ({gameId, charDoc, columnD
           )}>
             <IonLabel>Delete</IonLabel>
           </IonItem>
+          <NewMoveButton getColumnDefs={getAddMoveColumnDefs} addMove={addMoveCallback} dismissPopOver={dismissPopOver} />
           <IonItem button={true} detail={false}>
             <IonLabel>Upload</IonLabel>
           </IonItem>
@@ -244,13 +321,14 @@ export const EditCharacter: React.FC<EditCharProps> = ({gameId, charDoc, columnD
           </IonItem>
         </IonRow>
         <MoveOrUniversalProps moveName="universalProps" columns={charDoc.universalProps} columnDefs={universalPropDefs} 
-          editMove={editMove} changes={changeList.universalPropChanges} moveConflicts={getConflictsByMoveName("universalProps", conflicts)} />
+          editMove={editMoveCallback} changes={changeList.universalPropChanges} moveConflicts={getConflictsByMoveName("universalProps", conflicts)} />
         {moveOrder.map((moveOrCat: MoveOrder) => { 
           const {name, isCategory, indent} = {...moveOrCat};
           let moveCols = charDoc.moves[name];
+          let moveChanges = changeList.moveChanges?.[name];
           return (
             <CategoryAndChildRenderer key={name} name={name} isCategory={isCategory} >
-            {moveCols !== undefined
+            {!(moveCols === undefined && moveChanges === undefined)
               ? <MoveOrUniversalProps moveName={name} indentLevel={indent} columns={moveCols} columnDefs={columnDefs} 
                  editMove={editMoveCallback} changes={changeList.moveChanges?.[name]} moveConflicts={getConflictsByMoveName(name, conflicts)} />
               : <div>No data for move {name}</div>
