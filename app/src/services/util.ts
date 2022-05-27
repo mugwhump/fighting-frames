@@ -23,9 +23,9 @@ export function shallowCompare(obj1: any, obj2: any): boolean {
     );
   }
 }
-export function getConflictsByMoveName(moveName: string, conflicts: T.MoveConflicts[]): T.MoveConflicts | undefined {
-  return conflicts.find((conflict) => {return conflict.moveName === moveName});
-}
+//export function getConflictsByMoveName(moveName: string, conflictList: T.ConflictList): T.Conflicts | undefined {
+  //return conflictList.find((conflict) => {return conflict.moveName === moveName});
+//}
 export function getChangeListMoveOrder(changeList: T.ChangeDoc): T.MoveOrder[] | null {
   let orderChange = changeList?.universalPropChanges?.moveOrder;
   if(orderChange) {

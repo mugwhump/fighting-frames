@@ -37,3 +37,11 @@ export const moveNameColumnDef: ColumnDef = {
   minSize: 1,
   defaultShow: true,
 }
+export const displayNameColumnDef: ColumnDef = {
+  columnName: "displayName",
+  displayName: "Display Name",
+  dataType: DataType.Str,
+  required: false,
+  forbiddenValues: ["universalProps","moveName","moveOrder","displayName"],
+  defaultShow: true,
+}

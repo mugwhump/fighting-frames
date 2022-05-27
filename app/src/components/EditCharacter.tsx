@@ -6,11 +6,11 @@ import { useParams, useHistory, useLocation } from 'react-router';
 import { Action } from 'history';
 import { Link } from 'react-router-dom';
 import { useDoc, usePouch } from 'use-pouchdb';
-import {MoveOrder, MoveCols, ColumnDef, ColumnDefs, ColumnData, ColumnChange, CharDoc, ChangeDoc, MoveChanges, Changes, NewMoveChanges, PropChanges, Modify, MoveConflicts } from '../types/characterTypes';
+import {MoveOrder, MoveCols, ColumnDef, ColumnDefs, ColumnData, ColumnChange, CharDoc, ChangeDoc, MoveChanges, Changes, AddMoveChanges , PropChanges, Modify, Conflicts } from '../types/characterTypes';
 import type { FieldError } from '../types/utilTypes'; //==
 import { moveNameColumnDef } from '../types/internalColumns';
-import { getConflictsByMoveName, getChangeListMoveOrder, keys, deleteMoveChange, addMoveChange } from '../services/util';
-import { reduceChanges } from '../services/merging';
+import { getChangeListMoveOrder, keys, deleteMoveChange, addMoveChange } from '../services/util';
+import { reduceChanges, resolveMoveOrder } from '../services/merging';
 import MoveOrUniversalProps from './MoveOrUniversalProps';
 import NewMoveButton from './NewMoveButton';
 import CategoryAndChildRenderer  from './CategoryAndChildRenderer';
@@ -35,14 +35,52 @@ const testChangeList: ChangeDoc = {
   createdAt: new Date(),
   createdBy: "testyman",
   baseRevision: "",
+  universalPropChanges: {
+    moveOrder: {type: "modify", 
+      new: [{"name":"windy moves","isCategory":true},{"name":"AA"},{"name":"dishonest moves","isCategory":true},{"name":"BB","indent":1}].reverse() as MoveOrder[],
+      old: [{"name":"windy moves","isCategory":true},{"name":"AA"},{"name":"dishonest moves","isCategory":true},{"name":"BB","indent":69}]}
+  },
   moveChanges: {
     "AA": { 
       "damage": {type: "modify", new: 70, old: 69},
       //"cupsize": {type: "add", new: "AAA"},
       "height": {type: "delete", old: "H"},
     }
+  },
+  conflictList: {
+    universalProps: {
+      moveOrder: {
+        theirs: [{"name":"windy moves","isCategory":true},{"name":"AA"},{"name":"dishonest moves","isCategory":true},{"name":"BB","indent":1}],
+        yours: [{"name":"windy moves","isCategory":true},{"name":"AA"},{"name":"dishonest moves","isCategory":true},{"name":"BB","indent":1}].reverse() as MoveOrder[],
+        baseValue: [{"name":"windy moves","isCategory":true},{"name":"AA"},{"name":"dishonest moves","isCategory":true},{"name":"BB","indent":1}],
+        resolution: {type: "modify", 
+          new: [{"name":"windy moves","isCategory":true},{"name":"AA"},{"name":"dishonest moves","isCategory":true},{"name":"BB","indent":1}].reverse() as MoveOrder[],
+          old: [{"name":"windy moves","isCategory":true},{"name":"AA"},{"name":"dishonest moves","isCategory":true},{"name":"BB","indent":1}]}
+      }
+    }
   }
 }
+
+type State = {
+  //Should I apply changes to doc inside reducer?
+  charDoc: CharDoc;
+  changeList: ChangeDoc;
+  //conflicts: ConflictList;
+  showMoveOrderModal: boolean;
+  showAlert: boolean;
+  alertProps: {};
+}
+  type EditAction = 
+    | { actionType: 'editMove', moveName: string, moveChanges: Changes | null, isDeletion?: boolean } 
+    | { actionType: 'addMove', moveChanges: AddMoveChanges  } 
+    | { actionType: 'deleteMove', moveName: string } 
+    | { actionType: 'reorderMoves', newMoveOrder: MoveOrder[] } 
+    | { actionType: 'setCharDoc', charDoc: CharDoc } 
+    | { actionType: 'setChangeList', changeList: ChangeDoc } 
+    | { actionType: 'rebaseChanges', charDoc: CharDoc } 
+    | { actionType: 'mergeChangeList', changeList: ChangeDoc } 
+    | { actionType: 'dismissAddMoveModal' } 
+    | { actionType: 'dismissReorderModal' } 
 
 export const EditCharacter: React.FC<EditCharProps> = ({gameId, charDoc, columnDefs, universalPropDefs}) => {
   const { character } = useParams<{ character: string; }>(); //router has its own props
@@ -59,9 +97,9 @@ export const EditCharacter: React.FC<EditCharProps> = ({gameId, charDoc, columnD
   } as ChangeDoc);
   const [ changeList, setChangeList ] = useState<ChangeDoc>(testChangeList); //setter called once when clone of storedChanges made
   const [ loadedChangeList, setLoadedChangeList ] = useState<boolean>(false); //loads changelist from storedChanges when available
-  const [ conflicts, setConflicts ] = useState<MoveConflicts[]>([]); //empty list means no conflicts presently. TODO: check upon load
+  //const [ conflicts, setConflicts ] = useState<ConflictList>([]); //empty list means no conflicts presently. TODO: check upon load
   //move order drawn first from the changelist if it's updated, then from the base document
-  const moveOrder: MoveOrder[] =  getChangeListMoveOrder(changeList) || charDoc.universalProps.moveOrder || []; 
+  const moveOrder: MoveOrder[] =  getChangeListMoveOrder(changeList) || charDoc.universalProps.moveOrder; 
   //references to change+conflicts lists don't change generally. Keep in mind if something in this component needs to re-render. 
   //keep individual moveChanges and moveConflicts pure, though.
   //TODO: just use existing local db with no revisions or conflict? Need some changes to Local Provider then... and can't sync in future... use conflicty one?
@@ -117,7 +155,7 @@ export const EditCharacter: React.FC<EditCharProps> = ({gameId, charDoc, columnD
 
 
   //const addMoveCallback = useCallback<(moveName: string, moveChanges: MoveChanges)=> void> ((moveName, moveChanges) => {
-  const addMoveCallback = useCallback<(moveChanges: NewMoveChanges)=> void> ((moveChanges) => {
+  const addMoveCallback = useCallback<(moveChanges: AddMoveChanges )=> void> ((moveChanges) => {
     const moveName = moveChanges.moveName.new;
     delete moveChanges.moveName;
     //consolidate deletion->addition into modification, check for existing changes and merge them. Addition->deletion handled in Modal... or maybe not?
@@ -321,7 +359,7 @@ export const EditCharacter: React.FC<EditCharProps> = ({gameId, charDoc, columnD
           </IonItem>
         </IonRow>
         <MoveOrUniversalProps moveName="universalProps" columns={charDoc.universalProps} columnDefs={universalPropDefs} 
-          editMove={editMoveCallback} changes={changeList.universalPropChanges} moveConflicts={getConflictsByMoveName("universalProps", conflicts)} />
+          editMove={editMoveCallback} changes={changeList.universalPropChanges} moveConflicts={changeList.conflictList?.universalProps} />
         {moveOrder.map((moveOrCat: MoveOrder) => { 
           const {name, isCategory, indent} = {...moveOrCat};
           let moveCols = charDoc.moves[name];
@@ -330,11 +368,12 @@ export const EditCharacter: React.FC<EditCharProps> = ({gameId, charDoc, columnD
             <CategoryAndChildRenderer key={name} name={name} isCategory={isCategory} >
             {!(moveCols === undefined && moveChanges === undefined)
               ? <MoveOrUniversalProps moveName={name} indentLevel={indent} columns={moveCols} columnDefs={columnDefs} 
-                 editMove={editMoveCallback} changes={changeList.moveChanges?.[name]} moveConflicts={getConflictsByMoveName(name, conflicts)} />
+                 editMove={editMoveCallback} changes={changeList.moveChanges?.[name]} moveConflicts={changeList.conflictList?.[name]} />
               : <div>No data for move {name}</div>
             }
             </CategoryAndChildRenderer> 
           );
+          {/*TODO: for debugging, good idea to point out moves that have data but are missing from moveOrder*/}
           })}
       </IonGrid>
     </>

@@ -1,7 +1,7 @@
 import { useIonModal, IonRow, IonCol, IonItem, IonIcon } from '@ionic/react';
 import React, { useState, useEffect } from 'react';
 import { createOutline } from 'ionicons/icons';
-import { MoveCols, PropCols, Cols, MoveConflicts, Changes, MoveChanges, PropChanges, ColumnData, MoveData, DataType, ColumnDef, ColumnDefs, ColumnDefAndData } from '../types/characterTypes';
+import { MoveCols, PropCols, Cols, Conflicts, Changes, MoveChanges, PropChanges, ColumnData, MoveData, DataType, ColumnDef, ColumnDefs, ColumnDefAndData } from '../types/characterTypes';
 import { keys, keyVals } from '../services/util';
 import { getChangedCols } from '../services/merging';
 import MoveEditModal from './MoveEditModal';
@@ -15,7 +15,7 @@ export type MoveProps = {
   columnDefs: ColumnDefs; //definitions for moves or universal props
   editMove?: (moveName: string, changes: Changes | null, isDeletion?: boolean) => void; //to return edited move, only passed in edit mode. 
   changes?: Readonly<Changes>; //if not provided, move hasn't been changed
-  moveConflicts?: MoveConflicts; //if not provided, no conflicts. There can only be conflicts if there are changes.
+  moveConflicts?: Conflicts; //if not provided, no conflicts. There can only be conflicts if there are changes.
 }
 
 //TODO: hiding/reordering columns, based on user prefs? Reordering complex, awkward for mobile.

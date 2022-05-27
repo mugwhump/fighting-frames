@@ -4,7 +4,7 @@ import React, { useState, useRef, useEffect } from 'react';
 import PouchDB from 'pouchdb';
 import PouchAuth from 'pouchdb-authentication';
 import ColumnDataEdit from './ColumnDataEdit';
-import type { Changes, NewMoveChanges, ColumnDef, ColumnData, ColumnDefAndData, DataType, ColumnChange, Add, Modify, Delete } from '../types/characterTypes'; //== 
+import type { Changes, AddMoveChanges , ColumnDef, ColumnData, ColumnDefAndData, DataType, ColumnChange, Add, Modify, Delete } from '../types/characterTypes'; //== 
 import type { FieldError } from '../types/utilTypes'; //==
 import { keys, isString, isStringColumn, isMoveOrder, checkInvalid } from '../services/util';
 import { createChange } from '../services/merging';
@@ -17,7 +17,7 @@ type MoveEditModalProps  = {
   originalChanges: Readonly<Changes> | null; //null means new move or nothing changed yet.
   onDismiss: (prepareToDismiss?: boolean) => void; //callbacks defined in caller using this 
   editMove?: (moveName: string, changes: Changes | null, isDeletion?: boolean) => void; //to return edited move
-  addMove?: (moveChanges: NewMoveChanges) => void; //is undefined if editing existing move.
+  addMove?: (moveChanges: AddMoveChanges ) => void; //is undefined if editing existing move.
 }
 
 // Use with useIonModal, pass this as body. Used to edit moves or add new moves (in which case not child of MoveOrUniversalProps and must set moveName)
@@ -119,7 +119,7 @@ const MoveEditModal: React.FC<MoveEditModalProps > = ({moveName, defsAndData, or
       }
     }
     else if(addMove) {
-      let newMoveChanges: NewMoveChanges = clonedChanges as NewMoveChanges;
+      let newMoveChanges: AddMoveChanges  = clonedChanges as AddMoveChanges ;
       addMove(newMoveChanges);
     }
     else {

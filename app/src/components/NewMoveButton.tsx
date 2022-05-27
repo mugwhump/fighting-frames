@@ -1,14 +1,14 @@
 import { useIonViewWillLeave, IonItem, IonLabel, IonButton, IonIcon, useIonModal } from '@ionic/react';
 import { addOutline, addSharp } from 'ionicons/icons';
 import React, { useState, useEffect, useRef } from 'react';
-import { MoveOrder, ColumnDef, ColumnDefs, ColumnDefAndData, ColumnData, DataType, Changes, NewMoveChanges } from '../types/characterTypes';
+import { MoveOrder, ColumnDef, ColumnDefs, ColumnDefAndData, ColumnData, DataType, Changes, AddMoveChanges  } from '../types/characterTypes';
 import { cloneDeep, isEqual } from 'lodash';
 import { keys, keyVals } from '../services/util';
 import MoveEditModal from './MoveEditModal';
 
 type NewMoveButtonProps = {
   getColumnDefs: ()=>ColumnDefs;
-  addMove: (moveChanges: NewMoveChanges) => void; 
+  addMove: (moveChanges: AddMoveChanges ) => void; 
   dismissPopOver: ()=>void;
 }
 const NewMoveButton: React.FC<NewMoveButtonProps> = ({getColumnDefs, addMove, dismissPopOver}) => {
