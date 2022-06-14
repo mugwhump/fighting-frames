@@ -6,10 +6,11 @@ import { useParams, useHistory, useLocation } from 'react-router';
 import { Action } from 'history';
 import { Link } from 'react-router-dom';
 import { useDoc, usePouch } from 'use-pouchdb';
-import {MoveOrder, MoveCols, ColumnDef, ColumnDefs, ColumnData, ColumnChange, CharDoc, ChangeDoc, MoveChanges, Changes, AddMoveChanges , PropChanges, Modify, Conflicts } from '../types/characterTypes';
+import {MoveOrder, MoveCols, ColumnDef, ColumnDefs, ColumnData, ColumnChange, CharDoc, CharDocWithMeta, ChangeDoc, ChangeDocWithMeta, MoveChanges, Changes, AddMoveChanges , PropChanges, Modify, Conflicts } from '../types/characterTypes';
 import type { FieldError } from '../types/utilTypes'; //==
-import { moveNameColumnDef } from '../types/internalColumns';
-import { getChangeListMoveOrder, keys, deleteMoveChange, addMoveChange } from '../services/util';
+import * as E from '../constants/exampleData';
+import { moveNameColumnDef } from '../constants/internalColumns';
+import { getChangeListMoveOrder, keys, updateMoveOrPropChanges } from '../services/util';
 import { reduceChanges, resolveMoveOrder } from '../services/merging';
 import MoveOrUniversalProps from './MoveOrUniversalProps';
 import NewMoveButton from './NewMoveButton';
@@ -18,47 +19,12 @@ import MoveOrdererModal from './MoveOrdererModal';
 import { SegmentUrl } from './Character';
 import { cloneDeep } from 'lodash';
 
-type CharDocWithMeta = PouchDB.Core.Document<CharDoc> & PouchDB.Core.IdMeta & PouchDB.Core.GetMeta;
-type ChangeListDocWithMeta = PouchDB.Core.Document<ChangeDoc> & PouchDB.Core.IdMeta & PouchDB.Core.GetMeta;
 
 type EditCharProps = {
   gameId: string,
   charDoc: CharDocWithMeta, //TODO: any special handling if <Character> passes null?
   columnDefs: ColumnDefs,
   universalPropDefs: ColumnDefs,
-}
-
-const testChangeList: ChangeDoc = {
-  id: "1-banana",
-  previousChange: "0-bonono?",
-  updateDescription: "test",
-  createdAt: new Date(),
-  createdBy: "testyman",
-  baseRevision: "",
-  universalPropChanges: {
-    moveOrder: {type: "modify", 
-      new: [{"name":"windy moves","isCategory":true},{"name":"AA"},{"name":"dishonest moves","isCategory":true},{"name":"BB","indent":1}].reverse() as MoveOrder[],
-      old: [{"name":"windy moves","isCategory":true},{"name":"AA"},{"name":"dishonest moves","isCategory":true},{"name":"BB","indent":69}]}
-  },
-  moveChanges: {
-    "AA": { 
-      "damage": {type: "modify", new: 70, old: 69},
-      //"cupsize": {type: "add", new: "AAA"},
-      "height": {type: "delete", old: "H"},
-    }
-  },
-  conflictList: {
-    universalProps: {
-      moveOrder: {
-        theirs: [{"name":"windy moves","isCategory":true},{"name":"AA"},{"name":"dishonest moves","isCategory":true},{"name":"BB","indent":1}],
-        yours: [{"name":"windy moves","isCategory":true},{"name":"AA"},{"name":"dishonest moves","isCategory":true},{"name":"BB","indent":1}].reverse() as MoveOrder[],
-        baseValue: [{"name":"windy moves","isCategory":true},{"name":"AA"},{"name":"dishonest moves","isCategory":true},{"name":"BB","indent":1}],
-        resolution: {type: "modify", 
-          new: [{"name":"windy moves","isCategory":true},{"name":"AA"},{"name":"dishonest moves","isCategory":true},{"name":"BB","indent":1}].reverse() as MoveOrder[],
-          old: [{"name":"windy moves","isCategory":true},{"name":"AA"},{"name":"dishonest moves","isCategory":true},{"name":"BB","indent":1}]}
-      }
-    }
-  }
 }
 
 type State = {
@@ -95,7 +61,7 @@ export const EditCharacter: React.FC<EditCharProps> = ({gameId, charDoc, columnD
     //universalPropChanges: {}, both optional
     //moveChanges: {},
   } as ChangeDoc);
-  const [ changeList, setChangeList ] = useState<ChangeDoc>(testChangeList); //setter called once when clone of storedChanges made
+  const [ changeList, setChangeList ] = useState<ChangeDoc>(E.ChangeDocs.testChangeList); //setter called once when clone of storedChanges made
   const [ loadedChangeList, setLoadedChangeList ] = useState<boolean>(false); //loads changelist from storedChanges when available
   //const [ conflicts, setConflicts ] = useState<ConflictList>([]); //empty list means no conflicts presently. TODO: check upon load
   //move order drawn first from the changelist if it's updated, then from the base document
@@ -127,20 +93,7 @@ export const EditCharacter: React.FC<EditCharProps> = ({gameId, charDoc, columnD
     if(isDeletion) {
 
     }
-    if(moveChanges === null) {
-      if(moveName === "universalProps" && changeList.universalPropChanges) {
-        delete changeList.universalPropChanges;
-      }
-      else deleteMoveChange(changeList, moveName);
-    }
-    else {
-      if(moveName === "universalProps") {
-        changeList.universalPropChanges = moveChanges;
-      }
-      else {
-        addMoveChange(changeList, moveName, moveChanges);
-      }
-    }
+    updateMoveOrPropChanges(changeList, moveName, moveChanges);
 
     //if changeList is now empty, set it to emptyChangeList
     //TODO:  Test alla this change deletion shit.
@@ -160,12 +113,12 @@ export const EditCharacter: React.FC<EditCharProps> = ({gameId, charDoc, columnD
     delete moveChanges.moveName;
     //consolidate deletion->addition into modification, check for existing changes and merge them. Addition->deletion handled in Modal... or maybe not?
     const oldChanges: MoveChanges | null = changeList?.moveChanges?.[moveName] || null;
-    const newOrMergedChanges: Changes | null = oldChanges ? reduceChanges(oldChanges, moveChanges) : moveChanges;
+    const newOrMergedChanges: MoveChanges | null = oldChanges ? (reduceChanges(oldChanges, moveChanges) as MoveChanges) : moveChanges;
 
     if(!newOrMergedChanges) {
       //if re-adding deleted move, no change. Still prompt to re-add to moveOrder though.
       console.warn("No changes to move.");
-      deleteMoveChange(changeList, moveName);
+      updateMoveOrPropChanges(changeList, moveName, null);
     }
     // Prompt for new move position+indentation
     console.log(`Adding new move ${moveName} with changes ${JSON.stringify(newOrMergedChanges)}`);
@@ -175,8 +128,9 @@ export const EditCharacter: React.FC<EditCharProps> = ({gameId, charDoc, columnD
     newMoveOrder.push({name: moveName});
     let moveOrderChange: Modify<MoveOrder[]> = {type: "modify", new: newMoveOrder, old: changeList.universalPropChanges?.moveOrder?.old ?? moveOrder};
     let newUniversalPropChange: PropChanges = {...changeList.universalPropChanges, moveOrder: moveOrderChange};
+
     //TODO: if this addition is actually a no-op, probably want to delete here...
-    addMoveChange(changeList, moveName, newOrMergedChanges ?? moveChanges);
+    updateMoveOrPropChanges(changeList, moveName, newOrMergedChanges ?? moveChanges)
     changeList.universalPropChanges = newUniversalPropChange;
     setChangeList({...changeList});
     presentAlert(

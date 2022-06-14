@@ -6,7 +6,7 @@ import PouchDB from 'pouchdb';
 import { Network, ConnectionStatus, ConnectionType } from '@capacitor/network';
 import { Capacitor } from '@capacitor/core';
 import * as myPouch from '../services/pouch';
-import CompileConstants from '../services/CompileConstants';
+import CompileConstants from '../constants/CompileConstants';
 import { shallowCompare } from '../services/util';
 import { StringSet, DBStatuses } from '../types/utilTypes';
 import { useLocalDispatch, Credentials, CredentialStore, Action as LocalAction} from './LocalProvider';

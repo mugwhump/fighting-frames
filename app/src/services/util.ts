@@ -7,8 +7,8 @@ import type { FieldError } from '../types/utilTypes'; //==
 export function keys<T extends object>(obj: T): Array<string> {
     return Object.keys(obj) as Array<string>;
 }
-export function keyVals<T extends object>(obj: T): Array<[keyof T, T[keyof T]]> {
-    return Object.entries(obj) as Array<[keyof T, T[keyof T]]>;
+export function keyVals<T extends object>(obj: T): Array<[string, T[keyof T]]> {
+    return Object.entries(obj) as Array<[string, T[keyof T]]>;
 }
 
 export function shallowCompare(obj1: any, obj2: any): boolean {
@@ -34,23 +34,93 @@ export function getChangeListMoveOrder(changeList: T.ChangeDoc): T.MoveOrder[] |
   return null;
 }
 
-//add and remove a specific change from changelist, handling the missing key if there's no changes
-export function addMoveChange(changeList: T.ChangeDoc, moveName: string, moveChanges: T.MoveChanges): void {
-  if(changeList.moveChanges) {
-    changeList.moveChanges[moveName] = moveChanges;
-  }
-  else { //if this is the first moveChange
-    changeList.moveChanges = {[moveName]: moveChanges};
-  }
+export function getNewFromChange(change: T.ColumnChange): T.ColumnData | undefined {
+  return (change.type === 'delete') ? undefined : change.new;
 }
-export function deleteMoveChange(changeList: T.ChangeDoc, moveName: string): void {
-  if(changeList.moveChanges) {
-    delete changeList.moveChanges[moveName];
-    if(keys(changeList.moveChanges).length === 0) {
-      delete changeList.moveChanges;
+export function getOldFromChange(change: T.ColumnChange): T.ColumnData | undefined {
+  return (change.type === 'add') ? undefined : change.old;
+}
+export function getOppositeResolution(resolution: "yours" | "theirs"): "yours" | "theirs" {
+  return resolution === "yours" ? "theirs" : "yours";
+}
+export function isConflictMoveOrderMergeBothChange(conflict: T.ConflictMoveOrder): conflict is T.ConflictMoveOrderMergeBothChange {
+  return conflict.yours !== "no-op" && conflict.theirs !== "no-op";
+}
+export function isConflictMoveOrderMergeTheyChange(conflict: T.ConflictMoveOrder): conflict is T.ConflictMoveOrderMergeTheyChange {
+  return conflict.yours === "no-op";
+}
+export function isConflictMoveOrderRebaseBothChange(conflict: T.ConflictMoveOrder): conflict is T.ConflictMoveOrderRebaseBothChange {
+  return conflict.theirs === "no-op";
+}
+
+//add and remove a specific change from changelist, handling the missing key if there's no changes
+//Works when universalProps given as moveName
+//Null moveChanges means delete changes
+export function updateMoveOrPropChanges(changeList: T.ChangeDoc, moveName: string, moveChanges: Readonly<T.Changes> | null): void {
+  if(moveChanges) {
+    if(moveName === "universalProps") {
+      changeList.universalPropChanges = moveChanges as T.PropChanges;
+    }
+    else {
+      if(changeList.moveChanges) {
+        changeList.moveChanges[moveName] = moveChanges as T.MoveChanges;
+      }
+      else { //if this is the first moveChange
+        changeList.moveChanges = {[moveName]: moveChanges as T.MoveChanges};
+      }
+    }
+  }
+  else { //delete changes
+    if(moveName === "universalProps") {
+      delete changeList.universalPropChanges;
+    }
+    else {
+      if(changeList.moveChanges) {
+        delete changeList.moveChanges[moveName];
+        if(keys(changeList.moveChanges).length === 0) {
+          delete changeList.moveChanges;
+        }
+      }
     }
   }
 }
+export function updateColumnChange(changeList: T.ChangeDoc, moveName: string, columnName: string, change: Readonly<T.ColumnChange> | null) {
+  let changes: T.Changes | null = ((moveName === "universalProps") ? changeList.universalPropChanges : changeList.moveChanges?.[moveName]) ?? null;
+  if(change) { //getting one change means move changes can't be null
+    changes = {...changes, [columnName]: change} as T.Changes;
+  }
+  else if(changes) { //deleting what might be the last change
+    delete changes?.[columnName];
+    if(keys(changes).length === 0) changes = null;
+  }
+  updateMoveOrPropChanges(changeList, moveName, changes);
+}
+export function updateColumnConflict(changeList: T.ChangeDoc, moveName: string, columnName: string, conflict: Readonly<T.Conflict> | null) {
+  let conflicts: T.Conflicts | null = changeList.conflictList?.[moveName] ?? null;
+  if(conflict) { //getting one conflict means move conflicts can't be null
+    conflicts = {...conflicts, [columnName]: conflict} as T.Conflicts;
+  }
+  else if(conflicts) { //deleting what might be the last conflict
+    delete conflicts?.[columnName];
+    if(keys(conflicts).length === 0) delete changeList.conflictList?.[moveName];
+  }
+}
+//export function addMoveOrPropChange (changeList: T.ChangeDoc, moveName: string, moveChanges: T.MoveChanges): void {
+  //if(changeList.moveChanges) {
+    //changeList.moveChanges[moveName] = moveChanges;
+  //}
+  //else { //if this is the first moveChange
+    //changeList.moveChanges = {[moveName]: moveChanges};
+  //}
+//}
+//export function deleteMoveChange(changeList: T.ChangeDoc, moveName: string): void {
+  //if(changeList.moveChanges) {
+    //delete changeList.moveChanges[moveName];
+    //if(keys(changeList.moveChanges).length === 0) {
+      //delete changeList.moveChanges;
+    //}
+  //}
+//}
 
 //returns string converted to columnData, with "empty" or unconvertable data as undefined
 export function strToColData(str: string | undefined, type: T.DataType): T.ColumnData | undefined {

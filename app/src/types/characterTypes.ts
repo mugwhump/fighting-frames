@@ -44,6 +44,7 @@ export enum DataType { //these mostly determine the editing interface presented 
 export type ColumnDef = {
   columnName: string,
   displayName?: string, //allows easier changing. Show columnName if absent.
+  shortName?: string, //like IMP, GRD, DMG, etc
   dataType: DataType,
   defaultShow: boolean, //TODO: this only really makes sense for metadata columns
   // Things db admins can set as required (damage etc) vs universalProps *I* can set as required (character display name, move order)
@@ -108,9 +109,28 @@ export type CharDoc = {
   changeHistory: string[]; //array of changelist IDs used to create this. Changes not listed can be cleaned up after a time to make room?
   // ^^ would be nice if size of changeHistory matched revision #...
   universalProps: PropCols,
-  moves: MoveList,
-  //movesObj: {[moveName: string]: MoveData}; //TODO: maybe do it this way?
+  moves: MoveList; //will be empty object when first created
 }
+//TODO: Document seems to already include IDMeta
+export type CharDocWithMeta = PouchDB.Core.Document<CharDoc> & PouchDB.Core.IdMeta & PouchDB.Core.GetMeta;
+
+export type ChangeDoc = {
+  //id: string; //auto-generate? There's already the couch _id field
+  updateDescription: string;
+  createdAt: Date;
+  createdBy: string; //couch username
+  baseRevision: string; //version of doc that these changes have seen and accounted for. The "old" values of changes match this doc.
+  previousChange?: string; //previous WRITER change before this, latest item in baseRev doc's history, can follow chain back to construct history even if doc is nuked. First change doesn't have.
+  //NON-WRITER changes that were merged in. Copied when non-writers pull in. Useful? Guess it tells writers "x already merged y, don't need both."
+  //Starts empty when you begin editing, added to by every version/change you merge in.
+  //Can't tell what changes were previously merged into base, seems pointless
+  //mergedChanges: string[]; 
+  universalPropChanges?: PropChanges; //better to separate them, even at the cost of many undefined checks
+  moveChanges?: MoveChangeList;
+  conflictList?: ConflictList; //each conflict gets deleted as its resolution is applied
+}
+//export type ChangeDocWithMeta = PouchDB.Core.Document<ChangeDoc> & PouchDB.Core.IdMeta; //NOT including _rev, changedocs should be immutable!
+export type ChangeDocWithMeta = ChangeDoc & {_id: string}; //NOT including _rev, changedocs should be immutable!
 
 //generics can enforce that both pieces of data in a modify change are the same
 export type ColumnChange<T extends ColumnData = ColumnData> = Modify<T> | Add<T> | Delete<T>;
@@ -127,58 +147,269 @@ export interface Delete<T extends ColumnData = ColumnData> {
   readonly type: "delete";
   readonly old: T;
 }
-export interface Changes<T extends ColumnData = ColumnData> {
-  [columnName: string]: ColumnChange | undefined;
+type GetDataType<ChangeType> = ChangeType extends ColumnChange<infer D> ? D : never;
+
+export type Changes = MoveChanges | PropChanges;
+export interface MoveChanges {
+  moveName?: Add<string> | Delete<string>; 
+  moveOrder?: never;
+  [columnName: string]: ColumnChange<MoveData> | undefined;
 }
-export interface MoveChanges extends Changes<MoveData> {
+export interface PropChanges {
+  moveOrder?: Modify<MoveOrder[]>; //moveOrder is always there, creating char doc makes empty array
+  moveName?: never;
+  [columnName: string]: ColumnChange<PropData> | undefined;
 }
-//TODO: explicit changetype to help keep track of additions/deletions and manage moveOrder???
-//Let's say addition/deletion of moveName indicates whole move addition/deletion??!?!?!?
-//Or, could add 2 new types of column change, "add-new-move" and "delete-move"...
-/*
-   -if merging their change that modifies move they had, but isn't in your base...
-   --applying resolution should be add, have moveName column
-   -if they delete move you're working with, must still parse out column-by-column conflict resolution and identify what resolution means deletion :(
-*/
 export interface AddMoveChanges  extends MoveChanges {
-  moveName: Add<string>; //purely internal, removed before written to db... or is it?
-  [columnName: string]: Add | undefined;
+  moveName: Add<string>; //purely internal, removed before written to db
+  [columnName: string]: Add<MoveData> | undefined;
 }
 export interface DeleteMoveChanges extends MoveChanges {
   moveName: Delete<string>; 
-  [columnName: string]: Delete | undefined;
-}
-export interface PropChanges extends Changes<PropData> {
-  moveOrder?: Modify<MoveOrder[]>; //moveOrder is always there, creating char doc makes empty array
+  [columnName: string]: Delete<MoveData> | undefined;
 }
 export type MoveChangeList = {
   [moveName: string]: MoveChanges | undefined;
 }
-export type ChangeDoc = {
-  id: string; //auto-generate?
-  updateDescription: string;
-  createdAt: Date;
-  createdBy: string; //couch username
-  baseRevision: string; //version of doc that these changes have seen and accounted for. The "old" values of changes match this doc.
-  previousChange: string; //previous WRITER change before this, latest item in baseRev doc's history, can follow chain back to construct history even if doc is nuked
-  //NON-WRITER changes that were merged in. Copied when non-writers pull in. Useful? Guess it tells writers "x already merged y, don't need both."
-  //Starts empty when you begin editing, added to by every version/change you merge in.
-  mergedChanges?: string[]; 
-  universalPropChanges?: PropChanges; //better to separate them, even at the cost of many undefined checks
-  moveChanges?: MoveChangeList;
-  conflictList?: ConflictList;
+
+export type ConflictList = {
+  universalProps?: ConflictsProps ;
+  [moveName: string]: Conflicts | undefined;
 }
 
 
-export type Conflict = {
-  theirs: ColumnData | undefined; 
-  yours: ColumnData | undefined;
-  baseValue: ColumnData | undefined; //(matches theirs in rebase, is your old value or base in merge)
-  //make sure to maintain reference equality between theirs/yours and resolution moveOrders, moveOrder resolution depends on it
-  resolution?: ColumnChange | "no-op", //represents change to YOUR changeList (noop means delete your change)
+// ----------------------------------- INDIVIDUAL CONFLICTS ----------------------------------- 
+export interface Conflict<T extends ColumnData = ColumnData> {
+  readonly yours: ColumnChange<T> | "no-op";
+  readonly theirs: ColumnChange<T> | "no-op";
+  resolution?: Resolutions;
+}
+export type Resolutions = "yours" | "theirs";
+export interface ConflictGeneric<Yours extends ColumnChange<D> | "no-op", 
+                          Theirs extends ColumnChange<D> | "no-op" = Yours, 
+                          D extends ColumnData = GetDataType<Yours> //must specify this if Yours is no-op
+                          > extends Conflict<D> {
+  readonly yours: Yours;
+  readonly theirs: Theirs;
+  resolution?: Resolutions;
+}
+/*                        Failed attempt to let D be inferred from Theirs if Yours is no-op
+                          D extends ColumnData = [Yours, Theirs] extends ["no-op", "no-op"] ? never 
+                            : [Yours, Theirs] extends [ColumnChange<ColumnData>, "no-op"] ? GetDataType<Yours> 
+                            : [Yours, Theirs] extends ["no-op", ColumnChange<ColumnData>] ? GetDataType<Theirs> 
+                            : GetDataType<Yours> 
+*/
+export interface ConflictGenericAutoResolve<Yours extends ColumnChange<D> | "no-op", 
+                          Theirs extends ColumnChange<D> | "no-op" = Yours, 
+                          D extends ColumnData = GetDataType<Yours> //must specify this if Yours is no-op
+                          > extends ConflictGeneric<Yours, Theirs, D> {
+  readonly yours: Yours;
+  readonly theirs: Theirs;
+  resolution: Resolutions;
+}
+export type ConflictRebase<T extends ColumnData = ColumnData> = ConflictGeneric<ColumnChange<T>, "no-op">;
+//export interface ConflictRebase<T extends ColumnData = ColumnData> extends Conflict {
+  //readonly yours: ColumnChange<T>;
+  //readonly theirs: "no-op";
+//}
+export type ConflictAutoNoop = ConflictGenericAutoResolve<"no-op">;
+//export interface ConflictAutoNoop extends Conflict {
+  //readonly yours: "no-op";
+  //readonly theirs: "no-op"; 
+  //resolution: "yours";
+//}
+export type ConflictMerge<T extends ColumnData = ColumnData> = ConflictGeneric<ColumnChange<T>, ColumnChange<T>>;
+//export interface ConflictMerge<T extends ColumnData = ColumnData> extends Conflict {
+  //readonly yours: ColumnChange<T>; 
+  //readonly theirs: ColumnChange<T>;
+//}
+// Autoresolve to theirs when they change and you ignore
+export type ConflictMergeTheirs<T extends ColumnData = ColumnData> = ConflictGenericAutoResolve<"no-op", ColumnChange<T>, T>;
+//export interface ConflictMergeTheirs<T extends ColumnData = ColumnData> extends Conflict<T> {
+  //readonly yours: "no-op";
+  //readonly theirs: ColumnChange<T>;
+  //resolution: NonNullable<Conflict["resolution"]>;
+//}
+export type ConflictMergeAllOrNothing<T extends ColumnData = ColumnData> = ConflictGeneric<ColumnChange<T> | "no-op">;
+//export interface ConflictMergeAllOrNothing<T extends ColumnData = ColumnData> extends Conflict<T> {
+  //readonly yours: ColumnChange<T> | "no-op"; //yours is noop if they add column while you delete move
+  //readonly theirs: ColumnChange<T> | "no-op"; //theirs is noop if you add column while they delete move
+//}
+// -------------------- CONFLICTS FOR SPECIFIC COLUMNS --------------------- 
+export type ConflictMoveOrder = ConflictMoveOrderMergeBothChange | ConflictMoveOrderMergeTheyChange | ConflictMoveOrderRebaseBothChange;
+export type ConflictMoveOrderMergeBothChange = ConflictGeneric<Modify<MoveOrder[]>>;
+//export interface ConflictMoveOrderMergeBothChange extends ConflictMerge<MoveOrder[]> {
+  //readonly yours: Modify<MoveOrder[]>;
+  //readonly theirs: Modify<MoveOrder[]>;
+//}
+export type ConflictMoveOrderMergeTheyChange = ConflictGeneric<"no-op", Modify<MoveOrder[]>, MoveOrder[]>;
+//export interface ConflictMoveOrderMergeTheyChange extends ConflictMergeTheirs<MoveOrder[]> {
+  //readonly yours: "no-op"; //no-op if merging their uncontested changes
+  //readonly theirs: Modify<MoveOrder[]>;
+//}
+export type ConflictMoveOrderRebaseBothChange = ConflictGeneric<Modify<MoveOrder[]>, "no-op">;
+//export interface ConflictMoveOrderRebaseBothChange extends ConflictRebase<MoveOrder[]> {
+  //readonly yours: Modify<MoveOrder[]>; 
+  //readonly theirs: "no-op"; 
+//}
+export type ConflictMoveName = ConflictGeneric<Add<string> | Delete<string> | "no-op">; 
+let moveNameExample: ConflictMoveName = {
+  yours: {type: "add", new: "banan"},
+  //theirs: {type: "delete", old: "bonon"}
+  theirs: "no-op"
+}
+//export interface ConflictMoveName extends Conflict<string> {
+  //readonly yours: Add<string> | Delete<string> | "no-op";
+  //readonly theirs: Add<string> | Delete<string> | "no-op";
+//}
+
+// ----------------------------------- COLLECTIONS OF CONFLICTS ----------------------------------- 
+export interface Conflicts<T extends ColumnData = ColumnData> {
+  [columnName: string]: Conflict<T> | undefined;
+}
+interface ConflictCollectionGeneric<MoveName extends ConflictMoveName, Others extends Conflict> {
+  moveName?: MoveName;
+  [columnName: string]: Others | MoveName | undefined;
+}
+export interface ConflictsMoves  extends Conflicts <MoveData> {
+  moveName?: ConflictMoveName;
+}
+export interface ConflictsProps  extends Conflicts <PropData> {
+  moveOrder?: ConflictMoveOrder;
+}
+export interface ConflictsRebase<T extends ColumnData = ColumnData> extends Conflicts<T> {
+  [columnName: string]: ConflictRebase<T> | ConflictAutoNoop | undefined;
+}
+export interface ConflictsMerge<T extends ColumnData = ColumnData> extends Conflicts<T> {
+  [columnName: string]: ConflictMerge<T> | ConflictMergeTheirs<T> | ConflictMergeAllOrNothing<T> | undefined;
+}
+// -------------- CONFLICT COLLECTIONS INVOLVING MOVE ADDITION/DELETION ---------------- 
+export interface ConflictsRebaseRedundantAddOrDelete extends ConflictsRebase<MoveData> {
+  moveName: ConflictAutoNoop;
+  //no restrictions on other columns
+}
+export interface ConflictsMergeRedundantAddOrDelete extends ConflictsMerge<MoveData> {
+  moveName?: never; //no conflict for moveName
+  //no restrictions on other columns
+}
+// --------------- ALL-OR-NOTHING CONFLICT COLLECTIONS --------------
+export interface ConflictsRebaseStealthAdd extends ConflictsRebase<MoveData> {
+  moveName: {yours: Add<string>, theirs: "no-op"};
+  //for other conflicts, yours are adds or no-ops, theirs all no-ops 
+  [columnName: string]: {yours: Add<MoveData>, theirs: "no-op"} | ConflictAutoNoop /*for your deletions*/ | undefined;
+}
+//You delete a move base changed
+export interface ConflictsRebaseYouDeleteTheyChange extends ConflictsRebase<MoveData> {
+  moveName: {yours: Delete<string>, theirs: "no-op"};
+  [columnName: string]: {yours: Delete<MoveData>, theirs: "no-op"} | ConflictAutoNoop /*redundant deletions*/ | undefined; 
+}
+//They add a move you ignore (aka you don't add), autoresolve
+export type ConflictsMergeTheyAdd = ConflictCollectionGeneric<
+                                                  ConflictGenericAutoResolve<"no-op", Add<string>, string>, 
+                                                  ConflictGenericAutoResolve<"no-op", Add<MoveData>, MoveData>>
+//export interface ConflictsMergeTheyAdd extends ConflictsMerge<MoveData> {
+  //moveName: {yours: "no-op", theirs: Add<string>, resolution: "yours" | "theirs"};
+  //[columnName: string]: {yours: "no-op", theirs: Add<MoveData>, resolution: "yours" | "theirs"} | undefined; 
+//}
+//They delete a move you ignore, autoresolve
+export type ConflictsMergeTheyDelete = ConflictCollectionGeneric<
+                                                  ConflictGenericAutoResolve<"no-op", Delete<string>, string>, 
+                                                  ConflictGenericAutoResolve<"no-op", Delete<MoveData>, MoveData>>
+//export interface ConflictsMergeTheyDelete extends ConflictsMerge<MoveData> {
+  //moveName: {yours: "no-op", theirs: Delete<string>, resolution: "yours" | "theirs"};
+  //[columnName: string]: {yours: "no-op", theirs: Delete<MoveData>, resolution: "yours" | "theirs"} | undefined; 
+//}
+//They delete a move you change
+export type ConflictsMergeTheyDeleteYouChange = ConflictCollectionGeneric<
+                                                  ConflictGeneric<"no-op", Delete<string>, string>, 
+                                                  ConflictGeneric<Add<MoveData>, "no-op"> | ConflictGeneric<Modify<MoveData>, Delete<MoveData>>>
+  //If you added column, must be nooped out if choose theirs
+  //No conflicts for your deletions, they go through no matter what
+//export interface ConflictsMergeTheyDeleteYouChange extends ConflictsMerge<MoveData> {
+  //moveName: {yours: "no-op", theirs: Delete<string>};
+  //[columnName: string]: {yours: Add<MoveData>, theirs: "no-op"}
+    //| {yours: Modify<MoveData>, theirs: Delete<MoveData>}
+    //| {yours: "no-op", theirs: Delete<MoveData>} //for moveName
+    //| undefined; 
+//}
+export type ConflictsMergeYouDeleteTheyChange = ConflictCollectionGeneric<
+                                                  ConflictGeneric<Delete<string>, "no-op">, 
+                                                  ConflictGeneric<"no-op", Add<MoveData>, MoveData> | ConflictGeneric<Delete<MoveData>, Modify<MoveData>>>
+  //them adding a new column should have yours as no-op
+//export interface ConflictsMergeYouDeleteTheyChange extends ConflictsMerge<MoveData> {
+  //moveName: {yours: Delete<string>, theirs: "no-op"};
+  //[columnName: string]: {yours: "no-op", theirs: Add<MoveData>}
+    //| {yours: Delete<MoveData>, theirs: Modify<MoveData>}
+    //| {yours: Delete<MoveData>, theirs: "no-op"} //for moveName
+    //| undefined; 
+//}
+
+
+
+
+
+
+
+
+
+
+
+type Test<T extends ColumnData = ColumnData> = {
+  a: ColumnChange<T>;
+  b: ColumnChange<T>;
+}
+let x: Test = {a: {type: "add", new: 7}, b: {type: "add", new: '7'} } //TODO: how ensure subtypes match w/o manually specifying generic?
+
+type CumflictYours<C extends Conflict> = C["yours"];
+type CumflictTheirs<C extends Conflict> = C["theirs"];
+function getConflict<C extends Conflict<ColumnData>>(yours: C["yours"], theirs: C["theirs"]): C {
+  return {yours: yours, theirs: theirs } as C;
+}
+//let merge: ConflictMerge = getConflict<ConflictMerge<number>>( {type: "add", new: 7}, {type: "add", new: '7'} );
+//let merge2: ConflictMergeTheirs = {yours: {type: "add", new: 7}, theirs: {type: "add", new: '7'} };
+let mergetheirs: ConflictMergeTheirs = {yours: "no-op", theirs: {type: "add", new: '7'}, resolution: "theirs" };
+//let rebase: ConflictRebase = getConflict<ConflictRebase>( {type: "add", new: 7}, {type: "add", new: '7'});
+//let order = getConflict<ConflictOrder>( {type: "add", new: 7}, {type: "add", new: '7'} );
+let test: Conflict<string> = {
+  yours: {type: "add", new: '7'},
+  theirs: {type: "add", new: '7'},
+}
+
+//export type Conflict = {
+  //theirs: ColumnData | undefined; 
+  //yours: ColumnData | undefined;
+  //baseValue: ColumnData | undefined; //(matches theirs in rebase, is your old value aka base in merge)
+  ////make sure to maintain reference equality between theirs/yours and resolution moveOrders, moveOrder resolution depends on it
+  //resolution: ColumnChange | "no-op", //represents change to YOUR changeList (noop means delete your change)
+  //otherResolution?: ColumnChange, //represents rejected resolution. If empty but resolution present, means autoresolution with no options
+  //chosenResolution?: "yours" | "theirs";
+
+//}
+
   //IF REBASING: resolution = baseValue -> yours or theirs(no-op)
   //IF MERGING OLD: resolution = baseValue -> yours or theirs
-  //REBASING IS SAME AS MERGING NEWER ACCEPTED CHANGE(S)
+  //REBASING IS SAME AS MERGING NEWER ACCEPTED CHANGE(S)(which isn't allowed, yours must be up-to-date to merge)
+
+  //AUTORESOLUTIONS: rebase autoresolutions are no-op w/o choice, merges have choice
+  //rebasing, if they make same change you did, autoresolve to no-op, no other choice. Don't even show these conflicts to user.
+  //merging, if you don't change, autoResolve base->theirs, other choice is rejecting theirs
+
+  //ALL-OR-NOTHING WHEN ONE CHOICE IS MOVE NOT BEING THERE, happens every time there's moveName conflict (except auto-noop rebase redundant addition/deletion)
+  //Must make moveName conflict if one changes and other deletes, in rebase or merge. 
+
+  //Rebase stealth addition (aka they delete), ALL-OR-NOTHING choice between keeping deleted or turning all modified columns into additions
+  //-Choosing deletion: moveName nop, modified->nop, add->nop, del->nop
+  //-Choosing addition: moveName add, modified->add, add->add, del->nop
+  //Rebase you delete, they change: conflict, ALL OR NOTHING
+  //-Choosing deletion: moveName del, everything rebased deletion
+  //-Choosing changes: moveName no-op, take all of theirs
+
+  //merge, they add or delete, you ignore: autoresolve preferring adder/deleter, ALL OR NOTHING
+  //merge, one changes, one deletes: conflict, ALL OR NOTHING
+
+  //Rebase redundant addition/deletion, no-choice autoresolve to noop out your moveName add/delete in rebase, not all-or-nothing
+  //Merge redundant addition/deletion, ignore moveName, not all-or-nothing
+
 
   //!!! Old values always irrelevant, they were already used in deciding whether a change existed in the first place!
   //........actually rebasing their changes stores the base value for things you didn't change
@@ -191,7 +422,7 @@ export type Conflict = {
   they 2, you 3->del: noop or 2->del
   they 2, you don't have: no conflict generated
   */
-  //MERGING: theirs is first rebased to a change from yourOld, resolution is yourOld->yours/theirs, can't no-op because that kinda change doesn't generate conflict
+  //MERGING: theirs is first rebased to a change from yourOld, resolution is yourOld->yours/theirs, can't no-op because that kinda change (theirs->your old) doesn't generate conflict
   /* if your change is 3->4...
   they 1->2(made 3->2): 3->2 or 3->4
   they 1->3(made noop): no conflict generated
@@ -221,37 +452,13 @@ export type Conflict = {
   they 1->del(made noop), you noop: no conflict
   they 1->del(made noop), you del->3: noop or del->3 (add would already be in yours)
   */
-}
 
 // Change to maps? nah, local serialization + react state too useful
-export type Conflicts = {
-  [columnName: string]: Conflict;
-}
-export type ConflictList = {
-  [moveName: string]: Conflicts;
-}
+//export type Conflicts = {
+  //[columnName: string]: Conflict;
+//}
 
 
-/*
-
-export type ColumnChange = Modify | Add | Delete;
-export interface Modify {
-  readonly type: "modify";
-  readonly new: ColumnData;
-  readonly old: ColumnData;
-}
-export interface Add {
-  readonly type: "add";
-  readonly new: ColumnData;
-}
-export interface Delete {
-  readonly type: "delete";
-  readonly old: ColumnData;
-}
-export interface MoveChanges {
-  [columnName: string]: ColumnChange;
-}
-*/
 
 
 
@@ -325,3 +532,34 @@ export interface MoveChangesOld {
   //moveChanges: MoveChanges[]; //if universalProps were changed, include them as an object with moveName=universalProps
 //}
 
+
+// ------------- THOUGHTS BEFORE REBASING MERGES ------------
+
+  //AUTORESOLUTIONS: rebase autoresolutions are no-op w/o choice, merges have choice
+  //rebasing, if they make same change you did, autoresolve to no-op, no other choice. Don't even show these conflicts to user.
+  //merging, if you don't change, autoResolve base->theirs, other choice is rejecting theirs
+
+  //ALL-OR-NOTHING WHEN ONE CHOICE IS MOVE NOT BEING THERE, happens EVERY time there's moveName conflict
+
+  //For stealth addition, ALL-OR-NOTHING choice between keeping deleted or turning all modified columns into additions
+  //-Choosing deletion: moveName nop, modified->nop, add->nop, del->nop
+  //-Choosing addition: moveName add, modified->add, add->add, del->nop
+  //merge, they modify, not in base, you ignore: stealth add moveName
+  //merge, they modify, not in base, you add move: ignore moveName
+  //Rebase redundant addition, no-choice autoresolve to noop out your moveName add in rebase, not all-or-nothing
+  //Merge redundant addition, ignore moveName, not all-or-nothing
+
+  //For explicit deletion... 
+  //Rebase redundant deletion, autoresolve all(????) to no-choice noop
+  //Merge, both delete = no conflict
+  //you deleted, they changed: choice between their (rebased) changes and your deletions. ALL OR NOTHING
+  //you deleted, they added/modified: choice between their (rebased) changes and your deletions. ALL OR NOTHING 
+  //they deleted, you changed: choice between their (rebased) deletions and your changes. ALL OR NOTHING
+  //they deleted, you ignored, move in base: autoresolve their deletions vs keeping. ALL OR NOTHING
+  //they deleted, you ignored, move absent: ignore them, no conflict
+
+  //Deletion vs addition in merge can't happen or makes no conflict, except they add you delete
+  //they delete, you add, move in base: can't happen
+  //they delete, you add, move absent: no conflict since it's theirs->your old
+  //they add(can be stealth), you delete, move in base: covered above
+  //they add, you delete, move absent: can't happen

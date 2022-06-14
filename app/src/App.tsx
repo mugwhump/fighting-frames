@@ -11,7 +11,7 @@ import { IonApp, IonMenu, IonRouterOutlet, IonSplitPane, setupIonicReact } from 
 import { IonReactRouter } from '@ionic/react-router';
 import { Redirect, Route, Switch } from 'react-router-dom';
 import { TestProvider } from './components/TestProvider';
-import CompileConstants from './services/CompileConstants';
+import CompileConstants from './constants/CompileConstants';
 
 /* Core CSS required for Ionic components to work properly */
 import '@ionic/react/css/core.css';

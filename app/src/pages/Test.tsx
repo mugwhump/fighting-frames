@@ -4,9 +4,12 @@ import { useParams } from 'react-router';
 import './Page.css';
 import PouchDB from 'pouchdb';
 import * as myPouch from '../services/pouch';
-import { reduceChanges, resolveMoveOrder } from '../services/merging';
+import * as E from '../constants/exampleData';
+import { reduceChanges, resolveMoveOrder, rebaseChangeDoc, mergeChangeDocs, getMergeConflicts, getRebaseConflicts, applyResolutions, autoResolveConflicts } from '../services/merging';
 import { remote, getDB, pullDB, pushDB, deleteDBWhichOutdatesDBReferences, remoteWithBasicCreds } from '../services/pouch';
-import { ColumnChange, Changes, MoveChanges, MoveChangeList, ChangeDoc, ColumnData, MoveOrder, CharDoc } from '../types/characterTypes';
+//import { ColumnChange, Modify, Changes, Conflict, ConflictMoveOrder, ConflictMoveOrderMergeBothChange, ConflictMoveOrderMergeTheyChange, ConflictMoveOrderRebaseBothChange, MoveChanges, MoveChangeList, ChangeDoc, ColumnData, MoveOrder, CharDoc } from '../types/characterTypes';
+import type * as T from '../types/characterTypes'; //==
+import * as util from '../services/util';
 import { cloneDeep, isEqual } from 'lodash';
 
 //Could extend the router props if wanted to. Pass in db as prop from parent?
@@ -88,259 +91,208 @@ const Test: React.FC<TestProps> = ({propNum, propStr}) => {
     console.log(`pouch2 login: ${JSON.stringify(result2)}`);
   }
 
-  async function moveOrderTest() {
-    //logging into one DB object that initially used basic auth will cause all DB objects for the same remote DB to use session auth
-    const pouch1: PouchDB.Database = myPouch.getDB(myPouch.remoteWithBasicCreds+"sc6");
-    let talimDoc: CharDoc = await pouch1.get('character/talim');
-    //console.log('baseDoc order check:' + JSON.stringify(talimDoc.universalProps.moveOrder));
-    let result: MoveOrder[] = [];
-    result = getResolvedMoveOrder (talimDoc, undefined, undefined, undefined, null);
-    compareMoveOrders( baseOrder , result );
-    console.log('^^^^^^^^^^^^^ base goes through, no conflict'); //no way to represent base adding/deleting while you change nothing
-
-    result = getResolvedMoveOrder (talimDoc, undefined, reversedOrder, undefined, null);
-    compareMoveOrders( reversedOrder, result );
-    console.log('^^^^^^^^^^^^^ Reverse order, no conflict');
-
-    result = getResolvedMoveOrder (talimDoc, undefined, undefined, undefined, null, moveAddK);
-    compareMoveOrders( addedKEnd, result );
-    console.log('^^^^^^^^^^^^^ stealth add(default end), no order changes or conflict');
-
-    result = getResolvedMoveOrder (talimDoc, undefined, addedK, undefined, null, moveAddK);
-    compareMoveOrders( addedK, result );
-    console.log('^^^^^^^^^^^^^ you manual insert in middle uncontested, no conflict');
-
-    result = getResolvedMoveOrder (talimDoc, reversedOrder, addedK, undefined, "yours", moveAddK);
-    compareMoveOrders( addedK, result );
-    console.log('^^^^^^^^^^^^^ you add, base reverses, conflict preferring yours');
-
-    result = getResolvedMoveOrder (talimDoc, reversedOrder, addedK, undefined, "no-op", moveAddK);
-    compareMoveOrders( [{"name":"BB","indent":1},{"name":"dishonest moves","isCategory":true},{"name":"AA"},{"name":"K"},{"name":"windy moves","isCategory":true}] , result );
-    console.log('^^^^^^^^^^^^^ you add, base reverses, conflict preferring base');
-
-    result = getResolvedMoveOrder (talimDoc, undefined, noBBReverse, undefined, "yours");
-    compareMoveOrders( [{"name":"dishonest moves","isCategory":true},{"name":"BB","indent":1},{"name":"AA"},{"name":"windy moves","isCategory":true}] , result );
-    console.log('^^^^^^^^^^^^^ base adds BB, you reverse, conflict preferring yours');
-
-    result = getResolvedMoveOrder (talimDoc, undefined, noBBReverse, undefined, "no-op");
-    compareMoveOrders( baseOrder, result );
-    console.log('^^^^^^^^^^^^^ base adds BB, you reverse, conflict preferring base');
-
-    result = getResolvedMoveOrder (talimDoc, undefined, noBB, undefined, null, moveDelBB);
-    compareMoveOrders( noBB, result );
-    console.log('^^^^^^^^^^^^^ you delete BB, no conflict');
-
-    result = getResolvedMoveOrder (talimDoc, reversedOrder, noBB, undefined, "yours", moveDelBB);
-    compareMoveOrders( noBB, result );
-    console.log('^^^^^^^^^^^^^ you delete BB, base reverses, conflict preferring yours');
-
-    result = getResolvedMoveOrder (talimDoc, reversedOrder, noBB, undefined, "no-op", moveDelBB);
-    compareMoveOrders( noBBReverse, result );
-    console.log('^^^^^^^^^^^^^ you delete BB, base reverses, conflict preferring base');
-
-    result = getResolvedMoveOrder (talimDoc, noBB, undefined, undefined, null);
-    compareMoveOrders( noBB , result );
-    console.log('^^^^^^^^^^^^^ base without BB, no conflict'); //no way to represent base adding/deleting while you change nothing
-
-    result = getResolvedMoveOrder (talimDoc, noBB, reversedOrder, undefined, "yours");
-    compareMoveOrders( noBBReverse , result );
-    console.log('^^^^^^^^^^^^^ base deletes BB, you reverse, conflict preferring yours');
-
-    result = getResolvedMoveOrder (talimDoc, noBB, reversedOrder, undefined, "no-op");
-    compareMoveOrders( noBB , result );
-    console.log('^^^^^^^^^^^^^ base deletes BB, you reverse, conflict preferring base');
-
-    // Merging (a merge where they make no changes can be treated as no-conflict rebase)
-    result = getResolvedMoveOrder (talimDoc, undefined, undefined, undefined, null, moveAddK);
-    compareMoveOrders( addedKEnd , result );
-    console.log('^^^^^^^^^^^^^ merge where stealth addition is theirs (as it must be), put at end, no conflict');
-
-    result = getResolvedMoveOrder (talimDoc, undefined, reversedOrder, baseOrder, null, moveAddK);
-    compareMoveOrders( [...reversedOrder, {name: "K"}] , result );
-    console.log('^^^^^^^^^^^^^ merge with stealth addition to end, you reverse, no conflict');
-
-    result = getResolvedMoveOrder (talimDoc, undefined, addedK, baseOrder, null, moveAddK);
-    compareMoveOrders( addedK , result );
-    console.log('^^^^^^^^^^^^^ merge with added K from you, no conflict');
-
-    result = getResolvedMoveOrder (talimDoc, undefined, addedK, reversedOrder, "yours", moveAddK);
-    compareMoveOrders( addedK , result );
-    console.log('^^^^^^^^^^^^^ merge with added K from you, they reverse, conflict preferring yours');
-
-    result = getResolvedMoveOrder (talimDoc, undefined, addedK, reversedOrder, "theirs", moveAddK);
-    compareMoveOrders( [{"name":"BB","indent":1},{"name":"dishonest moves","isCategory":true},{"name":"AA"},{"name":"K"},{"name":"windy moves","isCategory":true}], result );
-    console.log('^^^^^^^^^^^^^ merge with added K from you, they reverse, conflict preferring theirs');
-
-    result = getResolvedMoveOrder (talimDoc, undefined, undefined, addedK, "theirs", moveAddK);
-    compareMoveOrders( addedK , result );
-    console.log('^^^^^^^^^^^^^ merge with added K from them, conflict preferring theirs');
-
-    result = getResolvedMoveOrder (talimDoc, undefined, reversedOrder, addedK, "theirs", moveAddK);
-    compareMoveOrders( addedK , result );
-    console.log('^^^^^^^^^^^^^ merge with added K from them, you reverse, conflict preferring theirs');
-
-    result = getResolvedMoveOrder (talimDoc, undefined, undefined, noBBReverse, "theirs", moveDelBB);
-    compareMoveOrders( noBBReverse , result );
-    console.log('^^^^^^^^^^^^^ merge with deleted BB and reversal from them, conflict preferring theirs');
-
-    result = getResolvedMoveOrder (talimDoc, undefined, undefined, noBBReverse, "yours", moveDelBB);
-    compareMoveOrders( noBB , result );
-    console.log('^^^^^^^^^^^^^ merge with deleted BB and reversal from them, conflict preferring yours');
-
-    result = getResolvedMoveOrder (talimDoc, undefined, noBB, baseOrder, null, moveDelBB);
-    compareMoveOrders( noBB , result );
-    console.log('^^^^^^^^^^^^^ merge with deleted BB from you, no conflict');
-
-    result = getResolvedMoveOrder (talimDoc, undefined, noBB, reversedOrder, "theirs", moveDelBB);
-    compareMoveOrders( noBBReverse , result );
-    console.log('^^^^^^^^^^^^^ merge with deleted BB from you, reversal from them, conflict preferring theirs');
-
-    result = getResolvedMoveOrder (talimDoc, undefined, noBB, reversedOrder, "yours", moveDelBB);
-    compareMoveOrders( noBB , result );
-    console.log('^^^^^^^^^^^^^ merge with deleted BB from you, reversal from them, conflict preferring yours');
-
-    result = getResolvedMoveOrder (talimDoc, undefined, noBBReverse, addedK, "yours", {...moveDelBB, ...moveAddK});
-    compareMoveOrders( [{"name":"dishonest moves","isCategory":true},{"name":"AA"},{"name":"K"},{"name":"windy moves","isCategory":true}] , result );
-    console.log('^^^^^^^^^^^^^ merge with reversed deleted BB from you, added K from them, conflict preferring yours');
-
-    result = getResolvedMoveOrder (talimDoc, undefined, noBBReverse, addedK, "theirs", {...moveDelBB, ...moveAddK});
-    compareMoveOrders( addedK.slice(0,-1) , result );
-    console.log('^^^^^^^^^^^^^ merge with reversed deleted BB from you, added K from them, conflict preferring theirs');
-
-    result = getResolvedMoveOrder (talimDoc, threeCategories, undefined, addedK, "theirs", moveAddK);
-    compareMoveOrders( [{"name":"windy moves","isCategory":true},{"name":"K"},{"name":"dishonest moves","isCategory":true}] , result );
-    console.log('^^^^^^^^^^^^^ merge with added K from them, base is just categories, conflict preferring theirs');
-
-    result = getResolvedMoveOrder (talimDoc, threeCategories, undefined, addedK, "yours", moveAddK);
-    compareMoveOrders( [...threeCategories, {name:"K"}] , result );
-    console.log('^^^^^^^^^^^^^ merge with added K from them, base is just categories, conflict preferring yours');
-
-    result = getResolvedMoveOrder (talimDoc, threeCategories, threeCategories, addedK, "yours", moveAddK);
-    compareMoveOrders( [...threeCategories, {name:"K"}] , result );
-    console.log('^^^^^^^^^^^^^ merge with added K from them, yours is just categories, conflict preferring yours');
-
-    result = getResolvedMoveOrder (talimDoc, undefined, undefined, undefined, null, {...moveAddK, ...moveAddKB, ...moveAddKKK});
-    compareMoveOrders( [...baseOrder, ...justKSeriesNoIndent] , result );
-    console.log('^^^^^^^^^^^^^ merge with K series stealth added by them, no conflict');
-
-    result = getResolvedMoveOrder (talimDoc, undefined, undefined, addedKSeries, "theirs", {...moveAddKB, ...moveAddK, ...moveAddKKK});
-    compareMoveOrders( addedKSeries , result );
-    console.log('^^^^^^^^^^^^^ merge with K series explicitly added by them in middle, conflict preferring theirs');
-
-    result = getResolvedMoveOrder (talimDoc, undefined, [...threeCategories, ...baseOrder], categoriesAndKs, "yours", {...moveAddKB, ...moveAddK, ...moveAddKKK});
-    compareMoveOrders( [...categoriesAndKs, ...baseOrder] , result );
-    console.log('^^^^^^^^^^^^^ merge with K series explicitly added with 3 categories, your 3 categories at front, conflict preferring yours');
-
-    result = getResolvedMoveOrder (talimDoc, undefined, [...threeCategories, ...baseOrder], categoriesAndKs, "theirs", {...moveAddKB, ...moveAddK, ...moveAddKKK});
-    compareMoveOrders( [{"name":"Category 1","isCategory":true},{"name":"K"},{"name":"Category 2","isCategory":true},{"name":"KB","indent":1},{"name":"Category 3","isCategory":true},{"name":"AA"},{"name":"BB","indent":1},{"name":"KKK","indent":2}] , result );
-    console.log('^^^^^^^^^^^^^ merge with K series explicitly added with 3 categories, you add 3 categories at front, conflict preferring theirs');
-
-    result = getResolvedMoveOrder (talimDoc, [...threeCategories, ...baseOrder], [...threeCategories, ...baseOrder].reverse(), categoriesAndKs, "theirs", {...moveAddKB, ...moveAddK, ...moveAddKKK});
-    compareMoveOrders(  [{"name":"Category 1","isCategory":true},{"name":"K"},{"name":"Category 2","isCategory":true},{"name":"KB","indent":1},{"name":"BB","indent":1},{"name":"AA"},{"name":"Category 3","isCategory":true},{"name":"KKK","indent":2}], result );
-    console.log('^^^^^^^^^^^^^ merge with K series explicitly added with 3 categories, base has 3 categories at front and you reverse it, conflict preferring theirs');
-
-    result = getResolvedMoveOrder (talimDoc, [...threeCategories, ...baseOrder], [...threeCategories, ...baseOrder].reverse(), categoriesAndKs, "yours", {...moveAddKB, ...moveAddK, ...moveAddKKK});
-    compareMoveOrders(  [...reversedOrder, {"name":"Category 3","isCategory":true},{"name":"KKK","indent":2},{"name":"Category 2","isCategory":true},{"name":"KB","indent":1},{"name":"Category 1","isCategory":true},{"name":"K"}], result );
-    console.log('^^^^^^^^^^^^^ merge with K series explicitly added with 3 categories, base has 3 categories at front and you reverse it, conflict preferring yours');
-  }
-
   async function mapSerializationTest() {
     let changeAdd = {
       type: "add", 
-      new: "green" as ColumnData,
+      new: "green" as T.ColumnData,
       old: null 
-    } as ColumnChange;
+    } as T.ColumnChange;
     let changeModify = {
       type: "modify", 
-      new:  70 as ColumnData,
-      old: 69 as ColumnData,
-    } as ColumnChange;
-    let changes: Changes = {} as Changes;
+      new:  70 as T.ColumnData,
+      old: 69 as T.ColumnData,
+    } as T.ColumnChange;
+    let changes: T.Changes = {} as T.Changes;
     changes.boogers = changeAdd;
     changes.damage = changeModify;
     let putDoc: PouchDB.Core.PutDocument<Object> = changes; 
     putDoc._id = "changesTest";
-    putDoc._rev = (await db.get<Changes>("changesTest"))?._rev ?? undefined;
+    putDoc._rev = (await db.get<T.Changes>("changesTest"))?._rev ?? undefined;
     await db.put(putDoc);
-    let readDoc = await db.get<Changes>('changesTest');
+    let readDoc = await db.get<T.Changes>('changesTest');
     // As long as Changes isn't the top-level document, _id and _rev won't fuck up the object entries
-    let deSerialized: Changes = readDoc;
+    let deSerialized: T.Changes = readDoc;
     console.log("Stored and read dem changes, " + JSON.stringify(deSerialized));
   }
 
-  const baseOrder: MoveOrder[] = [{name:"windy moves","isCategory":true},{name:"AA"},{name:"dishonest moves","isCategory":true},{name:"BB","indent":1}];
-  const reversedOrder: MoveOrder[] = [...baseOrder].reverse();
-  const addedK: MoveOrder[] = [...baseOrder]; addedK.splice(2,0,{name: "K"});
-  const addedKEnd: MoveOrder[] = [...baseOrder]; addedKEnd.push({name: "K"});
-  const justKSeries: MoveOrder[] = [{name: "K"},{name: "KB", indent:1},{name: "KKK", indent:2}];
-  const justKSeriesNoIndent: MoveOrder[] = [{name: "K"},{name: "KB"},{name: "KKK"}];
-  const addedKSeries: MoveOrder[] = [...baseOrder]; addedKSeries.splice(2,0,...justKSeries);
-  const threeCategories: MoveOrder[] = [{name:"Category 1","isCategory":true},{name:"Category 2","isCategory":true}, {name:"Category 3","isCategory":true}];
-  const categoriesAndKs: MoveOrder[] = [threeCategories[0], justKSeries[0],threeCategories[1], justKSeries[1],threeCategories[2], justKSeries[2]];
-  const noBB: MoveOrder[] = baseOrder.slice(0,-1);
-  const noBBReverse: MoveOrder[] = [...noBB].reverse();
-  const indentedBB: MoveOrder[] = [...noBB, {name:"BB","indent":69}];
-  const moveAddK: MoveChangeList = {K: { moveName: {type: "add", new: "K"} }};
-  const moveAddKB: MoveChangeList = {KB: { moveName: {type: "add", new: "KB"} }};
-  const moveAddKKK: MoveChangeList = {KKK: { moveName: {type: "add", new: "KKK"} }};
-  const moveDelBB: MoveChangeList = {BB: { moveName: {type: "delete", old: "BB"} }};
-  const talimChanges: Readonly<ChangeDoc> = {
-    id: "1-banana",
-    previousChange: "0-bonono?",
-    updateDescription: "test",
-    createdAt: new Date(),
-    createdBy: "testyman",
-    baseRevision: "",
-    universalPropChanges: {
-      moveOrder: {type: "modify", 
-        new: reversedOrder,
-        old: indentedBB}
-    },
-    moveChanges: {
-      AA: { 
-        damage: {type: "modify", new: 70, old: 69},
-        height: {type: "delete", old: "H"},
-      },
-      //K: { moveName: {type: "add", new: "K"} }
-      //BB: { moveName: {type: "delete", old: "BB"} },
-    },
-    conflictList: {
-      universalProps: {
-        moveOrder: {
-          theirs: baseOrder,
-          yours: reversedOrder,
-          baseValue: baseOrder,
-          //resolution: "no-op"
-          resolution: {type: "modify", 
-            new: reversedOrder,
-            old: baseOrder}
-        }
-      }
-    }
+
+  function moveOrderTest() {
+    let result: T.MoveOrder[] = [];
+    result = getResolvedMoveOrder (undefined, undefined, undefined, null);
+    compareResults( E.Order.baseOrder , result );
+    console.log('^^^^^^^^^^^^^ base goes through, no conflict'); //no way to represent base adding/deleting while you change nothing
+
+    result = getResolvedMoveOrder (undefined, E.Order.reversedOrder, undefined, null);
+    compareResults( E.Order.reversedOrder, result );
+    console.log('^^^^^^^^^^^^^ Reverse order, no conflict');
+
+    result = getResolvedMoveOrder (undefined, undefined, undefined, null, E.MoveListChanges.addK );
+    compareResults( E.Order.addedKEnd, result );
+    console.log('^^^^^^^^^^^^^ stealth add(default end), no order changes or conflict');
+
+    result = getResolvedMoveOrder (undefined, E.Order.addedK, undefined, null, E.MoveListChanges.addK );
+    compareResults( E.Order.addedK, result );
+    console.log('^^^^^^^^^^^^^ you manual insert in middle uncontested, no conflict');
+
+    result = getResolvedMoveOrder (E.Order.reversedOrder, E.Order.addedK, undefined, "yours", E.MoveListChanges.addK );
+    compareResults( E.Order.addedK, result );
+    console.log('^^^^^^^^^^^^^ you add, base reverses, conflict preferring yours');
+
+    result = getResolvedMoveOrder (E.Order.reversedOrder, E.Order.addedK, undefined, "theirs", E.MoveListChanges.addK );
+    compareResults( [{"name":"BB","indent":1},{"name":"dishonest moves","isCategory":true},{"name":"AA"},{"name":"K"},{"name":"windy moves","isCategory":true}] , result );
+    console.log('^^^^^^^^^^^^^ you add, base reverses, conflict preferring base');
+
+    result = getResolvedMoveOrder (undefined, E.Order.noBBReverse, undefined, "yours");
+    compareResults( [{"name":"dishonest moves","isCategory":true},{"name":"BB","indent":1},{"name":"AA"},{"name":"windy moves","isCategory":true}] , result );
+    console.log('^^^^^^^^^^^^^ base adds BB, you reverse, conflict preferring yours');
+
+    result = getResolvedMoveOrder (undefined, E.Order.noBBReverse, undefined, "theirs");
+    compareResults( E.Order.baseOrder, result );
+    console.log('^^^^^^^^^^^^^ base adds BB, you reverse, conflict preferring base');
+
+    result = getResolvedMoveOrder (undefined, E.Order.noBB, undefined, null, E.MoveListChanges.delBB);
+    compareResults( E.Order.noBB, result );
+    console.log('^^^^^^^^^^^^^ you delete BB, no conflict');
+
+    result = getResolvedMoveOrder (E.Order.reversedOrder, E.Order.noBB, undefined, "yours", E.MoveListChanges.delBB);
+    compareResults( E.Order.noBB, result );
+    console.log('^^^^^^^^^^^^^ you delete BB, base reverses, conflict preferring yours');
+
+    result = getResolvedMoveOrder (E.Order.reversedOrder, E.Order.noBB, undefined, "theirs", E.MoveListChanges.delBB);
+    compareResults( E.Order.noBBReverse, result );
+    console.log('^^^^^^^^^^^^^ you delete BB, base reverses, conflict preferring base');
+
+    result = getResolvedMoveOrder (E.Order.noBB, undefined, undefined, null);
+    compareResults( E.Order.noBB , result );
+    console.log('^^^^^^^^^^^^^ base without BB, no conflict'); //no way to represent base adding/deleting while you change nothing
+
+    result = getResolvedMoveOrder (E.Order.noBB, E.Order.reversedOrder, undefined, "yours");
+    compareResults( E.Order.noBBReverse , result );
+    console.log('^^^^^^^^^^^^^ base deletes BB, you reverse, conflict preferring yours');
+
+    result = getResolvedMoveOrder (E.Order.noBB, E.Order.reversedOrder, undefined, "theirs");
+    compareResults( E.Order.noBB , result );
+    console.log('^^^^^^^^^^^^^ base deletes BB, you reverse, conflict preferring base');
+
+    // Merging (a merge where they make no changes can be treated as no-conflict rebase)
+    result = getResolvedMoveOrder (undefined, undefined, undefined, null, E.MoveListChanges.addK );
+    compareResults( E.Order.addedKEnd , result );
+    console.log('^^^^^^^^^^^^^ merge where stealth addition is theirs (as it must be), put at end, no conflict');
+
+    //result = getResolvedMoveOrder (undefined, E.Order.reversedOrder, E.Order.baseOrder, null, E.MoveListChanges.addK );
+    //compareResults( [...E.Order.reversedOrder, {name: "K"}] , result );
+    //console.log("^^^^^^^^^^^^^ merge with stealth addition to end, you reverse, no conflict (can't happen if theirs was rebased, that does a pass through order resolution favoring theirs)");
+    result = getResolvedMoveOrder (undefined, E.Order.reversedOrder, E.Order.addedKEnd, "yours", E.MoveListChanges.addK );
+    compareResults( [{"name":"BB","indent":1},{"name":"K"},{"name":"dishonest moves","isCategory":true},{"name":"AA"},{"name":"windy moves","isCategory":true}] , result );
+    console.log("^^^^^^^^^^^^^ merge with their 'stealth' addition to end rebased to explicit change, you reverse, conflict preferring yours");
+
+    result = getResolvedMoveOrder (undefined, E.Order.reversedOrder, E.Order.addedKEnd, "theirs", E.MoveListChanges.addK );
+    compareResults( E.Order.addedKEnd , result );
+    console.log("^^^^^^^^^^^^^ merge with their 'stealth' addition to end rebased to explicit change, you reverse, conflict preferring theirs");
+
+    result = getResolvedMoveOrder (undefined, E.Order.addedK, E.Order.baseOrder, null, E.MoveListChanges.addK );
+    compareResults( E.Order.addedK , result );
+    console.log('^^^^^^^^^^^^^ merge with added K from you, no conflict');
+
+    result = getResolvedMoveOrder (undefined, E.Order.addedK, E.Order.reversedOrder, "yours", E.MoveListChanges.addK );
+    compareResults( E.Order.addedK , result );
+    console.log('^^^^^^^^^^^^^ merge with added K from you, they reverse, conflict preferring yours');
+
+    result = getResolvedMoveOrder (undefined, E.Order.addedK, E.Order.reversedOrder, "theirs", E.MoveListChanges.addK );
+    compareResults( [{"name":"BB","indent":1},{"name":"dishonest moves","isCategory":true},{"name":"AA"},{"name":"K"},{"name":"windy moves","isCategory":true}], result );
+    console.log('^^^^^^^^^^^^^ merge with added K from you, they reverse, conflict preferring theirs');
+
+    result = getResolvedMoveOrder (undefined, undefined, E.Order.addedK, "theirs", E.MoveListChanges.addK );
+    compareResults( E.Order.addedK , result );
+    console.log('^^^^^^^^^^^^^ merge with added K from them, conflict preferring theirs');
+
+    result = getResolvedMoveOrder (undefined, E.Order.reversedOrder, E.Order.addedK, "theirs", E.MoveListChanges.addK );
+    compareResults( E.Order.addedK , result );
+    console.log('^^^^^^^^^^^^^ merge with added K from them, you reverse, conflict preferring theirs');
+
+    result = getResolvedMoveOrder (undefined, undefined, E.Order.noBBReverse, "theirs", E.MoveListChanges.delBB);
+    compareResults( E.Order.noBBReverse , result );
+    console.log('^^^^^^^^^^^^^ merge with deleted BB and reversal from them, conflict preferring theirs');
+
+    result = getResolvedMoveOrder (undefined, undefined, E.Order.noBBReverse, "yours", E.MoveListChanges.delBB);
+    compareResults( E.Order.noBB , result );
+    console.log('^^^^^^^^^^^^^ merge with deleted BB and reversal from them, conflict preferring yours');
+
+    result = getResolvedMoveOrder (undefined, E.Order.noBB, E.Order.baseOrder, null, E.MoveListChanges.delBB);
+    compareResults( E.Order.noBB , result );
+    console.log('^^^^^^^^^^^^^ merge with deleted BB from you, no conflict');
+
+    result = getResolvedMoveOrder (undefined, E.Order.noBB, E.Order.reversedOrder, "theirs", E.MoveListChanges.delBB);
+    compareResults( E.Order.noBBReverse , result );
+    console.log('^^^^^^^^^^^^^ merge with deleted BB from you, reversal from them, conflict preferring theirs');
+
+    result = getResolvedMoveOrder (undefined, E.Order.noBB, E.Order.reversedOrder, "yours", E.MoveListChanges.delBB);
+    compareResults( E.Order.noBB , result );
+    console.log('^^^^^^^^^^^^^ merge with deleted BB from you, reversal from them, conflict preferring yours');
+
+    result = getResolvedMoveOrder (undefined, E.Order.noBBReverse, E.Order.addedK, "yours", {...E.MoveListChanges.delBB, ...E.MoveListChanges.addK });
+    compareResults( [{"name":"dishonest moves","isCategory":true},{"name":"AA"},{"name":"K"},{"name":"windy moves","isCategory":true}] , result );
+    console.log('^^^^^^^^^^^^^ merge with reversed deleted BB from you, added K from them, conflict preferring yours');
+
+    result = getResolvedMoveOrder (undefined, E.Order.noBBReverse, E.Order.addedK, "theirs", {...E.MoveListChanges.delBB, ...E.MoveListChanges.addK });
+    compareResults( E.Order.addedK.slice(0,-1) , result );
+    console.log('^^^^^^^^^^^^^ merge with reversed deleted BB from you, added K from them, conflict preferring theirs');
+
+    result = getResolvedMoveOrder (E.Order.threeCategories, undefined, E.Order.addedK, "theirs", E.MoveListChanges.addK );
+    compareResults( [{"name":"windy moves","isCategory":true},{"name":"K"},{"name":"dishonest moves","isCategory":true}] , result );
+    console.log('^^^^^^^^^^^^^ merge with added K from them, base is just categories, conflict preferring theirs');
+
+    result = getResolvedMoveOrder (E.Order.threeCategories, undefined, E.Order.addedK, "yours", E.MoveListChanges.addK );
+    compareResults( [...E.Order.threeCategories, {name:"K"}] , result );
+    console.log('^^^^^^^^^^^^^ merge with added K from them, base is just categories, conflict preferring yours');
+
+    result = getResolvedMoveOrder (E.Order.threeCategories, E.Order.threeCategories, E.Order.addedK, "yours", E.MoveListChanges.addK );
+    compareResults( [...E.Order.threeCategories, {name:"K"}] , result );
+    console.log('^^^^^^^^^^^^^ merge with added K from them, yours is just categories, conflict preferring yours');
+
+    result = getResolvedMoveOrder (undefined, undefined, undefined, null, {...E.MoveListChanges.addK , ...E.MoveListChanges.addKB , ...E.MoveListChanges.addKKK});
+    compareResults( [...E.Order.baseOrder, ...E.Order.justKSeriesNoIndent] , result );
+    console.log('^^^^^^^^^^^^^ merge with K series stealth added by them, no conflict');
+
+    result = getResolvedMoveOrder (undefined, undefined, E.Order.addedKSeries, "theirs", {...E.MoveListChanges.addKB , ...E.MoveListChanges.addK , ...E.MoveListChanges.addKKK});
+    compareResults( E.Order.addedKSeries , result );
+    console.log('^^^^^^^^^^^^^ merge with K series explicitly added by them in middle, conflict preferring theirs');
+
+    result = getResolvedMoveOrder (undefined, [...E.Order.threeCategories, ...E.Order.baseOrder], E.Order.categoriesAndKs, "yours", {...E.MoveListChanges.addKB , ...E.MoveListChanges.addK , ...E.MoveListChanges.addKKK});
+    compareResults( [...E.Order.categoriesAndKs, ...E.Order.baseOrder] , result );
+    console.log('^^^^^^^^^^^^^ merge with K series explicitly added with 3 categories, your 3 categories at front, conflict preferring yours');
+
+    result = getResolvedMoveOrder (undefined, [...E.Order.threeCategories, ...E.Order.baseOrder], E.Order.categoriesAndKs, "theirs", {...E.MoveListChanges.addKB , ...E.MoveListChanges.addK , ...E.MoveListChanges.addKKK});
+    compareResults( [{"name":"Category 1","isCategory":true},{"name":"K"},{"name":"Category 2","isCategory":true},{"name":"KB","indent":1},{"name":"Category 3","isCategory":true},{"name":"AA"},{"name":"BB","indent":1},{"name":"KKK","indent":2}] , result );
+    console.log('^^^^^^^^^^^^^ merge with K series explicitly added with 3 categories, you add 3 categories at front, conflict preferring theirs');
+
+    result = getResolvedMoveOrder ([...E.Order.threeCategories, ...E.Order.baseOrder], [...E.Order.threeCategories, ...E.Order.baseOrder].reverse(), E.Order.categoriesAndKs, "theirs", {...E.MoveListChanges.addKB , ...E.MoveListChanges.addK , ...E.MoveListChanges.addKKK});
+    compareResults(  [{"name":"Category 1","isCategory":true},{"name":"K"},{"name":"Category 2","isCategory":true},{"name":"KB","indent":1},{"name":"BB","indent":1},{"name":"AA"},{"name":"Category 3","isCategory":true},{"name":"KKK","indent":2}], result );
+    console.log('^^^^^^^^^^^^^ merge with K series explicitly added with 3 categories, base has 3 categories at front and you reverse it, conflict preferring theirs');
+
+    result = getResolvedMoveOrder ([...E.Order.threeCategories, ...E.Order.baseOrder], [...E.Order.threeCategories, ...E.Order.baseOrder].reverse(), E.Order.categoriesAndKs, "yours", {...E.MoveListChanges.addKB , ...E.MoveListChanges.addK , ...E.MoveListChanges.addKKK});
+    compareResults(  [...E.Order.reversedOrder, {"name":"Category 3","isCategory":true},{"name":"KKK","indent":2},{"name":"Category 2","isCategory":true},{"name":"KB","indent":1},{"name":"Category 1","isCategory":true},{"name":"K"}], result );
+    console.log('^^^^^^^^^^^^^ merge with K series explicitly added with 3 categories, base has 3 categories at front and you reverse it, conflict preferring yours');
   }
 
-  function getResolvedMoveOrder (baseDoc: CharDoc, base: MoveOrder[] | undefined, yours: MoveOrder[] | undefined, theirs: MoveOrder[] | undefined, 
-                                resolution: null | "yours" | "theirs" | "no-op", extraMoveChanges?: MoveChangeList): MoveOrder[] {
+  function getResolvedMoveOrder (base: T.MoveOrder[] | undefined, yours: T.MoveOrder[] | undefined, theirs: T.MoveOrder[] | undefined, 
+                                resolution: null | "yours" | "theirs", extraMoveChanges?: T.MoveChangeList): T.MoveOrder[] {
     //uses indentedBB as old moveOrder for each changeDoc, conflicts explicitly specified by resolution
     //in merge, any moves they add/delete get resolved into your move changes
     //Can provide theirs and a null resolution to specify a merge where you change but they don't, leading to no conflicts
-    //For a merge where they add+change and you don't change, and your/base order is preferred, yours=undefined and resolution=yours
+    //For a merge where they have uncontested changes and you prefer to reject them, yours=undefined and resolution=yours
     if(!base) {
-      base = baseDoc.universalProps.moveOrder;
+      base = E.Order.baseOrder;
     }
-    else {
-      // put base order in base document (use shallow copies so original isn't changed)
-      baseDoc = {...baseDoc};
-      baseDoc.universalProps = {...baseDoc.universalProps, moveOrder: base};
-    }
-    let changeDoc: ChangeDoc = cloneDeep(talimChanges);
+    let changeDoc: T.ChangeDoc = cloneDeep(E.ChangeDocs.talimChanges);
+    let conflict: T.ConflictMoveOrder | undefined; //undefined if no resolution provided
 
     //Your old doesn't matter, it was only for determining if conflict happened
     if(!yours) {
       delete changeDoc.universalPropChanges;
     }
     else {
-      changeDoc!.universalPropChanges!.moveOrder = {type: "modify", new: yours, old: indentedBB}
+      changeDoc!.universalPropChanges!.moveOrder = {type: "modify", new: yours, old: E.Order.indentedBB}
     }
 
     if(extraMoveChanges) {
@@ -350,44 +302,210 @@ const Test: React.FC<TestProps> = ({propNum, propStr}) => {
       delete changeDoc.conflictList;
     }
     else {
-      yours = yours || base;
-      theirs = theirs || base;
-      changeDoc!.conflictList!.universalProps!.moveOrder.yours = yours;
-      changeDoc!.conflictList!.universalProps!.moveOrder.theirs = theirs;
-      if(resolution === "no-op") {
-        changeDoc!.conflictList!.universalProps!.moveOrder!.resolution = "no-op";
+      let yourChange: T.Modify<T.MoveOrder[]> | "no-op" = (yours) ? changeDoc!.universalPropChanges!.moveOrder! : "no-op"; //noop when merging their uncontested changes
+      let theirChange: T.Modify<T.MoveOrder[]> | "no-op" = "no-op"; //theirs is no-op in rebase
+      if(theirs) { //merge
+        theirChange = {type: "modify", new: theirs, old: E.Order.indentedBB} as T.Modify<T.MoveOrder[]>;
+        conflict = {yours: yourChange, theirs: theirChange, resolution: resolution};
       }
-      else {
-        changeDoc!.conflictList!.universalProps!.moveOrder!.resolution = {type: "modify", new: (resolution === "yours") ? yours! : theirs!, old: base};
+      else { //rebase
+        if(yourChange === "no-op") throw new Error("Your change can't be no-op in moveOrder rebase");
+        conflict = {yours: yourChange, theirs: theirChange, resolution: resolution};
       }
     }
-    let result: MoveOrder[] = resolveMoveOrder(baseDoc, changeDoc, !!theirs);
+    let result: T.MoveOrder[] = resolveMoveOrder(base, changeDoc, !!theirs, conflict);
     return result;
     //console.log(JSON.stringify(result));
   }
-  function compareMoveOrders(expected: MoveOrder[], actual: MoveOrder[]) {
+
+
+  function mergeTest() {
+    doMergeTest("both changed", {damage: E.Con.c1_2v3 }, E.MoveChanges.damage13, E.MoveChanges.damage12);
+
+    doMergeTest("both changed, redundant", null, E.MoveChanges.damage13, E.MoveChanges.damage13);
+
+    doMergeTest("only they changed, autoresolve", {damage: E.Con.c1_3_AR }, E.MoveChanges.damage13);
+
+    doMergeTest("both changed damage and height", E.MoveCons.m_dmgHeight , 
+                {...E.MoveChanges.damage13, ...E.MoveChanges.heightHL}, 
+                {...E.MoveChanges.damage12, ...E.MoveChanges.heightHM});
+
+    doMergeTest("only they add BB w/ damage, autoresolve", E.MoveCons.m_addBBDamage , {...E.MoveChanges.moveAddBB, ...E.MoveChanges.damage13});
+
+    doMergeTest("only they delete BB w/ damage, autoresolve", E.MoveCons.m_delBBDamage , {...E.MoveChanges.moveDelBB, ...E.MoveChanges.damageDel1});
+
+    doMergeTest("they delete BB, you change damage", E.MoveCons.m_delBBDamageCon , {...E.MoveChanges.moveDelBB, ...E.MoveChanges.damageDel1}, E.MoveChanges.damage12);
+
+    doMergeTest("they delete BB, you add damage", E.MoveCons.m_delBBDamageAdd , E.MoveChanges.moveDelBB, E.MoveChanges.damageAdd3);
+
+    doMergeTest("you delete BB, they change damage and add height", E.MoveCons.m_youDelTheyChangeDamageAddHeight , 
+                {...E.MoveChanges.damage13, ...E.MoveChanges.heightAddL}, 
+                {...E.MoveChanges.moveDelBB, ...E.MoveChanges.damageDel1});
+
+    doMergeTest("both deleted, redundant", null, {...E.MoveChanges.moveDelBB, ...E.MoveChanges.damageDel1}, {...E.MoveChanges.moveDelBB, ...E.MoveChanges.damageDel1});
+
+    doMergeTest("both added same, redundant", null, {...E.MoveChanges.moveAddBB, ...E.MoveChanges.damageAdd3}, {...E.MoveChanges.moveAddBB, ...E.MoveChanges.damageAdd3});
+
+    //Can't do test for only you changing, never makes conflicts
+  }
+  function doMergeTest(testName: string, expected: T.Conflicts | null, theirs: T.MoveChanges, yours?: T.MoveChanges) {
+    let conflicts: T.Conflicts | null = getMergeConflicts(theirs, yours);
+    //if(util.keys(conflicts).length===0) conflicts = null;
+    compareResults(expected, conflicts && {...conflicts});
+    console.log("^^^^^^^^^^ " + testName); 
+  }
+
+
+  function rebaseTest() {
+    doRebaseTest("you change, base doesn't, no conflict", null, {...E.MoveChanges.damage12, ...E.MoveChanges.heightHM}, E.Vals.dmgHeight);
+
+    doRebaseTest("redundant change to damage and height", E.MoveCons.r_dmgHeight_redundant, {...E.MoveChanges.damage12, ...E.MoveChanges.heightHM}, E.Vals.dmgHeight2);
+
+    doRebaseTest("both modified damage and height", E.MoveCons.r_dmgHeight, {...E.MoveChanges.damage12, ...E.MoveChanges.heightHM}, E.Vals.dmgHeight3);
+
+    doRebaseTest("modify damage, base deletes", {damage: E.MoveCons.rebCon(E.ColChange.add2)}, E.MoveChanges.damage12, E.Vals.height);
+
+    doRebaseTest("you modify damage on move base lacks, stealth add", E.MoveCons.r_dmg_stealth_add, {...E.MoveChanges.damage12});
+
+    doRebaseTest("you add height on move base lacks, stealth add", E.MoveCons.r_height_stealth_add, {...E.MoveChanges.heightAddM});
+
+    doRebaseTest("you modify damage, add height on move base lacks, stealth add", E.MoveCons.r_dmgHeight_stealth_add, {...E.MoveChanges.damage12, ...E.MoveChanges.heightAddM});
+
+    doRebaseTest("you delete damage, add height on move base lacks, stealth add", E.MoveCons.r_delDmg_modHeight_stealth_add, {...E.MoveChanges.damageDel1, ...E.MoveChanges.heightHM});
+
+    doRebaseTest("redundant move add", E.MoveCons.r_moveName_redundant, E.MoveChanges.moveAddBB, E.Vals.dmgHeight2);
+
+    doRebaseTest("redundant move add, height add rebased to modify", {...E.MoveCons.r_moveName_redundant, height: {yours: E.ColChange.modHM, theirs: "no-op"}}, 
+                 {...E.MoveChanges.moveAddBB, ...E.MoveChanges.heightAddM}, E.Vals.dmgHeight);
+
+    doRebaseTest("redundant move delete", E.MoveCons.r_moveName_redundant, E.MoveChanges.moveDelBB);
+
+    doRebaseTest("redundant move+height delete", {moveName: E.Con.cAutoNoop, height: E.Con.cAutoNoop}, 
+                 {...E.MoveChanges.moveDelBB, ...E.MoveChanges.heightDelH});
+
+    doRebaseTest("uncontested move+damage add", null, {...E.MoveChanges.moveAddBB, ...E.MoveChanges.damageAdd2});
+
+    doRebaseTest("uncontested move+damage+height delete", null, {...E.MoveChanges.moveDelBB, ...E.MoveChanges.heightDelH, ...E.MoveChanges.damageDel1}, E.Vals.dmgHeight);
+
+    doRebaseTest("you del move+height but not dmg, conflict to delete", {...E.MoveCons.r_delBB, damage: {yours: E.ColChange.del1, theirs: "no-op"}}, 
+                 {...E.MoveChanges.moveDelBB, ...E.MoveChanges.heightDelH}, E.Vals.dmgHeight);
+
+    doRebaseTest("you del move+damage+height, base altered both", {...E.MoveCons.r_delBB, damage: {yours: E.ColChange.del2, theirs: "no-op"}, height: {yours: E.ColChange.delM, theirs: "no-op"}}, 
+                 {...E.MoveChanges.moveDelBB, ...E.MoveChanges.heightDelH, ...E.MoveChanges.damageDel1}, E.Vals.dmgHeight2);
+  }
+  function doRebaseTest(testName: string, expected: T.Conflicts | null, yours: T.MoveChanges, baseVals?: T.Cols) {
+    let conflicts: T.Conflicts | null = getRebaseConflicts("BB", yours, baseVals);
+    //if(util.keys(conflicts).length===0) conflicts = null;
+    compareResults(expected, conflicts && {...conflicts});
+    console.log("^^^^^^^^^^ " + testName); 
+  }
+
+  function resolutionTest() {
+    //Rebase updates metadata and prevChange
+    doResolutionTest("Rebase, you have uncontested AA changes, you stealth add BB by changing damage, don't resolve", E.ChangeDocs.modAA_stealthBB_conflicts, "no-resolve",
+                     E.ChangeDocs.modAA_dmgBB, undefined, E.CharDocs.noBB);
+    doResolutionTest("Rebase, you have uncontested AA changes, you stealth add BB by changing damage, resolve yours", E.ChangeDocs.modAA_stealthBB_yours, "yours",
+                     E.ChangeDocs.modAA_dmgBB, undefined, E.CharDocs.noBB);
+    doResolutionTest("Rebase, you have uncontested AA changes, you stealth add BB by changing damage, resolve theirs (aka reject all)", E.ChangeDocs.modAA_stealthBB_theirs, "theirs",
+                     E.ChangeDocs.modAA_dmgBB, undefined, E.CharDocs.noBB);
+
+    //rebase mergedoc to no changes
+    doResolutionTest("Merge, theirs rebases to nothing by deleting BB+changing AA to base, you change AA+BB, resolve theirs (which is yours since they have no changes)", 
+                     E.ChangeDocs.modAA_dmgBB , "theirs", E.ChangeDocs.modAA_dmgBB , E.ChangeDocs.old_modAAtoBase_delBB , E.CharDocs.noBB);
+
+    //rebase mergedoc
+    doResolutionTest("Merge, theirs rebases to stealth adding BB and reverses order and changes AA to 3, you mod AA add BB, prefer theirs", E.ChangeDocs.modAA3_dmgBB_reverse_theirs, "theirs", 
+                     E.ChangeDocs.modAA_addBB, E.ChangeDocs.old_modAA3_dmgBB_reverse, E.CharDocs.noBB);
+    doResolutionTest("Merge, theirs rebases to stealth adding BB and reverses order and changes AA to 3, you mod AA add BB, prefer yours", E.ChangeDocs.modAA3_dmgBB_reverse_yours, "yours", 
+                     E.ChangeDocs.modAA_addBB, E.ChangeDocs.old_modAA3_dmgBB_reverse, E.CharDocs.noBB);
+
+    //apply resolutions to noop all. Isn't that just selecting theirs in rebase?
+
+    //resolve prop changes
+
+    //explicit moveOrder change gets nooped out by resolution choices
+    doResolutionTest("Merge, they del BB add K, you make no changes and reject theirs", 
+                     E.ChangeDocs.unchanged , "yours", E.ChangeDocs.unchanged , E.ChangeDocs.delBBaddK, undefined);
+    doResolutionTest("Merge, they del BB add K, you make no changes and accept theirs", 
+                     E.ChangeDocs.delBBaddK, "theirs", E.ChangeDocs.unchanged , E.ChangeDocs.delBBaddK, undefined);
+    //Resolve some theirs, some yours
+    doResolutionTest("Merge, they del BB add K, you reverse order and accept your order but their movechanges", 
+                     E.ChangeDocs.delBBaddKReverse, {"universalProps": "yours", "BB": "theirs", "K": "theirs"}, E.ChangeDocs.reverseOrder, E.ChangeDocs.delBBaddK, undefined);
+    //unresolved moveOrder conflict
+    doResolutionTest("Merge, they del BB add K, you reverse order and accept their movechanges, no order resolution", 
+                     E.ChangeDocs.delBBaddKReverseUnresolvedOrder, {"BB": "theirs", "K": "theirs"}, E.ChangeDocs.reverseOrder, E.ChangeDocs.delBBaddK, undefined);
+  }
+  type ResOptions = "yours" | "theirs" | "no-resolve";
+  function doResolutionTest(testName: string, expected: T.ChangeDoc, resolution: ResOptions | {[moveName: string]: ResOptions}, yours: T.ChangeDoc | undefined, theirs: T.ChangeDoc | undefined, base?: T.CharDocWithMeta) {
+    //Do merge if theirs is provided. If theirs has a lower rev than provided baseDoc, it'll be rebased
+    //Uses baseDoc if yours not provided
+    yours = cloneDeep<T.ChangeDoc>(yours ?? E.ChangeDocs.talimChanges);
+    if(!base) base = cloneDeep<T.CharDocWithMeta>(E.CharDocs.baseDoc);
+    if(!theirs) {
+      rebaseChangeDoc(base, yours);
+    }
+    else {
+      mergeChangeDocs(theirs, yours, base);
+    }
+    if(resolution !== "no-resolve" && yours.conflictList) {
+      if(typeof resolution === 'object') {
+        for(const [move, conflicts] of util.keyVals(yours.conflictList)) {
+          if(!conflicts || !resolution[move]) continue;
+          for(const [col, conflict] of util.keyVals(conflicts)) {
+            const res = resolution[move];
+            if(!conflict ||  res === "no-resolve") continue;
+            conflict.resolution = res;
+          }
+        }
+      }
+      else {
+        autoResolveConflicts(yours, resolution);
+      }
+    }
+    applyResolutions(base, yours, !!theirs);
+    compareResults(expected, yours, true);
+    console.log("^^^^^^^^^^ " + testName); 
+  }
+
+  function compareResults<X>(expected: X, actual: X, printWrongProps: boolean = false) {
     if(isEqual(expected, actual)) {
       console.log("Returned expected: "+JSON.stringify(expected));
     }
     else {
-      console.error("Test failed. Expected: "+JSON.stringify(expected)+", actual: "+JSON.stringify(actual));
+      console.error("Test failed. \nExpected: "+JSON.stringify(expected)+"\n  actual: "+JSON.stringify(actual));
+      if(printWrongProps) printDifferencesRecursive('', expected, actual);
+    }
+  }
+  function printDifferencesRecursive(propName: string, expected: unknown, actual: unknown) {
+    if(typeof expected === 'object' && expected && typeof actual === 'object' && actual) {
+      let keyUnion: Set<string> = new Set(util.keys(expected).concat(util.keys(actual)));
+      for(const key of keyUnion) {
+        let expectedVal = expected[key as keyof typeof expected];
+        let actualVal = actual[key as keyof typeof actual]
+        printDifferencesRecursive(propName+'.'+key, expectedVal, actualVal);
+      }
+    }
+    else {
+      if(expected !== actual) {
+        console.error(`Error in ${propName}: Expected: ${JSON.stringify(expected)} Actual: ${JSON.stringify(actual)}`)
+      }
     }
   }
 
   useIonViewDidEnter(() => {
     console.log('ion view did enter event fired');
-    moveOrderTest();
+    //moveOrderTest();
+    //mergeTest();
+    //rebaseTest();
+    resolutionTest();
     //pullDB("test");
     //getDocById("_design/testdesign", (doc) => {
       //setText(doc.title);
     //});
   });
 
-  const mapToMap = new Map([[1,'one'],[2,'two']])
-
   return (
     <IonPage>
-    {mapToMap.forEach((v,k)=>{return(<span>v</span>)})}
       <IonHeader>
         <IonToolbar>
           <IonButtons slot="start">

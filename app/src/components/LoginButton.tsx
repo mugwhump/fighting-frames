@@ -3,7 +3,7 @@ import { logInOutline, logInSharp } from 'ionicons/icons';
 import React, { useState } from 'react';
 //import LoginModal from './LoginModal';
 import { useLoginInfoContext, LoginInfo } from './GameProvider';
-import CompileConstants from '../services/CompileConstants';
+import CompileConstants from '../constants/CompileConstants';
 
 type LoginButtonProps = {
   db: string 

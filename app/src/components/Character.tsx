@@ -7,7 +7,7 @@ import { Action } from 'history';
 import { Link } from 'react-router-dom';
 import { useDoc, usePouch } from 'use-pouchdb';
 import {MoveOrder, ColumnDef, ColumnDefs, ColumnData, Cols, PropCols, MoveCols, CharDoc, } from '../types/characterTypes';
-import { requiredPropDefs } from '../types/internalColumns';
+import { requiredPropDefs } from '../constants/internalColumns';
 import EditCharacter from './EditCharacter';
 import MoveOrUniversalProps from './MoveOrUniversalProps';
 import { CategoryAndChildRenderer } from './CategoryAndChildRenderer';

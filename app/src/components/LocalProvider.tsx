@@ -2,7 +2,7 @@ import React, { useMemo, useReducer, useEffect, Dispatch, ReducerAction, useStat
 import { useLocation, useHistory } from 'react-router';
 import { GameProvider } from './GameProvider';
 import PouchDB from 'pouchdb';
-import CompileConstants from '../services/CompileConstants';
+import CompileConstants from '../constants/CompileConstants';
 import { StringSet } from '../types/utilTypes';
 import { usePouch } from 'use-pouchdb';
 
