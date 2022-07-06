@@ -498,7 +498,7 @@ export const GameProvider: React.FC<GameProviderProps> = ({children, credentialS
     console.log("Logging out, aka switching to default user");
     logIn(CompileConstants.DEFAULT_CREDENTIALS.username, CompileConstants.DEFAULT_CREDENTIALS.password);
   }
-  //}, [currentCreds]); //nah, don't want closure capture
+  //}, [currentCreds]); //nah, don't want closure capture. Isn't actually triggering LoginButton re-renders like I'd expect.
 
   if(routeMatch == null) {
     //console.log("GameProvider sez: no gameId, using top");
@@ -516,6 +516,7 @@ export const GameProvider: React.FC<GameProviderProps> = ({children, credentialS
     );
   }
   else {
+    //TODO: all explicitly-rendered components (aka not {children}) rerender whenever GameProvider updates. That okay?
     return (
       <DispatchContext.Provider value={dispatch}>
         <GameContext.Provider value={state}>

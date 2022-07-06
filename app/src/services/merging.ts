@@ -293,6 +293,8 @@ export function getMergeConflicts(theirChanges: T.Changes, yourChanges?: T.Chang
   //MOVE ORDER: standard rules, autoresolved conflict if only they changed
 }
 
+
+
 //Modifies changeDoc by applying resolutions of all conflicts
 //If all conflicts resolved, updates changeDoc's metadata and resolves moveOrder. 
 //Provide theirChanges if merging

@@ -13,7 +13,8 @@ export const moveOrderColumnDef: ColumnDef = {
   displayName: "Move Order & Categories",
   dataType: DataType.Ord,
   required: true,
-  defaultShow: false,
+  group: "meta",
+  width: "xl",
 }
 
 //const charBannerDef: ColumnDef = {
@@ -28,20 +29,71 @@ export const requiredPropDefs: Readonly<ColumnDef[]> = [moveOrderColumnDef];
 
 // --------------------- MOVE COLUMNS --------------------
 
-export const moveNameColumnDef: ColumnDef = {
+export const moveNameColumnDef: Readonly<ColumnDef> = {
   columnName: "moveName",
   displayName: "Move Name",
   dataType: DataType.Str,
   required: true,
   forbiddenValues: ["universalProps","moveName","moveOrder","displayName"],
   minSize: 1,
-  defaultShow: true,
+  group: "meta",
+  width: "xl",
 }
-export const displayNameColumnDef: ColumnDef = {
+// Suggested columns
+export const displayNameColumnDef: Readonly<ColumnDef> = {
   columnName: "displayName",
   displayName: "Display Name",
   dataType: DataType.Str,
   required: false,
   forbiddenValues: ["universalProps","moveName","moveOrder","displayName"],
-  defaultShow: true,
+  group: "title",
+  width: "sm",
 }
+export const damageColumnDef: Readonly<ColumnDef> = {
+  columnName: "damage",
+  displayName: "Damage",
+  shortName: "DMG",
+  dataType: DataType.Num, //Hard to say what should be NumStr to let users enter multi-hit info...
+  required: false,
+  group: "needsHeader",
+  width: "xs",
+}
+export const startupFramesColumnDef: Readonly<ColumnDef> = {
+  columnName: "startup",
+  displayName: "Startup",
+  shortName: "IMP",
+  prefix: 'i',
+  dataType: DataType.Int,
+  required: false,
+  group: "needsHeader",
+  width: "xs",
+}
+export const guardFramesColumnDef: Readonly<ColumnDef> = {
+  columnName: "onBlock",
+  displayName: "On Block",
+  shortName: "GRD",
+  dataType: DataType.Int,
+  required: false,
+  group: "needsHeader",
+  width: "xs",
+}
+export const hitFramesColumnDef: Readonly<ColumnDef> = {
+  columnName: "onHit",
+  displayName: "On Hit",
+  shortName: "HIT",
+  dataType: DataType.NumStr,
+  allowedValues: ['#','-','STN','KDN','LNC'],
+  required: false,
+  group: "needsHeader",
+  width: "xs",
+}
+export const totalFramesColumnDef: Readonly<ColumnDef> = {
+  columnName: "totalFrames",
+  displayName: "Total Frames",
+  shortName: "GRD",
+  dataType: DataType.Int,
+  required: false,
+  group: "needsHeader",
+  width: "xs",
+}
+//active frames, recovery frames, move inputs

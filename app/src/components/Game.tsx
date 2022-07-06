@@ -5,6 +5,8 @@ import { Route } from 'react-router-dom';
 import { useDocumentLocalRemoteSwitching } from '../services/pouch';
 import { useDoc, usePouch } from 'use-pouchdb';
 import { Character } from '../components/Character';
+import CharacterSegments  from '../components/CharacterSegments';
+import { CharacterProvider } from '../components/CharacterProvider';
 import { useGameContext, useGameDispatch, Action as GameAction } from './GameProvider';
 import HeaderPage from '../components/HeaderPage';
 import { DesignDoc } from '../types/characterTypes';
@@ -48,8 +50,9 @@ const Game: React.FC<GameProps> = () => {
         {/*Keep in mind router params stop at slashes, so /character/bob/local-edit just has bob as the character*/}
         <Route path={"/game/" + gameId + "/character/:character"} >
           <HeaderPage title={gameId + "is the game id"}>
-            <Character gameId={gameId} columnDefs={doc!.columnDefs} universalPropDefs={doc!.universalPropDefs}/>
-            {/*<IonButton type="button" onClick={() => gameDispatch({actionType: 'fetchSuccess', usedLocal: gameContext.usingLocal} as GameAction)}>foo</IonButton>*/}
+            <CharacterProvider gameId={gameId}>
+              <CharacterSegments gameId={gameId} columnDefs={doc!.columnDefs} universalPropDefs={doc!.universalPropDefs} />
+            </CharacterProvider>
           </HeaderPage>
         </Route>
     </>

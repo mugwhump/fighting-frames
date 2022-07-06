@@ -1,40 +1,48 @@
 import { IonModal, IonItem, IonInput, IonItemGroup, IonItemDivider, IonButton, IonLabel, IonIcon, IonText } from '@ionic/react';
 import { warningOutline, warningSharp } from 'ionicons/icons';
-import React, { useState, useRef, useEffect } from 'react';
+import React, { useState, useRef, useEffect, useMemo } from 'react';
 import PouchDB from 'pouchdb';
 import PouchAuth from 'pouchdb-authentication';
 import ColumnDataEdit from './ColumnDataEdit';
-import type { Changes, AddMoveChanges , ColumnDef, ColumnData, ColumnDefAndData, DataType, ColumnChange, Add, Modify, Delete } from '../types/characterTypes'; //== 
+import type { Changes, AddMoveChanges , ColumnDef, ColumnDefs, Cols, ColumnData, ColumnDefAndData, DataType, ColumnChange, Add, Modify, Delete } from '../types/characterTypes'; //== 
 import type { FieldError } from '../types/utilTypes'; //==
-import { keys, isString, isStringColumn, isMoveOrder, checkInvalid } from '../services/util';
+import { keys, isString, isStringColumn, isMoveOrder, checkInvalid, getDefsAndData } from '../services/util';
 import { createChange } from '../services/merging';
 import { cloneDeep, isEqual } from 'lodash';
+import { useCharacterDispatch } from '../services/CharacterReducer';
 PouchDB.plugin(PouchAuth);
 
-type MoveEditModalProps  = {
+export type MoveEditModalProps  = {
   moveName: string; //if new move, pass empty string
-  defsAndData: Readonly<ColumnDefAndData[]>; //has already had originalChanges applied once.
-  originalChanges: Readonly<Changes> | null; //null means new move or nothing changed yet.
-  onDismiss: (prepareToDismiss?: boolean) => void; //callbacks defined in caller using this 
-  editMove?: (moveName: string, changes: Changes | null, isDeletion?: boolean) => void; //to return edited move
-  addMove?: (moveChanges: AddMoveChanges ) => void; //is undefined if editing existing move.
+  //columnDefs: ColumnDefs; //definitions for moves or universal props
+  //defsAndData: Readonly<ColumnDefAndData[]>; //has already had originalChanges applied once.
+  getDefsAndData: (moveName: string) => ColumnDefAndData[]; //has already had originalChanges applied once.
+  //columns: Cols | undefined;
+  originalChanges: Readonly<Changes> | undefined; //undefined means new move or nothing changed yet.
+  //conflicts?: Conflicts; //TODO: NO, TOO MUCH. MAKE SEPARATE COMPONENT FOR RESOLUTION.
+  //onDismiss: (prepareToDismiss?: boolean) => void; //callbacks defined in caller using this 
+  //editMove?: (moveName: string, changes: Changes | null, isDeletion?: boolean) => void; //to return edited move
+  //addMove?: (moveChanges: AddMoveChanges ) => void; //is undefined if editing existing move.
 }
 
 // Use with useIonModal, pass this as body. Used to edit moves or add new moves (in which case not child of MoveOrUniversalProps and must set moveName)
-const MoveEditModal: React.FC<MoveEditModalProps > = ({moveName, defsAndData, originalChanges, onDismiss, editMove, addMove }) => {
+//TODO: conflict resolution! Should conflicts disappear as values are edited? What if you want to compromise on notes or tags?
+const MoveEditModal: React.FC<MoveEditModalProps > = ({moveName, getDefsAndData, originalChanges}) => {
+  const addingNewMove: boolean = moveName === "";
+  const defsAndData = useMemo<ColumnDefAndData[]>(()=>getDefsAndData(moveName), [moveName]);
   const [clonedChanges, setClonedChanges] = useState<Changes>(getClonedChanges);
   const [fieldErrors, setFieldErrors] = useState<{[columnName: string]: FieldError}>(getInitialErrors);
-  const displayName = (moveName === "universalProperties") ? "Universal Properties" : (addMove ? "New Move" : moveName);
-  if(!editMove === !addMove) throw new Error("Either editMove or addMove must be defined, not both");
+  const displayName = (moveName === "universalProperties") ? "Universal Properties" : (addingNewMove ? "New Move" : moveName);
+  const characterDispatch = useCharacterDispatch();
 
-  useEffect(()=>{
-    console.log("Editing modal created for "+JSON.stringify(defsAndData)+", checking for errors");
-    return () => {
-      if(addMove) {
-        onDismiss();
-      }
-    }
-  }, []);
+  //useEffect(()=>{
+    //console.log("Editing modal created for "+JSON.stringify(defsAndData)+", checking for errors");
+    //return () => {
+      //if(addMove) {
+        //onDismiss();
+      //}
+    //}
+  //}, []);
 
   function getClonedChanges(): Changes {
     if(originalChanges) {
@@ -67,8 +75,7 @@ const MoveEditModal: React.FC<MoveEditModalProps > = ({moveName, defsAndData, or
     if(dataDef.def) {
       const error = checkInvalid(newData, dataDef.def);
       if(error) {
-        //fieldErrors[columnName] = error;
-        setFieldErrors({[columnName]: error, ...fieldErrors});
+        setFieldErrors({...fieldErrors, [columnName]: error});
         console.log("Not updating clonedCols, error:" + JSON.stringify(error));
         return;
       }
@@ -107,7 +114,11 @@ const MoveEditModal: React.FC<MoveEditModalProps > = ({moveName, defsAndData, or
 
 
   function submit(): void {
-    if(editMove) {
+    if(addingNewMove) {
+      let newMoveChanges: AddMoveChanges  = clonedChanges as AddMoveChanges ;
+      characterDispatch({actionType: 'addMove', moveChanges: newMoveChanges});
+    }
+    else {
       // submit cloned changes to EditCharacter, which adds them to changelist, writes, and parent MoveOrProps re-calcs defsAndData with new changes
       // Do deep compare to see if clonedChanges is equal to originals, if so just close
       const isRevert = keys(clonedChanges).length === 0;
@@ -115,18 +126,12 @@ const MoveEditModal: React.FC<MoveEditModalProps > = ({moveName, defsAndData, or
         console.log("No new changes, not submitting");
       }
       else {
-        editMove(moveName, isRevert ? null : clonedChanges);
+        characterDispatch({actionType: 'editMove', moveName, moveChanges: (isRevert ? null : clonedChanges)});
       }
     }
-    else if(addMove) {
-      let newMoveChanges: AddMoveChanges  = clonedChanges as AddMoveChanges ;
-      addMove(newMoveChanges);
-    }
-    else {
-      throw new Error("editMove or addMove must be defined");
-    }
     //if adding move, need dismissal preparation since presenting button is inside a popover. Actual dismissal will be in useEffect cleanup.
-    onDismiss(!!addMove); 
+    //onDismiss(!!addMove); 
+    characterDispatch({actionType: 'closeMoveEditModal'});
   }
 
 
@@ -160,8 +165,9 @@ const MoveEditModal: React.FC<MoveEditModalProps > = ({moveName, defsAndData, or
       <IonItem key="footer">
         <input type="submit" style={{display: "none"}}/> {/* enables enter key submission. TODO: test on mobile */}
         <IonButton disabled={keys(fieldErrors).length>0} onClick={() => submit()}>Submit</IonButton>
-        {editMove && <IonButton onClick={() => deleteMove()}>Delete</IonButton>}
-        <IonButton onClick={() => onDismiss(!!addMove)}>Cancel</IonButton>
+        {!addingNewMove && <IonButton onClick={() => deleteMove()}>Delete</IonButton>}
+        {/*<IonButton onClick={() => onDismiss(!!addMove)}>Cancel</IonButton>*/}
+        <IonButton onClick={() => characterDispatch({actionType:'closeMoveEditModal'})}>Cancel</IonButton>
       </IonItem>
     {/*</IonModal>*/}
     </>

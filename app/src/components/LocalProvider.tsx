@@ -288,6 +288,12 @@ export const LocalProvider: React.FC = ({children}) => {
   }
   else {
     //TODO: should dispatch not be outside state?
+    //TODO: putting GameProvider here instead of inside children means it rerenders whenever LocalProvider updates
+    // see https://dev.to/javmurillo/react-context-all-in-one-54ck#does-my-entire-app-rerender-if-the-provider-state-changes
+    // <Context.Provider> will only re-render if its children prop does not share reference equality with its previous children prop.
+    // If {children} are same but value changes, still doesn't re-render them. But using <GameProvider> raw creates a new element every time.
+    // see https://web.archive.org/web/20211120024251/https://frontarm.com/james-k-nelson/react-context-performance/
+    // Other alternative is memoizing children.
     return (
       <StateContext.Provider value={state}>
         <DispatchContext.Provider value={dispatch}>

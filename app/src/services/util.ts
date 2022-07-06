@@ -2,6 +2,7 @@
 import type * as T from '../types/characterTypes'; //== 
 import {DataType} from '../types/characterTypes'; //== 
 import type { FieldError } from '../types/utilTypes'; //==
+import { getChangedCols } from '../services/merging';
 
 //export function keys<T extends object>(obj: T): Array<keyof T> { //was always insisting keys could be string | number, maybe since number keys get coerced to strings
 export function keys<T extends object>(obj: T): Array<string> {
@@ -23,9 +24,7 @@ export function shallowCompare(obj1: any, obj2: any): boolean {
     );
   }
 }
-//export function getConflictsByMoveName(moveName: string, conflictList: T.ConflictList): T.Conflicts | undefined {
-  //return conflictList.find((conflict) => {return conflict.moveName === moveName});
-//}
+//TODO: how is this at all better than just optional chaining
 export function getChangeListMoveOrder(changeList: T.ChangeDoc): T.MoveOrder[] | null {
   let orderChange = changeList?.universalPropChanges?.moveOrder;
   if(orderChange) {
@@ -56,9 +55,10 @@ export function isConflictMoveOrderRebaseBothChange(conflict: T.ConflictMoveOrde
 //add and remove a specific change from changelist, handling the missing key if there's no changes
 //Works when universalProps given as moveName
 //Null moveChanges means delete changes
-export function updateMoveOrPropChanges(changeList: T.ChangeDoc, moveName: string, moveChanges: Readonly<T.Changes> | null): void {
+export function updateMoveOrPropChanges(changeList: T.ChangeDoc, moveName: string, moveChanges: Readonly<T.Changes> | null, updateRefs: boolean=false): T.ChangeDoc {
+  const isPropChange = moveName === "universalProps";
   if(moveChanges) {
-    if(moveName === "universalProps") {
+    if(isPropChange) {
       changeList.universalPropChanges = moveChanges as T.PropChanges;
     }
     else {
@@ -71,7 +71,7 @@ export function updateMoveOrPropChanges(changeList: T.ChangeDoc, moveName: strin
     }
   }
   else { //delete changes
-    if(moveName === "universalProps") {
+    if(isPropChange) {
       delete changeList.universalPropChanges;
     }
     else {
@@ -83,6 +83,14 @@ export function updateMoveOrPropChanges(changeList: T.ChangeDoc, moveName: strin
       }
     }
   }
+  // Update the changeList.moveChanges reference for react rendering updates. Uncomment if needed anywhere.
+  if(updateRefs) {
+    if(!isPropChange && changeList.moveChanges) {
+      changeList.moveChanges = {...changeList.moveChanges};
+    }
+    return {...changeList};
+  }
+  return changeList;
 }
 export function updateColumnChange(changeList: T.ChangeDoc, moveName: string, columnName: string, change: Readonly<T.ColumnChange> | null) {
   let changes: T.Changes | null = ((moveName === "universalProps") ? changeList.universalPropChanges : changeList.moveChanges?.[moveName]) ?? null;
@@ -95,7 +103,7 @@ export function updateColumnChange(changeList: T.ChangeDoc, moveName: string, co
   }
   updateMoveOrPropChanges(changeList, moveName, changes);
 }
-export function updateColumnConflict(changeList: T.ChangeDoc, moveName: string, columnName: string, conflict: Readonly<T.Conflict> | null) {
+export function updateColumnConflict(changeList: T.ChangeDoc, moveName: string, columnName: string, conflict: Readonly<T.Conflict> | null, updateRefs: boolean=false): T.ChangeDoc {
   let conflicts: T.Conflicts | null = changeList.conflictList?.[moveName] ?? null;
   if(conflict) { //getting one conflict means move conflicts can't be null
     conflicts = {...conflicts, [columnName]: conflict} as T.Conflicts;
@@ -104,23 +112,31 @@ export function updateColumnConflict(changeList: T.ChangeDoc, moveName: string, 
     delete conflicts?.[columnName];
     if(keys(conflicts).length === 0) delete changeList.conflictList?.[moveName];
   }
+  //update reference to indicate change
+  if(updateRefs) {
+    if(changeList.conflictList) changeList.conflictList = {...changeList.conflictList};
+    return {...changeList};
+  }
+  return changeList;
 }
-//export function addMoveOrPropChange (changeList: T.ChangeDoc, moveName: string, moveChanges: T.MoveChanges): void {
-  //if(changeList.moveChanges) {
-    //changeList.moveChanges[moveName] = moveChanges;
-  //}
-  //else { //if this is the first moveChange
-    //changeList.moveChanges = {[moveName]: moveChanges};
-  //}
-//}
-//export function deleteMoveChange(changeList: T.ChangeDoc, moveName: string): void {
-  //if(changeList.moveChanges) {
-    //delete changeList.moveChanges[moveName];
-    //if(keys(changeList.moveChanges).length === 0) {
-      //delete changeList.moveChanges;
-    //}
-  //}
-//}
+
+  // Returns definition/data pairs ordered by provided defs. Data with no definition goes at end with display set to false.
+  // If columns and changes both empty (like for new move), returns just definitions
+export function getDefsAndData(columnDefs: T.ColumnDefs, columns?: T.Cols, changes?: Readonly<T.Changes>): T.ColumnDefAndData[] {
+  let result: T.ColumnDefAndData[] = [];
+  let changedCols: T.Cols = {};
+  if(columns || changes) changedCols = getChangedCols(columns, changes);
+  let keyUnion: Set<string> = new Set(keys(columnDefs).concat(keys(changedCols)));
+
+  for(const key of keyUnion) {
+    let def: T.ColumnDef | undefined = columnDefs[key];
+    let data: T.ColumnData | undefined = changedCols[key];
+    let defData: T.ColumnDefAndData = {columnName: key, def: def, data: data, display: (def?.group !== "meta" && def?.group !== "defaultHide") || false};
+    result.push(defData);
+  }
+
+  return result;
+}
 
 //returns string converted to columnData, with "empty" or unconvertable data as undefined
 export function strToColData(str: string | undefined, type: T.DataType): T.ColumnData | undefined {
@@ -139,7 +155,13 @@ export function strToColData(str: string | undefined, type: T.DataType): T.Colum
     }
     case DataType.Ord: {
       let maybeOrder = JSON.parse(str) as T.MoveOrder[];
+      if(!Array.isArray(maybeOrder)) console.warn("Unable to parse into MoveOrder[]:"+str);
       return maybeOrder.length > 0 ? maybeOrder : undefined;
+    }
+    case DataType.List: {
+      let maybeList = JSON.parse(str) as string[];
+      if(!Array.isArray(maybeList)) console.warn("Unable to parse into string[]:"+str);
+      return maybeList.length > 0 ? maybeList : undefined;
     }
   }
   return assertUnreachable(type);
@@ -176,12 +198,17 @@ export function checkInvalid(data: T.ColumnData | undefined, def: T.ColumnDef): 
   let stringValue: null | string = (isBasicString(data, dataType)) ? data : null;
   let numberValue: null | number = (isNumber(data, dataType)) ? data : null;
   if(isNumericString(data, dataType)) {
-    let num = Number.parseInt(data);
-    if(isNaN(num)) num = Number.parseFloat(data);
+    //Parses "0.17" or ".17[8]" as .17
+    let num = Number.parseFloat(data);
     if(!isNaN(num)) {
       numberValue = num;
     }
-    else stringValue = data;
+    else {
+      stringValue = data;
+      if(!def.allowedValues) { //if there are allowed values, they'll be checked below
+        return {columnName: colName, message: "Please enter number without beginning punctuation"};
+      }
+    }
   }
 
   if(def.allowedValues) {
@@ -247,7 +274,9 @@ export function isNumericString(data: T.ColumnData, dataType: T.DataType): data 
   return dataType === DataType.NumStr;
 }
 export function isMoveOrder(data: T.ColumnData, dataType: T.DataType): data is T.MoveOrder[] {
-  //return Array.isArray(data) && (data.length === 0 || "name" in data[1]);
   return dataType === DataType.Ord;
 }
-//export * as Util; not needed (or possible), just do import * as Util
+export function isList(data: T.ColumnData, dataType: T.DataType): data is string[] {
+  return dataType === DataType.List;
+}
+

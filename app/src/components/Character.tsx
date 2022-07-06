@@ -18,65 +18,16 @@ import { setTimeout } from 'timers';
 //When editing activated, bring up a modal that lists column vals one by one
 //If there's key needed for editing, prompt for it before bringing up interface
 type CharProps = {
-  gameId: string,
+  doc: CharDoc;
   columnDefs: ColumnDefs,
   universalPropDefs: ColumnDefs,
 }
 
-//these are suffixes that go at the end of the url
-export enum SegmentUrl {
-  Base = '',
-  Edit = '/local-edit',
-  Versions = '/versions'
-}
 
-//TODO: sorting by some column, probably not in editing view?
-export const Character: React.FC<CharProps> = ({gameId, columnDefs, universalPropDefs}) => {
-  const { character } = useParams<{ character: string; }>(); //router has its own props
-  const baseUrl = "/game/"+gameId+"/character/"+character;
-  const history = useHistory();
-  const location: string = useLocation().pathname;
-  const currentSegment: SegmentUrl = segmentFromUrl(location);
-  const { doc, loading, state, error } = useDoc<CharDoc>('character/'+character); 
+export const Character: React.FC<CharProps> = ({doc, columnDefs, universalPropDefs}) => {
   const moveOrder: MoveOrder[] = doc?.universalProps?.moveOrder || [];
-  addRequiredDefs();
-  console.log("doc's ID:" + doc?._id);
 
-  // required column definitions are inserted, overwriting whatever might have been in db
-  function addRequiredDefs() {
-    for(const def of requiredPropDefs) {
-      universalPropDefs[def.columnName] = def;
-    }
-  }
-
-  //given url expected to contain baseUrl
-  function segmentFromUrl(url: string): SegmentUrl {
-    if(url === baseUrl) return SegmentUrl.Base;
-    if(url === baseUrl + SegmentUrl.Edit) return SegmentUrl.Edit;
-    if(url === baseUrl + SegmentUrl.Versions) return SegmentUrl.Versions;
-    console.error("Non-matching url: "+url);
-    return SegmentUrl.Base;
-  }
-
-  function clickedSegment(e: MouseEvent<HTMLIonSegmentButtonElement>) {
-    let url = baseUrl + (e?.currentTarget?.value || '');
-    history.push(url);
-  }
-
-
-  if (state === 'error') {
-    console.error("heckin errorino in Character: " + error?.message);
-    return (<span>heckin errorino: {error?.message}</span>);
-  }
-  if (loading && doc == null) {
-    return (<h1> loadin</h1>);
-  }
-  //TODO: this doesn't fly for freshly-made docs... then again, latter two should be empty objects which are truthy...
-  if(!(doc?.charName && doc?.universalProps && doc?.moves)) {
-    return (<h1> Incomplete document</h1>);
-  }
-
-  let baseContent = (
+  return (
     <IonGrid>
       <IonRow>
         <IonItem>
@@ -84,15 +35,7 @@ export const Character: React.FC<CharProps> = ({gameId, columnDefs, universalPro
           <p>{JSON.stringify(doc)}</p>
         </IonItem>
       </IonRow>
-      {/*
-        doc.universalProps.map((prop: ColumnData) => {
-          const keys = Object.keys(prop);
-          return (
-            <div key={prop.columnName}>{prop.columnName}: {prop.data}</div>
-          )
-        })
-        */}
-        <MoveOrUniversalProps moveName="universalProps" columns={doc.universalProps} columnDefs={universalPropDefs} />
+        <MoveOrUniversalProps moveName="universalProps" columns={doc.universalProps} columnDefs={universalPropDefs} editMove={false}/>
         {moveOrder.map((moveOrCat: MoveOrder) => {
           const {name, isCategory, indent} = {...moveOrCat};
           let moveCols = doc.moves[name];
@@ -100,7 +43,7 @@ export const Character: React.FC<CharProps> = ({gameId, columnDefs, universalPro
           return (
             <CategoryAndChildRenderer key={name} name={name} isCategory={isCategory} >
             {moveCols !== undefined
-              ? <MoveOrUniversalProps moveName={name} indentLevel={indent} columns={moveCols} columnDefs={columnDefs} />
+              ? <MoveOrUniversalProps moveName={name} indentLevel={indent} columns={moveCols} columnDefs={columnDefs} editMove={false}/>
               : <div>No data for move {name}</div>
             }
             </CategoryAndChildRenderer> 
@@ -108,41 +51,6 @@ export const Character: React.FC<CharProps> = ({gameId, columnDefs, universalPro
         })}
     </IonGrid>
   );
-
-  return (
-    <>
-    <IonContent fullscreen>
-      {currentSegment === SegmentUrl.Base ?
-        baseContent :
-        <EditCharacter gameId={gameId} charDoc={doc} columnDefs={columnDefs} universalPropDefs={universalPropDefs} />
-      }
-    </IonContent>
-
-    <IonFooter>
-      <IonToolbar>
-        <IonSegment value={segmentFromUrl(location)}>
-        {/*<IonSegment onIonChange={changeSegment}>*/}
-        {/*<IonSegment>*/}
-        {/*<Link to={baseUrl}>*/}
-          <IonSegmentButton onClick={clickedSegment} value={SegmentUrl.Base}>
-            <IonLabel>Default</IonLabel>
-          </IonSegmentButton>
-          {/*</Link>*/}
-        {/*<Link to={baseUrl+"/local-edit"}>*/}
-          <IonSegmentButton onClick={clickedSegment} value={SegmentUrl.Edit}>
-            <IonLabel>Edit</IonLabel>
-          </IonSegmentButton>
-        {/*</Link>*/}
-        {/*<Link to={baseUrl+"/versions"}>*/}
-          <IonSegmentButton onClick={clickedSegment} value={SegmentUrl.Versions}>
-            <IonLabel>Versions</IonLabel>
-          </IonSegmentButton>
-          {/*</Link>*/}
-        </IonSegment>
-      </IonToolbar>
-    </IonFooter>
-    </>
-  );
 };
 
-//export default Character;
+export default Character;

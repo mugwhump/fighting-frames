@@ -2,7 +2,7 @@ import { IonInput, IonTextarea, IonItem, IonButton, IonLabel } from '@ionic/reac
 import React, { useState, useEffect } from 'react';
 import MoveOrdererButton from './MoveOrdererButton';
 import { ColumnDef, ColumnData, DataType, MoveOrder } from '../types/characterTypes';
-import { isMoveOrder, strToColData } from '../services/util';
+import { isMoveOrder, isList, strToColData } from '../services/util';
 
 
 type ColumnDataEditProps  = {
@@ -64,6 +64,9 @@ const ColumnDataEdit: React.FC<ColumnDataEditProps> = ({columnName, colData, col
     case DataType.Ord: {
       break;
     }
+    case DataType.List: {
+      break;
+    }
     default: {
       throw new Error("Unknown DataType: "+colDef.dataType);
     }
@@ -71,6 +74,9 @@ const ColumnDataEdit: React.FC<ColumnDataEditProps> = ({columnName, colData, col
   // special handling of arrays
   if(inputData && isMoveOrder(inputData, colDef.dataType)) {
     return <MoveOrdererButton moveOrder={inputData} changeMoveOrder={moveOrderChanged} />
+  }
+  else if(inputData && isList(inputData, colDef.dataType)) {
+    return <span>List editing not yet implemented</span>
   }
   return (
     <IonInput value={inputData} type={inputType} debounce={debounceTime} onIonChange={(e) => {dataChanged(e.detail.value!)}}></IonInput>

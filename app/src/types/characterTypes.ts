@@ -22,8 +22,8 @@
   /*[propName: string]: any,*/
 /*}*/
 
-export type MoveData = number | string;
-export type PropData = number | string | MoveOrder[];
+export type MoveData = number | string | string[];
+export type PropData = number | string | string[] | MoveOrder[];
 //export type DataValueTypes = MoveData | PropData;
 export type ColumnData = MoveData | PropData;
 //export type ColumnDataOld = {
@@ -37,29 +37,59 @@ export enum DataType { //these mostly determine the editing interface presented 
   Txt = "TEXT",
   Ord = "MOVE_ORDER",
   //Img = "IMAGE", //would probably be a url or base64 blob
-  //List = "LIST", //array of strings, allowed values can be constrained. For move order and tags... but they want different interfaces...
+  List = "LIST", //array of strings, allowed values can be constrained. For tags. Could use for height sequence (ie HLLL)
+  //ORDER?? For conflicts, same items in different order will be seen as different. Forcibly sort? New type, or optional prop indicating list is ordered?
+  //Use tags, or give each tag a "boolean" field? Less work for admins to make list of allowed vals...
+  //Ionic Select component can do multi-selection (if using alert instead of popover/action sheet)
   NumStr = "NUMERIC_STRING", //for things that are usually numeric/sortable, but can be strings like "KDN" or "STN" or "LAUNCH"
+  // Can also be strings like 18(10+4+4) eg for multihit, or 8[-2] for moves that change. Takes beginning until punctuation as number. Parses as float.
 };
 
 export type ColumnDef = {
-  columnName: string,
-  displayName?: string, //allows easier changing. Show columnName if absent.
-  shortName?: string, //like IMP, GRD, DMG, etc
-  dataType: DataType,
-  defaultShow: boolean, //TODO: this only really makes sense for metadata columns
+  columnName: string;
+  displayName?: string; //allows easier changing. Show columnName if absent.
+  shortName?: string; //like IMP, GRD, DMG, etc. Fits xs column widths.
+  hintText?: string; //Explain field to users
+  dataType: DataType;
+  prefix?: string; //display 12 as i12
+  suffix?: string; //display 6.5 as 6.5%
+  // mobile:  xs=2/12 sm=3/12 md=4/12 lg=6/12 xl=row
+  // desktop: xs=1/12 sm=2/12 md=3/12 lg=4/12 xl=6/12
+  // does anything truly need a full desktop row?
+  width?: "xs" | "sm" | "md" | "lg" | "xl"; 
+  group?: "title" | "needsHeader" | "normal" | "defaultHide" | "meta";//UI will force items in same group next to each other
+  //group: string; 
+  //needsHeader: boolean; //if needsHeader and no more room, shows it above data
+  //priority: "high" | "medium" | "low"; //priority within group determined by order?
+  //defaultShow: boolean, //describes what gets collapsed? TODO: remove
+  cssRegex?: {regex: RegExp, css: string}; //TODO: can RegExp serialize? Prob gotta do it manually.
   // Things db admins can set as required (damage etc) vs universalProps *I* can set as required (character display name, move order)
   // If they're my requirements, hardcode that into the codebase
   required: boolean; // Can't submit without required columns.
-  allowedValues?: string[];//mostly for strings or tags. For Numeric Strings, says the allowed strings.
+  allowedValues?: string[];//mostly for strings or tags. For Numeric Strings, says the allowed strings. ORDERED LIST where # means number. ['-','#','KND','STN'] says how to sort.
   forbiddenValues?: string[]; //for moveNames
-  minSize?: number, //length of strings, number of tags, value of number
-  maxSize?: number,
+  minSize?: number; //length of strings, number of tags, value of number
+  maxSize?: number;
   allowedRegex?: RegExp; //TODO: can RegExp serialize?
-  cssRegex?: {regex: RegExp, css: string}; //TODO: can RegExp serialize?
+  //hasMoveReference?: boolean, //whether to parse for references to another move, ie for cancels+followups, could click to jump to that move
 }
 export type ColumnDefs = {
   [columnName: string]: ColumnDef | undefined;
 }
+/*Design doc defines how columns display relative to each other, how they collapse, what's hidden, etc
+3 APPROACHES ----
+1) Single row multiple headers, everything's a column with header, horizontal scrolling
+2) Multiple rows no headers, like smash app.
+3) Hybrid; some columns get headers, others get rows. Way to define what can share a row without needing headers (eg name+height, tags+notes, etc)
+HIDE/SHOW APPROACHES (how do these interact with showing what's changed or conflicting? Something next to expand/collapse icon?) ----
+0) show everything. 
+1) expand/collapse accordion. Shove low priority here IF too many cols. Too-long notes should collapse. Filtering/sorting by a collapsed col should expand all moves.
+What if no-show item not ordered at end?
+2) modal/popup (like sf app). Column per row? Already have the editmodal.
+
+Use ionic flex grid and breakpoints to construct header row that auto-hides things at certain breakpoints, and lets overflow columns occupy half-lines with their column name
+EDITOR: copy MoveOrder modal, "categories" make groups, use indent controls for col width
+*/
 
 //internal utility type lets us show empty columns with no data, or data with no definition (to prompt for deletion)
 //also useful for sorting/hiding columns
