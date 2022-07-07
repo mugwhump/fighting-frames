@@ -6,6 +6,7 @@ import { useParams, useHistory, useLocation } from 'react-router';
 import { Action } from 'history';
 import { Link } from 'react-router-dom';
 import { useDoc, usePouch } from 'use-pouchdb';
+import { State, useCharacterDispatch, useTrackedCharacterState, EditAction } from '../services/CharacterReducer';
 import {MoveOrder, ColumnDef, ColumnDefs, ColumnData, Cols, PropCols, MoveCols, CharDoc, } from '../types/characterTypes';
 import { requiredPropDefs } from '../constants/internalColumns';
 import EditCharacter from './EditCharacter';
@@ -26,6 +27,23 @@ type CharProps = {
 
 export const Character: React.FC<CharProps> = ({doc, columnDefs, universalPropDefs}) => {
   const moveOrder: MoveOrder[] = doc?.universalProps?.moveOrder || [];
+  const state = useTrackedCharacterState();
+  const dispatch = useCharacterDispatch();
+
+  //works as expected
+  useEffect(()=> {
+    console.log("character renderino'd");
+  });
+  //doesn't know val2 is tracked until this is called. But... not an issue?
+  function getMessage() {
+    return 'val2 = '+state.testVal2;
+  }
+  //useEffect(()=> {
+    //console.log("Val1 listener renderino");
+  //}, [state.testVal]);
+  //useEffect(()=> {
+    //console.log("Val2 listener renderino");
+  //}, [state.testVal2]);
 
   return (
     <IonGrid>
@@ -34,6 +52,9 @@ export const Character: React.FC<CharProps> = ({doc, columnDefs, universalPropDe
           <p>{doc.charName} is the character (DB)</p><br />
           <p>{JSON.stringify(doc)}</p>
         </IonItem>
+        <IonItem><IonButton onClick={()=>dispatch({actionType:'testVal1'})} >Inc val1: {state.testVal}</IonButton></IonItem>
+        <IonItem><IonButton onClick={()=>dispatch({actionType:'testVal2'})} >Inc val2</IonButton></IonItem>
+        <IonItem><IonButton onClick={()=>console.log(getMessage())} >Read val2</IonButton></IonItem>
       </IonRow>
         <MoveOrUniversalProps moveName="universalProps" columns={doc.universalProps} columnDefs={universalPropDefs} editMove={false}/>
         {moveOrder.map((moveOrCat: MoveOrder) => {

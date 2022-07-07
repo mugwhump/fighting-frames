@@ -3,7 +3,7 @@ import React, { useEffect, useState, MouseEvent } from 'react';
 import { Route, useParams, useHistory, useLocation } from 'react-router-dom';
 import { SegmentChangeEventDetail, SegmentCustomEvent } from '@ionic/core';
 //import PouchDB from 'pouchdb';
-import { useCharacterContext } from '../services/CharacterReducer';
+import { useTrackedCharacterState  } from '../services/CharacterReducer';
 import { requiredPropDefs, moveNameColumnDef } from '../constants/internalColumns';
 import { Character } from '../components/Character';
 import { EditCharacter } from '../components/EditCharacter';
@@ -25,7 +25,7 @@ export enum SegmentUrl {
 
 const CharacterSegments: React.FC<CharacterSegmentsProps> = ({ gameId, columnDefs, universalPropDefs }) => {
   const { character } = useParams<{ character: string; }>(); //router has its own props
-  const state = useCharacterContext();
+  const state = useTrackedCharacterState ();
   const baseUrl = "/game/"+gameId+"/character/"+character;
   const history = useHistory();
   const location: string = useLocation().pathname;
@@ -53,6 +53,7 @@ const CharacterSegments: React.FC<CharacterSegmentsProps> = ({ gameId, columnDef
     }
   }, [universalPropDefs]);
 
+  //NOTE: components are not unmounted when segment switches
   return (
     <>
     <IonContent fullscreen>

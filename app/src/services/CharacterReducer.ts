@@ -1,7 +1,8 @@
 import { ToastOptions } from '@ionic/react';
-import React, { Dispatch, ReducerAction }from 'react';
+import React, { useReducer, Reducer }from 'react';
 import * as util from '../services/util';
 import { reduceChanges } from '../services/merging';
+import { createContainer } from 'react-tracked';
 import { cloneDeep } from 'lodash';
 import type * as T from '../types/characterTypes'; //==
 
@@ -55,6 +56,8 @@ export type NetworkOperationStatus = "pending" | "in-progress" | "success" | "er
 
 export function getInitialState(character: string): State {
   return {
+    testVal: 0,
+    testVal2: 0,
     character: character,
     charDoc: getEmptyCharDoc(),
     initialized: false,
@@ -63,6 +66,8 @@ export function getInitialState(character: string): State {
   }
 }
 export interface State {
+  testVal: number;
+  testVal2: number;
   character: string; //only set alongside initialization status
   initialized: boolean; //whether both charDoc and edits are loaded
   editsLoaded: boolean;
@@ -93,6 +98,8 @@ export interface State {
   -publishing: NOT triggered by state change, but always reloads base (which might dispatch editT.CharDoc), upon success redirects to base, upon failure shows alert
 */
   export type EditAction = 
+    | { actionType: 'testVal1' } 
+    | { actionType: 'testVal2' } 
     | { actionType: 'deinitialize', character: string } 
     | { actionType: 'openMoveEditModal', moveName: string }
     | { actionType: 'closeMoveEditModal' } 
@@ -119,7 +126,8 @@ export interface State {
 
 
 
-export function Reducer(state: State, action: EditAction): State {
+//export function characterReducer(state: State, action: EditAction): State {
+export const characterReducer: Reducer<State, EditAction> = (state, action) => {
   console.log("Reducer in characterProvider: action=" + JSON.stringify(action));
   let newState = {...state};
 
@@ -172,6 +180,14 @@ export function Reducer(state: State, action: EditAction): State {
   }
 
   switch(action.actionType) {
+    case 'testVal1': {
+      newState.testVal++;
+      break;
+    }
+    case 'testVal2': {
+      newState.testVal2++;
+      break;
+    }
     case 'deinitialize': {
       if(state.initialized) {
         console.log("Reinitializing, possibly due to character switch");
@@ -184,9 +200,11 @@ export function Reducer(state: State, action: EditAction): State {
       break;
     }
     case 'setCharDoc': {
-      console.log("Loaded chardoc for "+state.character);
+      const character = action.charDoc.charName;
+      console.log("Loaded chardoc for "+character);
       //TODO: check that document matches current character?
       newState.charDoc = action.charDoc;
+      newState.character = character;
       if(state.editsLoaded) {
         setInitialized();
       }
@@ -283,12 +301,26 @@ export function useCharacterContext(): State {
   return contextValue;
 }
 
-export const DispatchContext = React.createContext<Dispatch<ReducerAction<typeof Reducer>>| null>(null);
-export function useCharacterDispatch(): Dispatch<ReducerAction<typeof Reducer>> {
-  const contextValue = React.useContext(DispatchContext); 
-  if(contextValue === null) {
-    throw new Error("useCharacterDispatch must be used within CharacterProvider");
-  }
-  return contextValue;
-}
+//export const DispatchContext = React.createContext<Dispatch<ReducerAction<typeof Reducer>>| null>(null);
+//export function useCharacterDispatch(): Dispatch<ReducerAction<typeof Reducer>> {
+  //const contextValue = React.useContext(DispatchContext); 
+  //if(contextValue === null) {
+    //throw new Error("useCharacterDispatch must be used within CharacterProvider");
+  //}
+  //return contextValue;
+//}
 
+export const {
+  Provider: CharacterContextProvider,
+  useTracked: useCharacterStateUpdate,
+  useUpdate: useCharacterDispatch,
+  useTrackedState: useTrackedCharacterState,
+  useSelector: useCharacterSelector
+} = createContainer(() => useReducer(characterReducer, getInitialState('notarealcharacter')));
+
+//TODO: test whether these throw error properly if used outside provider
+//export {Provider as CharacterContextProvider };
+//export {useTracked as useCharacterStateUpdate };
+//export {useUpdate as useCharacterDispatch};
+//export {useTrackedState as useTrackedCharacterState  };
+//export {useSelector as useCharacterSelector };

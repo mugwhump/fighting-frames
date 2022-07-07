@@ -7,6 +7,7 @@ import { useDoc, usePouch } from 'use-pouchdb';
 import { Character } from '../components/Character';
 import CharacterSegments  from '../components/CharacterSegments';
 import { CharacterProvider } from '../components/CharacterProvider';
+import { CharacterContextProvider } from '../services/CharacterReducer';
 import { useGameContext, useGameDispatch, Action as GameAction } from './GameProvider';
 import HeaderPage from '../components/HeaderPage';
 import { DesignDoc } from '../types/characterTypes';
@@ -50,9 +51,11 @@ const Game: React.FC<GameProps> = () => {
         {/*Keep in mind router params stop at slashes, so /character/bob/local-edit just has bob as the character*/}
         <Route path={"/game/" + gameId + "/character/:character"} >
           <HeaderPage title={gameId + "is the game id"}>
-            <CharacterProvider gameId={gameId}>
-              <CharacterSegments gameId={gameId} columnDefs={doc!.columnDefs} universalPropDefs={doc!.universalPropDefs} />
-            </CharacterProvider>
+            <CharacterContextProvider>
+              <CharacterProvider gameId={gameId}>
+                <CharacterSegments gameId={gameId} columnDefs={doc!.columnDefs} universalPropDefs={doc!.universalPropDefs} />
+              </CharacterProvider>
+            </CharacterContextProvider>
           </HeaderPage>
         </Route>
     </>

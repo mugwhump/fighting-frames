@@ -17,22 +17,22 @@ import NewMoveButton from './NewMoveButton';
 import CategoryAndChildRenderer  from './CategoryAndChildRenderer';
 import MoveEditModal, { MoveEditModalProps } from './MoveEditModal';
 import MoveOrdererModal from './MoveOrdererModal';
-import { useCharacterDispatch } from '../services/CharacterReducer';
+import { State, useCharacterDispatch, useTrackedCharacterState , } from '../services/CharacterReducer';
 import { cloneDeep } from 'lodash';
 
 
 type EditCharProps = {
   gameId: string,
-  charDoc: CharDocWithMeta, 
+  //charDoc: CharDocWithMeta, 
   columnDefs: ColumnDefs,
   universalPropDefs: ColumnDefs,
-  changeList?: ChangeDoc,
-  moveToEdit?: string,
-  promptForMoveOrder?: boolean,
+  //changeList?: ChangeDoc,
+  //moveToEdit?: string,
+  //promptForMoveOrder?: boolean,
 }
 //TODO: pass editDoc from provider?
 
-export const EditCharacter: React.FC<EditCharProps> = ({gameId, charDoc, columnDefs, universalPropDefs, changeList, moveToEdit, promptForMoveOrder}) => {
+export const EditCharacter: React.FC<EditCharProps> = ({gameId, columnDefs, universalPropDefs}) => {
   //const { character } = useParams<{ character: string; }>(); //router has its own props
   //const baseUrl = "/game/"+gameId+"/character/"+character;
   //const history = useHistory();
@@ -48,7 +48,12 @@ export const EditCharacter: React.FC<EditCharProps> = ({gameId, charDoc, columnD
   //const [ loadedChangeList, setLoadedChangeList ] = useState<boolean>(false); //loads changelist from storedChanges when available
   //const [ conflicts, setConflicts ] = useState<ConflictList>([]); //empty list means no conflicts presently. TODO: check upon load
   //move order drawn first from the changelist if it's updated, then from the base document
+  //const dispatch = useCharacterDispatch();
   const dispatch = useCharacterDispatch();
+  const state = useTrackedCharacterState();
+  const charDoc = state.charDoc;
+  const changeList = state.editChanges;
+  const moveToEdit = state.moveToEdit;
   const moveOrder: MoveOrder[] =  (changeList && getChangeListMoveOrder(changeList)) || charDoc.universalProps.moveOrder; 
   //references to change+conflicts lists don't change generally. Keep in mind if something in this component needs to re-render. 
   //keep individual moveChanges and moveConflicts pure, though.

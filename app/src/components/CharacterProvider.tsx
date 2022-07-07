@@ -5,10 +5,11 @@ import { useParams, useHistory, useLocation } from 'react-router';
 import { Action } from 'history';
 import { Link } from 'react-router-dom';
 import { useDoc, usePouch } from 'use-pouchdb';
+import { createContainer } from 'react-tracked';
 //import {MoveOrder, ColumnDef, T.ColumnDefs, ColumnData, Cols, PropCols, MoveCols, T.CharDoc, T.ChangeDoc, T.ChangeDocWithMeta } from '../types/characterTypes';
 import type * as T from '../types/characterTypes'; //==
-import { State, getInitialState, Reducer, CharacterContext, DispatchContext } from '../services/CharacterReducer';
 import { getChangeListMoveOrder, getDefsAndData } from '../services/util';
+import { State, CharacterContextProvider , useCharacterDispatch, useTrackedCharacterState , getInitialState, characterReducer, } from '../services/CharacterReducer';
 import Character from './Character';
 import { SegmentUrl } from './CharacterSegments';
 import EditCharacter from './EditCharacter';
@@ -32,13 +33,15 @@ export const CharacterProvider: React.FC<CharProviderProps> = ({children, gameId
   const localPersonalDatabase: PouchDB.Database = usePouch('localPersonal'); 
   const { doc, loading, state: docState, error } = useDoc<T.CharDoc>('character/'+character); 
   //TODO: manually load editChanges once
-  const [state, dispatch] = useReducer(Reducer, null, init); 
+  //const [state, dispatch] = useReducer(Reducer, null, init); 
+  const state = useTrackedCharacterState  ();
+  const dispatch = useCharacterDispatch();
   const [presentToast, dismissToast] = useIonToast(); 
   const docEditId = baseUrl + SegmentUrl.Edit;
 
-  function init() {
-    return getInitialState(character);
-  }
+  //function init() {
+    //return getInitialState(character);
+  //}
 
   //Initialization, start loading local edits (charDoc automatically starts reloading due to the hook)
   //Also called when switching characters.
@@ -151,14 +154,18 @@ export const CharacterProvider: React.FC<CharProviderProps> = ({children, gameId
     return (<h1>Empty document</h1>);
   }
 
-  //NOTE: components are not unmounted when segment switches
   return (
-    <DispatchContext.Provider value={dispatch}>
-      <CharacterContext.Provider value={state}>
-        {children}
-      </CharacterContext.Provider>
-    </DispatchContext.Provider>
-  );
+    <>
+      {children}
+    </>
+  )
+  //return (
+    //<DispatchContext.Provider value={dispatch}>
+      //<CharacterContext.Provider value={state}>
+        //{children}
+      //</CharacterContext.Provider>
+    //</DispatchContext.Provider>
+  //);
 };
 
 
