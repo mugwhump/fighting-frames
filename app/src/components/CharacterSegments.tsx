@@ -58,9 +58,8 @@ const CharacterSegments: React.FC<CharacterSegmentsProps> = ({ gameId, columnDef
     <>
     <IonContent fullscreen>
       {currentSegment === SegmentUrl.Base ?
-        <Character doc={state.charDoc} columnDefs={columnDefs} universalPropDefs={universalPropDefs} /> :
-        <EditCharacter gameId={gameId} charDoc={state.charDoc} changeList={state.editChanges} columnDefs={columnDefs} universalPropDefs={universalPropDefs} 
-          moveToEdit={state.moveToEdit}/>
+        <Character columnDefs={columnDefs} universalPropDefs={universalPropDefs} /> :
+        <EditCharacter gameId={gameId} columnDefs={columnDefs} universalPropDefs={universalPropDefs} />
       }
     </IonContent>
 

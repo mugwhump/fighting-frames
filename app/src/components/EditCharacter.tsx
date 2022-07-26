@@ -17,7 +17,7 @@ import NewMoveButton from './NewMoveButton';
 import CategoryAndChildRenderer  from './CategoryAndChildRenderer';
 import MoveEditModal, { MoveEditModalProps } from './MoveEditModal';
 import MoveOrdererModal from './MoveOrdererModal';
-import { State, useCharacterDispatch, useTrackedCharacterState , } from '../services/CharacterReducer';
+import { State, useCharacterDispatch, useTrackedCharacterState, useMiddleware } from '../services/CharacterReducer';
 import { cloneDeep } from 'lodash';
 
 
@@ -66,6 +66,22 @@ export const EditCharacter: React.FC<EditCharProps> = ({gameId, columnDefs, univ
       changeMoveOrder: changeMoveOrder,
       onDismiss: triggerMoveOrderDismissal
   });
+  const closeCallback = useCallback((state, action) => {
+    console.log("middleware closeMoveEditModal callback executed, testval="+state.testVal);
+    dispatch({actionType: 'testVal1'});
+  }, [state.testVal]);
+  const openModalCallback = useCallback((state, action, dispatch) => {
+    console.log("middleware openmodal callback executed, testval="+state.testVal);
+    dispatch({actionType: 'testVal1'}); //Captured value of dispatch which doesn't include callbacks yet. Putting dispatch in dependencies makes inf loop.
+    dispatch({actionType: 'testVal1'});
+  }, []);
+  const testValCallback = useCallback((state, action, dispatch, noMwDispatch) => {
+    console.log("middleware testVal callback executed, testval="+state.testVal);
+    console.log("middleware recursion test...");
+    //dispatch({actionType: 'testVal1'}); //recurses infinitely
+    noMwDispatch({actionType: 'testVal1'});
+  }, []);
+  useMiddleware("EditCharacter", {closeMoveEditModal: closeCallback, openMoveEditModal: openModalCallback, testVal1: testValCallback});
 
   //function isEmptyChangeList(): boolean {
     //return changeList === emptyChangeList.current;
@@ -257,7 +273,6 @@ export const EditCharacter: React.FC<EditCharProps> = ({gameId, columnDefs, univ
   //}
 
 
-  //TODO: move this and the modal to EditCharacter
   // Get defs and data for the given move
   // For new move return column definitions with an added initial definition for movename, which includes currently existing moves as forbidden values
   const getModalDefsAndData = useCallback<(moveName: string)=> ColumnDefAndData[]> ((moveName) => {

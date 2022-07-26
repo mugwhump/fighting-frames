@@ -19,16 +19,16 @@ import { setTimeout } from 'timers';
 //When editing activated, bring up a modal that lists column vals one by one
 //If there's key needed for editing, prompt for it before bringing up interface
 type CharProps = {
-  doc: CharDoc;
   columnDefs: ColumnDefs,
   universalPropDefs: ColumnDefs,
 }
 
 
-export const Character: React.FC<CharProps> = ({doc, columnDefs, universalPropDefs}) => {
-  const moveOrder: MoveOrder[] = doc?.universalProps?.moveOrder || [];
+export const Character: React.FC<CharProps> = ({columnDefs, universalPropDefs}) => {
   const state = useTrackedCharacterState();
+  const charDoc = state.charDoc;
   const dispatch = useCharacterDispatch();
+  const moveOrder: MoveOrder[] = charDoc?.universalProps?.moveOrder || [];
 
   //works as expected
   useEffect(()=> {
@@ -49,17 +49,17 @@ export const Character: React.FC<CharProps> = ({doc, columnDefs, universalPropDe
     <IonGrid>
       <IonRow>
         <IonItem>
-          <p>{doc.charName} is the character (DB)</p><br />
-          <p>{JSON.stringify(doc)}</p>
+          <p>{charDoc.charName} is the character (DB)</p><br />
+          <p>{JSON.stringify(charDoc)}</p>
         </IonItem>
         <IonItem><IonButton onClick={()=>dispatch({actionType:'testVal1'})} >Inc val1: {state.testVal}</IonButton></IonItem>
         <IonItem><IonButton onClick={()=>dispatch({actionType:'testVal2'})} >Inc val2</IonButton></IonItem>
         <IonItem><IonButton onClick={()=>console.log(getMessage())} >Read val2</IonButton></IonItem>
       </IonRow>
-        <MoveOrUniversalProps moveName="universalProps" columns={doc.universalProps} columnDefs={universalPropDefs} editMove={false}/>
+        <MoveOrUniversalProps moveName="universalProps" columns={charDoc.universalProps} columnDefs={universalPropDefs} editMove={false}/>
         {moveOrder.map((moveOrCat: MoveOrder) => {
           const {name, isCategory, indent} = {...moveOrCat};
-          let moveCols = doc.moves[name];
+          let moveCols = charDoc.moves[name];
           //console.log("rendering moveorcat:"+JSON.stringify(moveOrCat)+", cols:"+JSON.stringify(moveCols));
           return (
             <CategoryAndChildRenderer key={name} name={name} isCategory={isCategory} >

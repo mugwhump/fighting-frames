@@ -6,8 +6,8 @@ import { useDocumentLocalRemoteSwitching } from '../services/pouch';
 import { useDoc, usePouch } from 'use-pouchdb';
 import { Character } from '../components/Character';
 import CharacterSegments  from '../components/CharacterSegments';
-import { CharacterProvider } from '../components/CharacterProvider';
-import { CharacterContextProvider } from '../services/CharacterReducer';
+import { CharacterDocAccess } from '../components/CharacterDocAccess';
+import { CharacterContextProvider, MiddlewareContext, MiddlewareSetterContext, Middleware } from '../services/CharacterReducer';
 import { useGameContext, useGameDispatch, Action as GameAction } from './GameProvider';
 import HeaderPage from '../components/HeaderPage';
 import { DesignDoc } from '../types/characterTypes';
@@ -19,6 +19,7 @@ const Game: React.FC<GameProps> = () => {
   const gameContext = useGameContext();
   const gameId: string = gameContext.gameId; //TODO: Wrapper component. Note this will update after the provider switches DBs.
   const gameDispatch = useGameDispatch();
+  const [middleware, setMiddleware] = useState<Middleware>({});
   const { doc, loading, state, error } = useDoc<DesignDoc>("_design/columns"); 
   useDocumentLocalRemoteSwitching(state, error, gameContext.usingLocal, 'Game');
   const database: PouchDB.Database = usePouch();
@@ -51,11 +52,15 @@ const Game: React.FC<GameProps> = () => {
         {/*Keep in mind router params stop at slashes, so /character/bob/local-edit just has bob as the character*/}
         <Route path={"/game/" + gameId + "/character/:character"} >
           <HeaderPage title={gameId + "is the game id"}>
-            <CharacterContextProvider>
-              <CharacterProvider gameId={gameId}>
-                <CharacterSegments gameId={gameId} columnDefs={doc!.columnDefs} universalPropDefs={doc!.universalPropDefs} />
-              </CharacterProvider>
-            </CharacterContextProvider>
+            <MiddlewareSetterContext.Provider value={setMiddleware}>
+              <MiddlewareContext.Provider value={middleware}>
+                <CharacterContextProvider>
+                  <CharacterDocAccess gameId={gameId}>
+                    <CharacterSegments gameId={gameId} columnDefs={doc!.columnDefs} universalPropDefs={doc!.universalPropDefs} />
+                  </CharacterDocAccess>
+                </CharacterContextProvider>
+              </MiddlewareContext.Provider>
+            </MiddlewareSetterContext.Provider>
           </HeaderPage>
         </Route>
     </>

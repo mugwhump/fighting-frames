@@ -22,26 +22,20 @@ import { setTimeout } from 'timers';
 type CharProviderProps = {
   children: React.ReactNode,
   gameId: string,
-  //columnDefs: T.ColumnDefs,
-  //universalPropDefs: T.ColumnDefs,
 }
 
 
-export const CharacterProvider: React.FC<CharProviderProps> = ({children, gameId}) => {
+export const CharacterDocAccess: React.FC<CharProviderProps> = ({children, gameId}) => {
   const { character } = useParams<{ character: string; }>(); //router has its own props
   const baseUrl = "/game/"+gameId+"/character/"+character;
   const localPersonalDatabase: PouchDB.Database = usePouch('localPersonal'); 
   const { doc, loading, state: docState, error } = useDoc<T.CharDoc>('character/'+character); 
   //TODO: manually load editChanges once
   //const [state, dispatch] = useReducer(Reducer, null, init); 
-  const state = useTrackedCharacterState  ();
+  const state = useTrackedCharacterState();
   const dispatch = useCharacterDispatch();
   const [presentToast, dismissToast] = useIonToast(); 
   const docEditId = baseUrl + SegmentUrl.Edit;
-
-  //function init() {
-    //return getInitialState(character);
-  //}
 
   //Initialization, start loading local edits (charDoc automatically starts reloading due to the hook)
   //Also called when switching characters.
@@ -54,7 +48,7 @@ export const CharacterProvider: React.FC<CharProviderProps> = ({children, gameId
       console.log("Loaded edit doc for "+character);
       dispatch({actionType:'loadEditsFromLocal', editChanges: doc});
     }).catch((err) => {
-      console.log(`Edit doc for ${character} not found`);
+      console.log(`Edit doc for ${character} loading error: ${err.message}`);
       dispatch({actionType:'loadEditsFromLocal', editChanges: undefined});
     });
   }, [character, docEditId]);
@@ -171,4 +165,4 @@ export const CharacterProvider: React.FC<CharProviderProps> = ({children, gameId
 
 
 
-export default CharacterProvider;
+export default CharacterDocAccess;

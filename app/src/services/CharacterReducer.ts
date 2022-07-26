@@ -1,5 +1,5 @@
 import { ToastOptions } from '@ionic/react';
-import React, { useReducer, Reducer }from 'react';
+import React, { useReducer, Reducer, useEffect }from 'react';
 import * as util from '../services/util';
 import { reduceChanges } from '../services/merging';
 import { createContainer } from 'react-tracked';
@@ -52,7 +52,7 @@ function isEmptyChangeList(changeList: T.ChangeDoc): boolean {
   return (!changeList.moveChanges && !changeList.universalPropChanges);
 }
 
-export type NetworkOperationStatus = "pending" | "in-progress" | "success" | "error";
+export type NetworkOperationStatus = "pending" | "in-progress" | "success" | "error"; //pending tells listener to begin, success/error tell... uh... the UI to do stuff?
 
 export function getInitialState(character: string): State {
   return {
@@ -85,21 +85,26 @@ export interface State {
   //FilterHeader component shows searchbar, indicator of active filters, modal button
 
   moveToEdit?: string; //If set, shows modal to edit move. If empty string, modal for adding new move.
-  alert?: 'moveOrderPrompt' | 'deleteEdits'; //either I must pass this down, or alerts can only trigger provider actions...
+  editPrompts?: 'moveOrderPrompt' | ''; 
   //alertProps?: {};//Not useful, can't use dispatch or any component props
   toastOptions?: ToastOptions; //Show new toast whenever this changes. Put here so it persists over segment changes.
 }
+/* Selectors:
+  MoveOrder
+  character?
+  hasConflicts
 /*
   Actions with side-effects triggered by state changes or which trigger state changes:
   -local edit loading: upon loading any page that might need to know if local edits exist, dispatches setEditChanges upon load
-  -local edit deletion: NOT triggered by any state change, but dispatches deleteEditChanges after deletion
+  -local edit deletion: but dispatches deleteEditChanges after deletion
   -local edit writing: whenever editChanges is changed (unless just loaded)
-  -uploading: NOT triggered by state change, but upon success deletes edits (which dispatches deleteEditChanges) and redirects, upon failure checks for new base and shows alert
-  -publishing: NOT triggered by state change, but always reloads base (which might dispatch editT.CharDoc), upon success redirects to base, upon failure shows alert
+  -uploading:  upon success deletes edits (which dispatches deleteEditChanges) and redirects, upon failure checks for new base and shows alert
+  -publishing:  always reloads base (which might dispatch editCharDoc), upon success redirects to base, upon failure shows alert
 */
   export type EditAction = 
     | { actionType: 'testVal1' } 
     | { actionType: 'testVal2' } 
+
     | { actionType: 'deinitialize', character: string } 
     | { actionType: 'openMoveEditModal', moveName: string }
     | { actionType: 'closeMoveEditModal' } 
@@ -315,12 +320,92 @@ export const {
   useTracked: useCharacterStateUpdate,
   useUpdate: useCharacterDispatch,
   useTrackedState: useTrackedCharacterState,
-  useSelector: useCharacterSelector
-} = createContainer(() => useReducer(characterReducer, getInitialState('notarealcharacter')));
+  useSelector: useCharacterSelector,
+//} = createContainer(() => useReducer(characterReducer, getInitialState('notarealcharacter')));
+} = createContainer(useValue);
 
-//TODO: test whether these throw error properly if used outside provider
-//export {Provider as CharacterContextProvider };
-//export {useTracked as useCharacterStateUpdate };
-//export {useUpdate as useCharacterDispatch};
-//export {useTrackedState as useTrackedCharacterState  };
-//export {useSelector as useCharacterSelector };
+type MiddlewareFn = ((state: State, action: EditAction, dispatch: (action: EditAction)=>void, noMiddlewareDispatch: (action: EditAction)=>void) => void);
+export type MiddlewareDict = {[A in EditAction['actionType']]?: MiddlewareFn | undefined};
+export type Middleware = {[componentName: string]: MiddlewareDict};
+
+export const MiddlewareContext = React.createContext<Middleware | null>(null);
+export function useMiddlewareContext(): Middleware {
+  const contextValue = React.useContext(MiddlewareContext);
+  if(contextValue === null) {
+    throw new Error("useMiddlewareContext must be used within MiddlewareProvider");
+  }
+  return contextValue;
+}
+export const MiddlewareSetterContext = React.createContext<React.Dispatch<React.SetStateAction<Middleware>> | null>(null);
+export function useMiddlewareSetter(): React.Dispatch<React.SetStateAction<Middleware>> {
+  const contextValue = React.useContext(MiddlewareSetterContext);
+  if(contextValue === null) {
+    throw new Error("useMiddlewareSetter must be used within MiddlewareProvider");
+  }
+  return contextValue;
+}
+
+function useValue() { //any args to useValue are passed to Provider as props
+  const middleware = useMiddlewareContext();
+  return useReducerWithMiddleware(characterReducer, getInitialState('notarealcharacter'), middleware);
+}
+
+const useReducerWithMiddleware = (
+  reducer: Reducer<State, EditAction>,
+  initialState: State,
+  middleware: Middleware
+): [State, (action:EditAction)=>void] => {
+  const [state, dispatch] = React.useReducer(reducer, initialState);
+
+  //const dispatchWithMiddleware = (action: EditAction): void => {
+  function dispatchWithMiddleware(action: EditAction): void {
+    for(const component of util.keys(middleware)) {
+      const dict: MiddlewareDict = middleware[component];
+      const mwCallback = dict[action.actionType];
+      if(mwCallback) {
+        console.log(`Executing middleware from ${component} for ${action.actionType}`);
+        mwCallback(state, action, dispatchWithMiddleware, dispatch);
+      }
+    }
+    dispatch(action);
+  };
+
+  return [state, dispatchWithMiddleware];
+};
+
+//actually used by components to set their middleware functions
+//Each component will provide a constant number of mw funcs, whose references will update if their deps change
+export function useMiddleware(componentName: string, localDict: MiddlewareDict) {
+  const setMiddleware = useMiddlewareSetter();
+
+  useEffect(() => {
+    console.log("Middleware init for "+componentName);
+  }, []);
+  //update callbacks
+  useEffect(()=> {
+    setMiddleware((mw) => {
+      let changed = false;
+      let updatedMW = {...mw};
+      const dict: MiddlewareDict = mw[componentName] || {};
+      let actionType: EditAction['actionType'];
+      for(actionType in localDict) {
+        if(localDict[actionType] !== dict[actionType]) {
+          console.log(`${componentName}'s middleware updated for action ${actionType}`);
+          changed = true;
+          updatedMW[componentName] = localDict;
+        }
+      }
+      return changed ? updatedMW : mw;
+    });
+  }, [localDict]);
+  //delete callbacks on unmount
+  useEffect(()=> {
+    return(()=>{
+      console.log("Unmounting "+componentName+", removing middleware");
+      setMiddleware((mw) => {
+        delete mw[componentName];
+        return {...mw};
+      });
+    });
+  }, []);
+}
