@@ -1,1 +1,5 @@
 couchmounts
+secrets/couch_admin.txt
+secrets/couch_password.txt
+app/my-typings/
+.jshintrc

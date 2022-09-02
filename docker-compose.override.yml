@@ -1,0 +1,8 @@
+# overrides for dev, applied when running docker-compose up.
+#
+services:
+    couchdb:
+        environment:
+            #this approach is only used locally since env vars are visible in docker repo image
+            COUCHDB_USER: admin
+            COUCHDB_PASSWORD: password 
