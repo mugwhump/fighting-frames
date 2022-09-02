@@ -1,6 +1,6 @@
 import { IonModal, IonItem, IonInput, IonItemGroup, IonItemDivider, IonButton, IonLabel, IonIcon, IonText } from '@ionic/react';
 import { warningOutline, warningSharp } from 'ionicons/icons';
-import React, { useState, useRef, useEffect, useMemo } from 'react';
+import React, { useState, useRef, useEffect, useMemo, useCallback } from 'react';
 import PouchDB from 'pouchdb';
 import PouchAuth from 'pouchdb-authentication';
 import ColumnDataEdit from './ColumnDataEdit';
@@ -32,17 +32,11 @@ const MoveEditModal: React.FC<MoveEditModalProps > = ({moveName, getDefsAndData,
   const defsAndData = useMemo<ColumnDefAndData[]>(()=>getDefsAndData(moveName), [moveName]);
   const [clonedChanges, setClonedChanges] = useState<Changes>(getClonedChanges);
   const [fieldErrors, setFieldErrors] = useState<{[columnName: string]: FieldError}>(getInitialErrors);
-  const displayName = (moveName === "universalProperties") ? "Universal Properties" : (addingNewMove ? "New Move" : moveName);
+  const displayName = (moveName === "universalProps") ? "Universal Properties" : (addingNewMove ? "New Move" : moveName);
+  const hasChanges: boolean = !!originalChanges || keys(clonedChanges).length > 0;
   const characterDispatch = useCharacterDispatch();
 
-  //useEffect(()=>{
-    //console.log("Editing modal created for "+JSON.stringify(defsAndData)+", checking for errors");
-    //return () => {
-      //if(addMove) {
-        //onDismiss();
-      //}
-    //}
-  //}, []);
+  console.log("rendered Move edit modal");
 
   function getClonedChanges(): Changes {
     if(originalChanges) {
@@ -67,7 +61,8 @@ const MoveEditModal: React.FC<MoveEditModalProps > = ({moveName, getDefsAndData,
 
   //as data is typed, check errors and put it in clonedChanges' modifications or additions
   //if newData undefined, means it's empty/deleted
-  function editSingleColumn(columnName: string, newData?: ColumnData): void {
+  //function editSingleColumn(columnName: string, newData?: ColumnData): void {
+  const editSingleColumn = useCallback((columnName: string, newData?: ColumnData) => {
     const dataDef = defsAndData.find((dataDef) => dataDef.columnName === columnName);
     if(!dataDef) throw new Error("defAndData not found found in editSingleColumn func for column "+columnName);
 
@@ -107,10 +102,10 @@ const MoveEditModal: React.FC<MoveEditModalProps > = ({moveName, getDefsAndData,
     else {
       clonedChanges[columnName] = change;
     }
-    //if clonedChange reverting to originalChange (og deletes, cloned adds, this deletes again), modification or addition becomes identical deletion
-    //if og adds, then deleted, and added: reversion (change deleted) becomes addition
+
+    setClonedChanges({...clonedChanges}); //TODO: is there a reason not to call this?
     console.log("Cloned changes updated: " + JSON.stringify(clonedChanges));
-  }
+  }, [defsAndData, clonedChanges, originalChanges, fieldErrors]);
 
 
   function submit(): void {
@@ -119,7 +114,6 @@ const MoveEditModal: React.FC<MoveEditModalProps > = ({moveName, getDefsAndData,
       characterDispatch({actionType: 'addMove', moveChanges: newMoveChanges});
     }
     else {
-      // submit cloned changes to EditCharacter, which adds them to changelist, writes, and parent MoveOrProps re-calcs defsAndData with new changes
       // Do deep compare to see if clonedChanges is equal to originals, if so just close
       const isRevert = keys(clonedChanges).length === 0;
       if(isEqual(originalChanges, clonedChanges)) {
@@ -129,21 +123,18 @@ const MoveEditModal: React.FC<MoveEditModalProps > = ({moveName, getDefsAndData,
         characterDispatch({actionType: 'editMove', moveName, moveChanges: (isRevert ? null : clonedChanges)});
       }
     }
-    //if adding move, need dismissal preparation since presenting button is inside a popover. Actual dismissal will be in useEffect cleanup.
-    //onDismiss(!!addMove); 
     characterDispatch({actionType: 'closeMoveEditModal'});
   }
 
 
   function deleteMove(): void {
-    //TODO: change everything to deletions and submitEdits(). Don't allow for universal props, or mandatory columns.
-    //Condense previous addition into a no-op.
-    throw new Error("Not implemented");
+    characterDispatch({actionType:'deleteMove', moveName: moveName});
+    characterDispatch({actionType: 'closeMoveEditModal'});
   }
 
-  function resetColumnChanges(columnName: string): void {
-    //TODO: pass to child, call to remove changes for column (NOT to revert to stored state, that's complicated). Deletes change and recalcs.
-    throw new Error("Not implemented");
+  function resetChanges(): void {
+    characterDispatch({actionType:'editMove', moveName: moveName, moveChanges: null});
+    characterDispatch({actionType: 'closeMoveEditModal'});
   }
 
   return (
@@ -157,7 +148,8 @@ const MoveEditModal: React.FC<MoveEditModalProps > = ({moveName, getDefsAndData,
         {defsAndData.map((defData) => {
           const colName = defData.columnName;
           const err = fieldErrors[colName];
-          return (
+          if(!addingNewMove && colName === "moveName") return null;
+          else return (
             <MoveColumnInput key={colName} defData={defData} editSingleColumn={editSingleColumn} fieldError={err}/>
           );
         })}
@@ -165,8 +157,8 @@ const MoveEditModal: React.FC<MoveEditModalProps > = ({moveName, getDefsAndData,
       <IonItem key="footer">
         <input type="submit" style={{display: "none"}}/> {/* enables enter key submission. TODO: test on mobile */}
         <IonButton disabled={keys(fieldErrors).length>0} onClick={() => submit()}>Submit</IonButton>
-        {!addingNewMove && <IonButton onClick={() => deleteMove()}>Delete</IonButton>}
-        {/*<IonButton onClick={() => onDismiss(!!addMove)}>Cancel</IonButton>*/}
+        {!addingNewMove && (moveName !== "universalProps") && <IonButton onClick={() => deleteMove()}>Delete</IonButton>}
+        {!addingNewMove && <IonButton disabled={!hasChanges} onClick={() => resetChanges()}>Undo All Changes</IonButton>}
         <IonButton onClick={() => characterDispatch({actionType:'closeMoveEditModal'})}>Cancel</IonButton>
       </IonItem>
     {/*</IonModal>*/}

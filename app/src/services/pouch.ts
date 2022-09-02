@@ -5,6 +5,7 @@ import { useGameDispatch, Action as GameAction } from '../components/GameProvide
 
 // also currently have admin:password
 export const remoteWithBasicCreds: string = 'http://public:password@localhost:5984/';
+export const remoteWithTestAdminCreds: string = 'http://admin:password@localhost:5984/';
 export const remote: string = 'http://localhost:5984/';
 PouchDB.plugin(PouchAuth);
 
@@ -20,6 +21,22 @@ export function getDB(name: string): PouchDB.Database {
 //check if name is that of a remote db by seeing if it starts with "http"
 export function nameIsRemote(name: string): boolean {
   return name.indexOf("http") === 0;
+}
+
+//returns a promise response that must be resolved to another promise via response.json(), response.text(), response.blob() etc
+export function makeRequest(url: string, username: string, password: string, method: "GET" | "PUT" | "POST", body?: Object) {
+  var str = username + ':' + password;
+  var token = btoa(unescape(encodeURIComponent(str)));
+  const response = fetch(url, {
+    method: method,
+    mode: 'cors',
+    headers: {
+      'Content-Type': 'application/json',
+      'Authorization': 'Basic ' + token
+    },
+    body: JSON.stringify(body),
+  });
+  return response;
 }
 
 export function syncDB(db: PouchDB.Database, live: boolean) {

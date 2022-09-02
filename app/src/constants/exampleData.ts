@@ -146,6 +146,7 @@ export namespace Order {
 export namespace ChangeDocs {
   export const talimChanges: Readonly<T.ChangeDocWithMeta> = {
     _id: "c2",
+    _rev: undefined,
     updateDescription: "test",
     createdAt: new Date(),
     createdBy: "testyman",
@@ -198,6 +199,7 @@ export namespace ChangeDocs {
   // Used for live testing, not automated tests, can change
   export const testChangeList: T.ChangeDocWithMeta = {
     _id: "1-banana",
+    _rev: undefined,
     updateDescription: "test",
     createdAt: new Date(),
     createdBy: "testyman",

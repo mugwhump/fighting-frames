@@ -1,22 +1,12 @@
-import { useIonModal, useIonToast, IonPopover, IonContent, IonModal, IonRow } from '@ionic/react';
-import React, { useRef, useReducer, useState, useCallback, useEffect, Dispatch, ReducerAction, MouseEvent }from 'react';
-import { add, trashBin } from 'ionicons/icons';
-import { useParams, useHistory, useLocation } from 'react-router';
-import { Action } from 'history';
-import { Link } from 'react-router-dom';
+import { useIonToast, } from '@ionic/react';
+import React, { useEffect, useCallback }from 'react';
+import { useParams, } from 'react-router';
 import { useDoc, usePouch } from 'use-pouchdb';
-import { createContainer } from 'react-tracked';
 //import {MoveOrder, ColumnDef, T.ColumnDefs, ColumnData, Cols, PropCols, MoveCols, T.CharDoc, T.ChangeDoc, T.ChangeDocWithMeta } from '../types/characterTypes';
 import type * as T from '../types/characterTypes'; //==
-import { getChangeListMoveOrder, getDefsAndData } from '../services/util';
-import { State, CharacterContextProvider , useCharacterDispatch, useTrackedCharacterState , getInitialState, characterReducer, } from '../services/CharacterReducer';
-import Character from './Character';
-import { SegmentUrl } from './CharacterSegments';
-import EditCharacter from './EditCharacter';
-import MoveOrUniversalProps from './MoveOrUniversalProps';
-import MoveEditModal from './MoveEditModal';
-import { CategoryAndChildRenderer } from './CategoryAndChildRenderer';
-import { setTimeout } from 'timers';
+import * as util from '../services/util';
+import { State, useCharacterDispatch, useTrackedCharacterState, useMiddleware, MiddlewareFn } from '../services/CharacterReducer';
+import { SegmentUrl } from '../types/utilTypes';
 
 
 type CharProviderProps = {
@@ -27,22 +17,22 @@ type CharProviderProps = {
 
 export const CharacterDocAccess: React.FC<CharProviderProps> = ({children, gameId}) => {
   const { character } = useParams<{ character: string; }>(); //router has its own props
-  const baseUrl = "/game/"+gameId+"/character/"+character;
+  const baseUrl = util.getSegmentUri(gameId, character, SegmentUrl.Base);
+  //TODO: just use existing local db with no revisions or conflict? Need some changes to Local Provider then... and can't sync in future... use conflicty one?
+  const remoteDatabase: PouchDB.Database = usePouch('remote'); 
   const localPersonalDatabase: PouchDB.Database = usePouch('localPersonal'); 
   const { doc, loading, state: docState, error } = useDoc<T.CharDoc>('character/'+character); 
-  //TODO: manually load editChanges once
-  //const [state, dispatch] = useReducer(Reducer, null, init); 
   const state = useTrackedCharacterState();
   const dispatch = useCharacterDispatch();
   const [presentToast, dismissToast] = useIonToast(); 
-  const docEditId = baseUrl + SegmentUrl.Edit;
+  const docEditId = util.getSegmentUri(gameId, character, SegmentUrl.Edit);
 
   //Initialization, start loading local edits (charDoc automatically starts reloading due to the hook)
   //Also called when switching characters.
   useEffect(() => {
     if(state.initialized) {
       console.log("Character "+character+" uninitialized. Loading character docs");
-      dispatch({actionType:'deinitialize', character: character});
+      dispatch({actionType:'deinitialize', characterId: character});
     }
     localPersonalDatabase.get<T.ChangeDoc>(docEditId).then((doc)=> {
       console.log("Loaded edit doc for "+character);
@@ -71,16 +61,6 @@ export const CharacterDocAccess: React.FC<CharProviderProps> = ({children, gameI
       dispatch({actionType:'setCharDoc', charDoc:doc});
     }
   }, [doc]);
-
-  // Present Alert
-  useEffect(() => {
-    if(state.toastOptions) {
-      presentToast(state.toastOptions);
-    }
-    else {
-      dismissToast();
-    }
-  }, [state.toastOptions]);
 
 
   async function writeChangeList() {
@@ -135,6 +115,26 @@ export const CharacterDocAccess: React.FC<CharProviderProps> = ({children, gameI
   }
 
 
+  const uploadChangeListCallback: MiddlewareFn = useCallback((state, action, dispatch) => {
+    if (action.actionType !== 'uploadChangeList') {
+      console.warn("Upload changelist middleware being called for action "+action.actionType);
+      return;
+    }
+    const changeList: T.ChangeDoc = action.changes;
+    const id: string = util.getChangeUri(gameId, state.characterId, changeList.updateTitle!);
+    console.log("Uploading ID " + id);
+    const uploadDoc: T.ChangeDocWithMeta = {...changeList, _id: id, _rev: undefined};
+    remoteDatabase.put(uploadDoc).then((response) => {
+      //TODO: redirect to it in changes section
+      //TODO: delete local edits? Perhaps prompt for it?
+      console.log("Upload response = " + JSON.stringify(response));
+      presentToast("Upload successful!", 3000);
+    }).catch((err) => {
+      console.log("Upload error = " + JSON.stringify(err));
+      presentToast('Upload failed: ' + err.message, 3000);
+    });
+  }, [gameId]);
+  useMiddleware("CharacterDocAccess", {uploadChangeList: uploadChangeListCallback});
 
 
   if (docState === 'error') {

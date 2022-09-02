@@ -1,6 +1,14 @@
 import { DBStatus, initialDBStatus } from '../components/GameProvider';
 
 
+//these are suffixes that go at the end of the url. Used for local and remote database URIs too.
+export enum SegmentUrl {
+  Base = '',
+  Edit = '/local-edit',
+  Changes = '/changes', //TODO: change to Changes
+  History = '/history'
+}
+
 //fixes JSON.stringify for Set<string>. Still can't use for(let i in set), must use for...of
 //Pouch says it and couch don't store objs with own classes or special getter/setters, seems to turn this into normal Set<string> for storage.
 //https://pouchdb.com/errors.html#could_not_be_cloned

@@ -593,7 +593,7 @@ export function getChangedCols(originalCols: Readonly<T.Cols> | undefined, chang
       delete newCols[key];
     }
   };
-  console.log(`Changed columns for ${changes.moveName} from ${JSON.stringify(originalCols)} to ${JSON.stringify(newCols)} `);
+  //console.log(`Changed columns for ${changes.moveName} from ${JSON.stringify(originalCols)} to ${JSON.stringify(newCols)} `);
   return newCols;
 }
 

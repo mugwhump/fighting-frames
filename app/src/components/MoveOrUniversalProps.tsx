@@ -100,7 +100,8 @@ function DataJSX({defData, isMove}: DataProps) {
 
   //TODO: generic code for cols that shouldn't be displayed
   if(isMove) {
-    return ( 
+    if(columnName === "moveName") return null;
+    else return ( 
       <IonCol>
         {columnName}
         =

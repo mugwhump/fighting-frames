@@ -3,6 +3,7 @@ import type * as T from '../types/characterTypes'; //==
 import {DataType} from '../types/characterTypes'; //== 
 import type { FieldError } from '../types/utilTypes'; //==
 import { getChangedCols } from '../services/merging';
+import { SegmentUrl } from '../types/utilTypes';
 
 //export function keys<T extends object>(obj: T): Array<keyof T> { //was always insisting keys could be string | number, maybe since number keys get coerced to strings
 export function keys<T extends object>(obj: T): Array<string> {
@@ -24,6 +25,14 @@ export function shallowCompare(obj1: any, obj2: any): boolean {
     );
   }
 }
+
+export function getSegmentUri(gameId: string, character: string, segment: SegmentUrl): string {
+  return "/game/"+gameId+"/character/"+character+segment;
+}
+export function getChangeUri(gameId: string, character: string, changeTitle: string): string {
+  return getSegmentUri(gameId, character, SegmentUrl.Changes) + '/' +changeTitle;
+}
+
 //TODO: how is this at all better than just optional chaining
 export function getChangeListMoveOrder(changeList: T.ChangeDoc): T.MoveOrder[] | null {
   let orderChange = changeList?.universalPropChanges?.moveOrder;
@@ -83,7 +92,7 @@ export function updateMoveOrPropChanges(changeList: T.ChangeDoc, moveName: strin
       }
     }
   }
-  // Update the changeList.moveChanges reference for react rendering updates. Uncomment if needed anywhere.
+  // Update the changeList.moveChanges reference for react rendering updates.
   if(updateRefs) {
     if(!isPropChange && changeList.moveChanges) {
       changeList.moveChanges = {...changeList.moveChanges};
@@ -92,17 +101,24 @@ export function updateMoveOrPropChanges(changeList: T.ChangeDoc, moveName: strin
   }
   return changeList;
 }
-export function updateColumnChange(changeList: T.ChangeDoc, moveName: string, columnName: string, change: Readonly<T.ColumnChange> | null) {
+
+
+export function updateColumnChange(changeList: T.ChangeDoc, moveName: string, columnName: string, change: Readonly<T.ColumnChange> | null, updateRefs: boolean=false): T.ChangeDoc {
   let changes: T.Changes | null = ((moveName === "universalProps") ? changeList.universalPropChanges : changeList.moveChanges?.[moveName]) ?? null;
   if(change) { //getting one change means move changes can't be null
     changes = {...changes, [columnName]: change} as T.Changes;
   }
   else if(changes) { //deleting what might be the last change
     delete changes?.[columnName];
-    if(keys(changes).length === 0) changes = null;
+    if(keys(changes).length === 0) {
+      changes = null;
+    }
+    else changes = {...changes};
   }
-  updateMoveOrPropChanges(changeList, moveName, changes);
+  return updateMoveOrPropChanges(changeList, moveName, changes, updateRefs);
 }
+
+
 export function updateColumnConflict(changeList: T.ChangeDoc, moveName: string, columnName: string, conflict: Readonly<T.Conflict> | null, updateRefs: boolean=false): T.ChangeDoc {
   let conflicts: T.Conflicts | null = changeList.conflictList?.[moveName] ?? null;
   if(conflict) { //getting one conflict means move conflicts can't be null

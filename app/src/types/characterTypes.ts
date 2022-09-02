@@ -145,12 +145,14 @@ export type CharDoc = {
 export type CharDocWithMeta = PouchDB.Core.Document<CharDoc> & PouchDB.Core.IdMeta & PouchDB.Core.GetMeta;
 
 export type ChangeDoc = {
-  //id: string; //auto-generate? There's already the couch _id field
-  updateDescription: string;
-  createdAt: Date;
-  createdBy: string; //couch username
+  //_id is blabla/local-edit when saved/loaded locally, blabla/updateTitle on the server
+  updateTitle?: string; //user slug
+  updateDescription?: string; //users give more details, say who they are
+  updateVersion?: string; //game version. Can't enforce accuracy.
+  createdAt: Date; //server-side
+  createdBy: string; //server-side, couch username? Even writers won't usually be signed in... but can use to prioritize change cleanup
   baseRevision: string; //version of doc that these changes have seen and accounted for. The "old" values of changes match this doc.
-  previousChange?: string; //previous WRITER change before this, latest item in baseRev doc's history, can follow chain back to construct history even if doc is nuked. First change doesn't have.
+  previousChange?: string; //SS, previous WRITER change before this, latest item in baseRev doc's history, can follow chain back to construct history even if doc is nuked. First change doesn't have.
   //NON-WRITER changes that were merged in. Copied when non-writers pull in. Useful? Guess it tells writers "x already merged y, don't need both."
   //Starts empty when you begin editing, added to by every version/change you merge in.
   //Can't tell what changes were previously merged into base, seems pointless
@@ -160,7 +162,7 @@ export type ChangeDoc = {
   conflictList?: ConflictList; //each conflict gets deleted as its resolution is applied
 }
 //export type ChangeDocWithMeta = PouchDB.Core.Document<ChangeDoc> & PouchDB.Core.IdMeta; //NOT including _rev, changedocs should be immutable!
-export type ChangeDocWithMeta = ChangeDoc & {_id: string}; //NOT including _rev, changedocs should be immutable!
+export type ChangeDocWithMeta = ChangeDoc & {_id: string, _rev: undefined}; //_rev key must be present to put(), but don't allow updating change docs
 
 //generics can enforce that both pieces of data in a modify change are the same
 export type ColumnChange<T extends ColumnData = ColumnData> = Modify<T> | Add<T> | Delete<T>;

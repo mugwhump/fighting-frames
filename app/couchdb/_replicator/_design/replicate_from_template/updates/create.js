@@ -24,7 +24,12 @@ function(doc, req){
       url: host+'/'+id,
       auth: { basic: { username: username, password: password } }
     },
-    doc_ids: ['_design/list', '_design/validate'],
+    // copy all design documents
+    "selector": {
+      "_id": {
+        "$regex": "^_design/"
+      }
+    },
     create_target: true,
     continuous: true
   }

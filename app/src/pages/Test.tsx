@@ -4,6 +4,7 @@ import { useParams } from 'react-router';
 import './Page.css';
 import PouchDB from 'pouchdb';
 import * as myPouch from '../services/pouch';
+import * as Update from 'pouchdb-update';
 import * as E from '../constants/exampleData';
 import { reduceChanges, resolveMoveOrder, rebaseChangeDoc, mergeChangeDocs, getMergeConflicts, getRebaseConflicts, applyResolutions, autoResolveConflicts } from '../services/merging';
 import { remote, getDB, pullDB, pushDB, deleteDBWhichOutdatesDBReferences, remoteWithBasicCreds } from '../services/pouch';
@@ -22,7 +23,6 @@ const Test: React.FC<TestProps> = ({propNum, propStr}) => {
 
   const { name } = useParams<{ name: string; }>(); //router has its own props
   const [text, setText] = useState<string>('default'); //guess this is for my text entry thing
-  //let db : PouchDB.Database; //this seems to have it undefined, can't assign in viewEnter?
   //let db : PouchDB.Database = getDB('local-test');
   let db : PouchDB.Database = getDB('sc6');
 
@@ -59,6 +59,72 @@ const Test: React.FC<TestProps> = ({propNum, propStr}) => {
       console.log(err);
     });
   }
+
+  async function replicatorUpdate(newDbName: string) {
+    const name = myPouch.remote+'_replicator/_design/replicate_from_template/_update/create';
+    console.log("======$$$$$$$$$$$$$ BEGIN REPLICATOR UPDATE TEST");
+    let fetchPromise = myPouch.makeRequest(name, 'admin', 'password', "POST", {id: 'sc6', username: 'admin', password: 'password'});
+    fetchPromise.then((response) => {
+      if (!response.ok) {
+        throw new Error(`HTTP error! Status: ${response.status}`);
+      }
+      return response.text(); //my update function returns text, but it could return JSON
+    })
+    .then((data) => {
+      console.log("Returned data = " + JSON.stringify(data));
+    }).catch((err) => {
+      console.log("YA BEEFED IT KID" + err);
+    });
+  }
+
+  //Example function creating sec obj for given database
+  async function setupDbSecurity(newDbName: string) {
+    const name = myPouch.remote+`${newDbName}/_security`;
+    console.log("======$$$$$$$$$$$$$ BEGIN SECURITY SETUP TEST");
+    let fetchPromise = myPouch.makeRequest(name, 'admin', 'password', "PUT", {"members":{"roles":["read"],"names":[]},"admins":{"roles":["_admin"]}});
+    fetchPromise.then((response) => {
+      if (!response.ok) {
+        throw new Error(`HTTP error! Status: ${response.status}`);
+      }
+      return response.json();
+    })
+    .then((data) => {
+      console.log("Returned data = " + JSON.stringify(data));
+    }).catch((err) => {
+      console.log("YA BEEFED IT KID" + err);
+    });
+  }
+
+  async function apiTest() {
+    let fetchPromise = myPouch.makeRequest("http://localhost:3000/api/test", 'admin', 'password', "GET");
+    fetchPromise.then((response) => {
+      if (!response.ok) {
+        throw new Error(`HTTP error! Status: ${response.status}`);
+      }
+      return response.text();
+    })
+    .then((data) => {
+      console.log("Returned data = " + JSON.stringify(data));
+    }).catch((err) => {
+      console.log("YA BEEFED IT KID" + err);
+    });
+  }
+
+
+  useIonViewDidEnter(() => {
+    console.log('ion view did enter event fired');
+    //moveOrderTest();
+    //mergeTest();
+    //rebaseTest();
+    //resolutionTest();
+    //pullDB("test");
+    //replicatorUpdate('muhDeeBee');
+    //setupDbSecurity('testo');
+    apiTest();
+    //getDocById("_design/testdesign", (doc) => {
+      //setText(doc.title);
+    //});
+  });
 
   async function pushButton() {
     setText("Pushed da button!");
@@ -491,18 +557,6 @@ const Test: React.FC<TestProps> = ({propNum, propStr}) => {
       }
     }
   }
-
-  useIonViewDidEnter(() => {
-    console.log('ion view did enter event fired');
-    //moveOrderTest();
-    //mergeTest();
-    //rebaseTest();
-    resolutionTest();
-    //pullDB("test");
-    //getDocById("_design/testdesign", (doc) => {
-      //setText(doc.title);
-    //});
-  });
 
   return (
     <IonPage>

@@ -21,17 +21,18 @@ const ColumnDataEdit: React.FC<ColumnDataEditProps> = ({columnName, colData, col
   let isTextArea: boolean = false;
   const debounceTime: number = 500; //number of MS after keystroke to wait before triggering input change event. 
 
-  console.log("ColDataEdit rendered with data "+colData);
-
   interface InputChangeEventDetail {
     value: string | undefined | null;
   }
   //function dataChanged(e: CustomEvent<InputChangeEventDetail>) {
   function dataChanged(value: string) {
-    //console.log("Column data changed to " + value);
+    console.log("Column data changed to " + value);
     //TODO: make sure any arrays have been deep cloned
     const newData = strToColData(value, colDef.dataType);
-    setInputData(newData);
+
+    //this causes a re-render when newData is a number, but not when a string. Some strict mode thing? Doesn't seem to cause problems...
+    //Needed to show changed vals when model reopened.
+    setInputData(newData); 
     editSingleColumn(columnName, newData);
   }
   function moveOrderChanged(moveOrder: MoveOrder[]) {

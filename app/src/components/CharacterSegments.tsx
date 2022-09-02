@@ -7,7 +7,10 @@ import { useTrackedCharacterState  } from '../services/CharacterReducer';
 import { requiredPropDefs, moveNameColumnDef } from '../constants/internalColumns';
 import { Character } from '../components/Character';
 import { EditCharacter } from '../components/EditCharacter';
+import { ChangeBrowser } from '../components/ChangeBrowser';
 import { DesignDoc, ColumnDefs } from '../types/characterTypes';
+import * as util from '../services/util';
+import { SegmentUrl } from '../types/utilTypes';
 
 type CharacterSegmentsProps = {
   gameId: string,
@@ -15,18 +18,11 @@ type CharacterSegmentsProps = {
   universalPropDefs: ColumnDefs,
 }
 
-//these are suffixes that go at the end of the url
-export enum SegmentUrl {
-  Base = '',
-  Edit = '/local-edit',
-  Versions = '/versions', //TODO: change to Changes
-  History = '/history'
-}
 
 const CharacterSegments: React.FC<CharacterSegmentsProps> = ({ gameId, columnDefs, universalPropDefs }) => {
   const { character } = useParams<{ character: string; }>(); //router has its own props
   const state = useTrackedCharacterState ();
-  const baseUrl = "/game/"+gameId+"/character/"+character;
+  const baseUrl = util.getSegmentUri(gameId, character, SegmentUrl.Base);
   const history = useHistory();
   const location: string = useLocation().pathname;
   const currentSegment: SegmentUrl = segmentFromUrl(location);
@@ -36,7 +32,7 @@ const CharacterSegments: React.FC<CharacterSegmentsProps> = ({ gameId, columnDef
   function segmentFromUrl(url: string): SegmentUrl {
     if(url === baseUrl) return SegmentUrl.Base;
     if(url === baseUrl + SegmentUrl.Edit) return SegmentUrl.Edit;
-    if(url === baseUrl + SegmentUrl.Versions) return SegmentUrl.Versions;
+    if(url === baseUrl + SegmentUrl.Changes) return SegmentUrl.Changes;
     if(url === baseUrl + SegmentUrl.History) return SegmentUrl.History;
     console.error("Non-matching url: "+url);
     return SegmentUrl.Base;
@@ -58,8 +54,10 @@ const CharacterSegments: React.FC<CharacterSegmentsProps> = ({ gameId, columnDef
     <>
     <IonContent fullscreen>
       {currentSegment === SegmentUrl.Base ?
-        <Character columnDefs={columnDefs} universalPropDefs={universalPropDefs} /> :
-        <EditCharacter gameId={gameId} columnDefs={columnDefs} universalPropDefs={universalPropDefs} />
+        <Character columnDefs={columnDefs} universalPropDefs={universalPropDefs} /> 
+        : currentSegment === SegmentUrl.Edit ? <EditCharacter gameId={gameId} columnDefs={columnDefs} universalPropDefs={universalPropDefs} />
+        : currentSegment === SegmentUrl.Changes ? <ChangeBrowser />
+        : <div>History not yet implemented</div>
       }
     </IonContent>
 
@@ -72,8 +70,8 @@ const CharacterSegments: React.FC<CharacterSegmentsProps> = ({ gameId, columnDef
           <IonSegmentButton onClick={clickedSegment} value={SegmentUrl.Edit}>
             <IonLabel>Edit</IonLabel>
           </IonSegmentButton>
-          <IonSegmentButton onClick={clickedSegment} value={SegmentUrl.Versions}>
-            <IonLabel>Versions</IonLabel>
+          <IonSegmentButton onClick={clickedSegment} value={SegmentUrl.Changes}>
+            <IonLabel>Changes</IonLabel>
           </IonSegmentButton>
           <IonSegmentButton onClick={clickedSegment} value={SegmentUrl.History}>
             <IonLabel>History</IonLabel>
