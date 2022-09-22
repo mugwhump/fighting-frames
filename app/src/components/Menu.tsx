@@ -20,7 +20,7 @@ import './Menu.css';
 import { useDoc } from 'use-pouchdb'
 import { useDocumentLocalRemoteSwitching } from '../services/pouch';
 import { DBListDoc, DBListDocItem } from '../types/characterTypes';
-import { StringSet } from '../types/utilTypes';
+import LoginButton from './LoginButton';
 import { withLocalContext, useLocalDispatch, Action as LocalAction } from './LocalProvider';
 import { withGameContext, useGameDispatch, DBStatus, DBTransitionState, Action as GameAction } from './GameProvider';
 
@@ -45,27 +45,16 @@ const Menu: React.FC<MenuProps> = ({usingLocal}) => {
   useDocumentLocalRemoteSwitching(state, error, usingLocal, 'Menu');
   const gameDispatch = useGameDispatch();
 
-  //useEffect(() => { // dispatch changes Menu's state so can't do it during a render, must dispatch in hook. (In onClick events is fine?)
-    //if (state === 'error') {
-      //console.warn("Error loading document " + (usingLocal ? "locally" : "non-locally") + " in Menu: " + error?.message);
-      //gameDispatch({actionType: 'fetchFailure', error: error} as GameAction);
-    //}
-  //}, [state, error]);
-
   if (state === 'error') {
     console.log("MENU COMPLAINO");
     return (<span>heckin errorino in menu: {error?.message}</span>);
   }
   // loading is true even after the doc loads
   if (loading && doc == null) {
-    //console.log("Menu Loading: "+loading+", doc: "+JSON.stringify(doc));
     return (<h1> loadin in menu</h1>);
   }
 
-  //const WrappedMenuItem = withLocalContext((state) => {return {wantedDbs: state.wantedDbs}})(MenuItem);
   const WrappedMenuItem = withGameContext((gameContext, props) => { return {status: gameContext.dbStatuses.get(props.dbListItem.id)}})(MenuItem);
-  //const WrappedMenuItem = withGameContext((state, dbListItem) => {return {status: state.dbStatuses.get((dbListItem.db === "sc6") ? "sc6" : "samsho")}})(MenuItem); //thinks all's samsho
-  //const WrappedMenuItem = withGameContext((state, dbListItem) => {return {status: state.dbStatuses.get("sc6")}})(MenuItem);
   return (
     <>
       <IonContent>
@@ -77,6 +66,7 @@ const Menu: React.FC<MenuProps> = ({usingLocal}) => {
               <WrappedMenuItem dbListItem={dbListItem} key={index} path={location.pathname} />
             );
           })}
+          <LoginButton />
         </IonList>
       </IonContent>
 

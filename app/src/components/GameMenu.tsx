@@ -63,7 +63,7 @@ const GameMenu: React.FC = () => {
           <IonNote>ky is dishonest</IonNote>
 
           {menuContent}
-          {(gameId !== null) && <LoginButton db={gameId} />}
+          {(gameId !== null) && <LoginButton />}
 
           <IonMenuToggle key={rows.length} autoHide={false}>
             <IonItem routerLink={"/page/Inbox"} routerDirection="back" lines="none" detail={false}>

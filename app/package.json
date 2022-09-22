@@ -11,6 +11,7 @@
     "@ionic/pwa-elements": "^3.0.2",
     "@ionic/react": "^6.0.8",
     "@ionic/react-router": "^6.0.7",
+    "@sensu/superlogin": "^1.2.6",
     "@testing-library/jest-dom": "^4.2.4",
     "@testing-library/react": "^9.4.0",
     "@testing-library/user-event": "^8.0.3",
@@ -32,6 +33,7 @@
     "react-router-dom": "^5.1.2",
     "react-scripts": "^4.0.3",
     "react-tracked": "^1.7.9",
+    "superlogin-client": "^0.8.0",
     "typescript": "3.8.3",
     "use-pouchdb": "^1.2.3"
   },

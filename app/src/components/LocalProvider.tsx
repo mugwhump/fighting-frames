@@ -11,7 +11,7 @@ export type Credentials = {
   password: string 
 }
 export type db = string;
-export type CredentialStore = Record<db, Credentials>; //TODO: think about whether I REALLY want a record here
+//export type CredentialStore = Record<db, Credentials>; // With superlogin users should only need one set of credentials
 export type Preferences = {
   localEnabled: boolean, //enable if user chooses to download a db?
   preferLocal: boolean, //TODO: remove, compileconstant does its job. If local's enabled, it should be preferred.
@@ -21,7 +21,8 @@ export type Preferences = {
 // TODO: handling for if old version is saved but a new property is added to LocalData. 
 //Should have transformers for each version that changes state structure
 export type LocalData = {
-  credentials: CredentialStore, //only stores non-default credentials
+  //credentials: CredentialStore, //only stores non-default credentials
+  credentials: Credentials,
   preferences: Preferences,
   tutorials: StringSet, //if the name of the tutorial is here, you saw it.
   wantedDbs: StringSet, //if name of DB is here, user wants it. Includes top.
@@ -33,7 +34,7 @@ type LatestPageDoc = PouchDB.Core.Document<LatestPage> & PouchDB.Core.IdMeta & P
 
 const initialState: LocalData = {
   //credentials: {"sc6": {username:"bobbu", password:"pw"}},
-  credentials: {},
+  credentials: CompileConstants.DEFAULT_CREDENTIALS,
   preferences: {localEnabled: CompileConstants.DEFAULT_LOCAL_ENABLED, preferLocal: CompileConstants.DEFAULT_PREFER_LOCAL, showTutorials: false},
   tutorials: new StringSet(["bonono"]),
   wantedDbs: new StringSet(),
@@ -43,8 +44,10 @@ type ValueOf<T> = T[keyof T];
 
 export type Action = 
   | { actionType: 'loadState', doc: LocalDoc }
-  | { actionType: 'addCredentials', db: db, creds: Credentials }
-  | { actionType: 'updateCredentials', db: db, creds: Credentials }
+  //| { actionType: 'addCredentials', db: db, creds: Credentials }
+  //| { actionType: 'updateCredentials', db: db, creds: Credentials }
+  | { actionType: 'updateCredentials', creds: Credentials }
+  | { actionType: 'resetCredentials' }
   | { actionType: 'updatePreferences', preferences: Preferences }
   | { actionType: 'setUserWants', db: string, userWants: boolean } //Confirm user's cool with db size before this. If anything's here, top is here.
   //| { actionType: 'updateLatestPage', latestPage: string }
@@ -57,15 +60,20 @@ function LocalReducer(state: LocalData, action: Action): LocalData {
   let newState: LocalData = {...state}; //THE SECRET: reference to state itself changes, but its members have same references
   console.log("Action (tuts and userWants don't stringify): " + JSON.stringify(action));
   switch(action.actionType) {
-    case 'addCredentials':
+    //case 'addCredentials':
     case 'updateCredentials': {
-      let newCreds: CredentialStore = {};
-      for(let key in newState.credentials) {
-        newCreds[key] = {...newState.credentials[key]};
-      }
+      //let newCreds: CredentialStore = {};
+      //for(let key in newState.credentials) {
+        //newCreds[key] = {...newState.credentials[key]};
+      //}
       //TODO: check validity? And website version should not store credentials.
-      newState.credentials = newCreds;
-      newState.credentials[action.db] = action.creds; //need new credentials record object to trigger dep updates
+      //newState.credentials = newCreds;
+      //newState.credentials[action.db] = action.creds; //need new credentials record object to trigger dep updates
+      newState.credentials = action.creds;
+      break;
+    }
+    case 'resetCredentials': {
+      newState.credentials = CompileConstants.DEFAULT_CREDENTIALS;
       break;
     }
     case 'loadState': {
@@ -297,7 +305,7 @@ export const LocalProvider: React.FC = ({children}) => {
     return (
       <StateContext.Provider value={state}>
         <DispatchContext.Provider value={dispatch}>
-          <GameProvider credentialStore={state.credentials} wantedDbs={state.wantedDbs} localEnabled={state.preferences.localEnabled}>
+          <GameProvider storedCredentials={state.credentials} wantedDbs={state.wantedDbs} localEnabled={state.preferences.localEnabled}>
             {children}
           </GameProvider>
         </DispatchContext.Provider>

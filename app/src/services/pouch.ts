@@ -1,18 +1,29 @@
-import PouchDB from 'pouchdb';
+import PouchDB from 'pouchdb'; //TODO: use a smaller package (check Custom Builds section on pouch website)
 import PouchAuth from 'pouchdb-authentication';
+import superlogin from 'superlogin-client';
 import { useEffect, useState, useRef, MutableRefObject, useCallback } from 'react';
 import { useGameDispatch, Action as GameAction } from '../components/GameProvider';
+import CompileConstants from '../constants/CompileConstants';
 
 // also currently have admin:password
-export const remoteWithBasicCreds: string = 'http://public:password@localhost:5984/';
+export const remoteWithBasicCreds: string = `http://${CompileConstants.DEFAULT_CREDENTIALS.username}:${CompileConstants.DEFAULT_CREDENTIALS.password}@localhost:5984/`;
 export const remoteWithTestAdminCreds: string = 'http://admin:password@localhost:5984/';
 export const remote: string = 'http://localhost:5984/';
 PouchDB.plugin(PouchAuth);
 
-export function getDB(name: string): PouchDB.Database {
+superlogin.configure({
+  serverUrl: 'http://localhost:3000',
+  baseUrl: '/auth',
+  endpoints: ['localhost:3000'], //http interceptor adds bearer auth headers to any requests to these hosts. (Only couchAuth uses bearer auth)
+  noDefaultEndpoint: true, //don't add url bar to list
+});
+export {superlogin};
+
+type OptionType = PouchDB.Configuration.LocalDatabaseConfiguration | PouchDB.Configuration.RemoteDatabaseConfiguration;
+export function getDB(name: string, options: OptionType = {}): PouchDB.Database {
   let db: PouchDB.Database;
   // if local DB by this name doesn't exist, makes one. Do not want this behavior for remotes.
-  let options = nameIsRemote(name) ? {skip_setup: true} : {};
+  if(nameIsRemote(name)) (options as PouchDB.Configuration.RemoteDatabaseConfiguration).skip_setup = true;
   db = new PouchDB(name, options); 
   console.log("---------CALLED getDB for " + name + "-----------");
   return db;

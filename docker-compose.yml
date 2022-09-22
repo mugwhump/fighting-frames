@@ -31,7 +31,7 @@ services:
         # To build for prod, use export MY_SERVICE_VERSION=1.2.3, then docker-compose -f docker-compose.yml build,
         # then push. Could launch in prod (or staging) by exporting right vars, then using
         # docker stack deploy my-stack --compose-file docker-compose.yml --with-registry-auth
-        # ^^^ actually docker stack is only for swarm...
+        # ^^^ for swarm mode
         # image: private.registry.mine/my-stack/my-service:${MY_SERVICE_VERSION:-latest}
         build: server/
         environment: # can also use a .env file
@@ -49,6 +49,8 @@ services:
         secrets:
             - couch_admin
             - couch_password
+            - mail_from_address
+            - mail_api_key
     #shell access to server with something like docker-compose run --rm web-cli maybe
     #web-cli:
         #image: ff-server #part of same image as api
@@ -63,10 +65,10 @@ services:
         image: traefik:v2.8
         # Enables the web UI and tells Traefik to listen to docker
         command: 
-            --api.insecure=true # when not in prod
-            --providers.docker=true
-        deploy: #this stuff is only used with 'docker stack deploy', ignored by docker compose
-            labels: 
+            - --api.insecure=true # when not in prod
+            - --providers.docker=true
+        #deploy: #this stuff is only used with 'docker stack deploy', ignored by docker compose
+            #labels: 
         ports:
         # The HTTP port
         - "80:80"
@@ -93,3 +95,11 @@ secrets: # available in containers in /run/secrets/secret_name. Long notation ca
         file: ./secrets/couch_admin.txt
     couch_password:
         file: ./secrets/couch_password.txt
+    mail_from_address:
+        file: ./secrets/mail_from_address_test.txt
+    mail_api_key:
+        file: ./secrets/mail_api_key_test.txt
+    #mail_from_address_test:
+        #file: ./secrets/mail_from_address_test.txt
+    #mail_api_key_test:
+        #file: ./secrets/mail_api_key_test.txt

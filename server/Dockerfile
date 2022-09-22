@@ -18,5 +18,7 @@ COPY . .
 EXPOSE 3000
 # dev uses nodemon, reloads server upon filechanges (mapped to volume)
 # start runs with node. 
+# Use a less-privileged user instead of root
+USER node
 # TODO: remove from here and add to compose file?
 CMD [ "npm", "run", "dev" ]

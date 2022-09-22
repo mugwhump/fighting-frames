@@ -25,6 +25,7 @@ const Test: React.FC<TestProps> = ({propNum, propStr}) => {
   const [text, setText] = useState<string>('default'); //guess this is for my text entry thing
   //let db : PouchDB.Database = getDB('local-test');
   let db : PouchDB.Database = getDB('sc6');
+  let remote : PouchDB.Database = getDB(myPouch.remote+'_users');
 
   /*
   useEffect(() => {
@@ -110,6 +111,48 @@ const Test: React.FC<TestProps> = ({propNum, propStr}) => {
     });
   }
 
+  async function noPublicPasswordChange() {
+    remote.logIn("public", "password").then((resp) => {
+      console.log("Logged in as public/password, changing password");
+      remote.changePassword("public", "newPasword").then((resp2) => {
+        console.log("Changed password");
+      }).catch((err) => {
+        console.log("error changing password: " + JSON.stringify(err));
+      });
+    }).catch((err) => {
+      console.log("error logging in: " + JSON.stringify(err));
+    });
+  }
+
+  async function superLoginTest() {
+    let sl = myPouch.superlogin;
+    let session = await sl.login({username:'joesmith2', password:'bigsecret'});
+    console.log("Logged in as joe, " + JSON.stringify(session));
+    //let db = new PouchDB(myPouch.remoteWithBasicCreds+'samsho', {
+    let db = new PouchDB(myPouch.remote+'samsho', {
+        fetch: function (url, opts) {
+          if(!opts?.headers) {
+            throw new Error('No opts.headers, opts' + JSON.stringify(opts)); 
+          }
+          const head: Headers = opts.headers as Headers;
+          //head.set('Authorization', `Bearer ${session.token}:${session.password}`);
+          head.set('Authorization', `Basic ${btoa(unescape(encodeURIComponent(session.token + ':' + session.password)))}`);
+          return PouchDB.fetch(url, opts);
+        }
+    });
+    const charDoc = db.get('character/kyoshiro');
+    console.log("Character doc = " + JSON.stringify(charDoc));
+    //myPouch.makeRequest(myPouch.remote+'sc6/character%2Ftalim', session.token, session.password, "GET");
+    
+    //let axios = sl.getHttp(); //this POS isn't even adding the auth header
+    //try {
+      //let resp = await axios.get(myPouch.remote+'sc6/character/talim');
+      //console.log('u getted ' + JSON.stringify(resp));
+    //} catch (error) {
+      //console.log(`u suck ${JSON.stringify(error)}`);
+    //}
+  }
+
 
   useIonViewDidEnter(() => {
     console.log('ion view did enter event fired');
@@ -128,16 +171,23 @@ const Test: React.FC<TestProps> = ({propNum, propStr}) => {
 
   async function pushButton() {
     setText("Pushed da button!");
-    await deleteTest();
-    console.log("Baleet finito");
-    getFirstDoc((doc) => {
-      console.log(doc['title'] + ", new title: " + text);
-      //doc.title = text; //no worky?
-      //db.put(doc);
-      db.put({_id: doc._id, _rev: doc._rev, title: text});
-      pushDB(db);
-      console.log('got da thingy :DD');
-    });
+    //noPublicPasswordChange();
+    superLoginTest();
+    //await deleteTest();
+    //console.log("Baleet finito");
+    //getFirstDoc((doc) => {
+      //console.log(doc['title'] + ", new title: " + text);
+      ////doc.title = text; //no worky?
+      ////db.put(doc);
+      //db.put({_id: doc._id, _rev: doc._rev, title: text});
+      //pushDB(db);
+      //console.log('got da thingy :DD');
+    //});
+  }
+
+  async function pushButton2() {
+    let user = await remote.getSession();
+    console.log("Session = " + JSON.stringify(user));
   }
 
   async function deleteTest() {
@@ -578,7 +628,8 @@ const Test: React.FC<TestProps> = ({propNum, propStr}) => {
         <IonItem>
           <IonInput value={text} onIonChange={e => setText(e.detail.value!)}></IonInput>
         </IonItem> 
-        <IonButton onClick={() => pushButton()}>Delete test</IonButton>
+        <IonButton onClick={() => pushButton()}>Do test</IonButton>
+        <IonButton onClick={() => pushButton2()}>Do other test</IonButton>
       </IonContent>
     </IonPage>
   );

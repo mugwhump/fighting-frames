@@ -13,6 +13,9 @@ import EditCharacter from './EditCharacter';
 import MoveOrUniversalProps from './MoveOrUniversalProps';
 import { CategoryAndChildRenderer } from './CategoryAndChildRenderer';
 import { setTimeout } from 'timers';
+// ---------------- TESTING STUFF --------------------
+import * as myPouch from '../services/pouch'; 
+import PouchDB from 'pouchdb'; 
 
 //Have child move components that are passed properties.
 //Shows universal character properties (health, backdash, speed, etc) at top.
@@ -29,14 +32,49 @@ export const Character: React.FC<CharProps> = ({columnDefs, universalPropDefs}) 
   const charDoc = state.charDoc;
   const dispatch = useCharacterDispatch();
   const moveOrder: MoveOrder[] = charDoc?.universalProps?.moveOrder || [];
+  const remoteDatabase: PouchDB.Database = usePouch('remote');  //TODO: JUST FOR TESTING
 
-  //works as expected
-  useEffect(()=> {
-    console.log("character renderino'd");
-  });
-  //doesn't know val2 is tracked until this is called. But... not an issue?
-  function getMessage() {
-    return 'val2 = '+state.testVal2;
+  async function getSession() {
+    let user = await remoteDatabase.getSession();
+    console.log("Session = " + JSON.stringify(user));
+    let SLuser = await myPouch.superlogin.getSession();
+    let authenticated = myPouch.superlogin.authenticated();
+    console.log(`Authed = ${authenticated}, `+"SL Session = " + JSON.stringify(SLuser));
+    //try {
+      //let validSession = await myPouch.superlogin.validateSession(); //makes http call to validate
+      //console.log(`valid = ${JSON.stringify(validSession)}`);
+    //}
+    //catch(err) {
+      //console.log(`Error validating : ${JSON.stringify(err)}`);
+    //}
+  }
+  async function makeRequest() {
+    let db = myPouch.getDB(myPouch.remote+'samsho');
+    db.get('character/talim');
+
+    //console.log("Requesting via fetch");
+    //const url = myPouch.remote+`sc6/character/voldo`;
+    //const response = fetch(url, {
+      //method: 'GET',
+      //mode: 'cors',
+      //headers: {
+        //'Content-Type': 'application/json',
+        //'Authorization': 'Basic ' + token
+      //},
+      //body: JSON.stringify(body),
+    //});
+    //let fetchPromise = myPouch.makeRequest(name, 'admin', 'password', "GET");
+    //fetchPromise.then((response) => {
+      //if (!response.ok) {
+        //throw new Error(`HTTP error! Status: ${response.status}`);
+      //}
+      //return response.json();
+    //})
+    //.then((data) => {
+      //console.log("Returned data = " + JSON.stringify(data));
+    //}).catch((err) => {
+      //console.log("YA BEEFED IT KID" + err);
+    //});
   }
   //useEffect(()=> {
     //console.log("Val1 listener renderino");
@@ -52,9 +90,10 @@ export const Character: React.FC<CharProps> = ({columnDefs, universalPropDefs}) 
           <p>{charDoc.charName} is the character (DB)</p><br />
           <p>{JSON.stringify(charDoc)}</p>
         </IonItem>
-        <IonItem><IonButton onClick={()=>dispatch({actionType:'testVal1'})} >Inc val1: {state.testVal}</IonButton></IonItem>
-        <IonItem><IonButton onClick={()=>dispatch({actionType:'testVal2'})} >Inc val2</IonButton></IonItem>
-        <IonItem><IonButton onClick={()=>console.log(getMessage())} >Read val2</IonButton></IonItem>
+        {/*<IonItem><IonButton onClick={()=>dispatch({actionType:'testVal1'})} >Inc val1: {state.testVal}</IonButton></IonItem>*/}
+        {/*<IonItem><IonButton onClick={()=>dispatch({actionType:'testVal2'})} >Inc val2</IonButton></IonItem>*/}
+        <IonItem><IonButton onClick={getSession} >Check Sessions</IonButton></IonItem>
+        <IonItem><IonButton onClick={makeRequest}>Make Request</IonButton></IonItem>
       </IonRow>
         <MoveOrUniversalProps moveName="universalProps" columns={charDoc.universalProps} columnDefs={universalPropDefs} editMove={false}/>
         {moveOrder.map((moveOrCat: MoveOrder) => {

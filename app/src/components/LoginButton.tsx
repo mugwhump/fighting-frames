@@ -6,13 +6,11 @@ import { useLoginInfoContext, LoginInfo } from './GameProvider';
 import CompileConstants from '../constants/CompileConstants';
 
 type LoginButtonProps = {
-  db: string 
+  
 }
 
-const LoginButton: React.FC<LoginButtonProps> = ({db}) => {
-  const [showModal, setShowModal] = useState(false);
+const LoginButton: React.FC<LoginButtonProps> = () => {
   const loginInfo: LoginInfo = useLoginInfoContext();
-  // TODO: Only render at all if using remote db
   // What else will render differently depending on who you're logged in as?
 
   if(loginInfo.currentCreds.username !== CompileConstants.DEFAULT_CREDENTIALS.username) {
