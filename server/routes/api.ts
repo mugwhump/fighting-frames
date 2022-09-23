@@ -1,23 +1,27 @@
-var express = require('express');
-var router = express.Router();
-const logger = require('../util/logger');
-const util = require('util'); //node's util
-const { secrets } = require("docker-secret");
+//var express = require('express');
+import express, { Express, Request, Response } from 'express';
+import logger from '../util/logger';
+import util from 'util'; //node's util
+import { secrets } from "docker-secret";
+import couchAuth from './couchauth';
+//const nano = require('nano')(`http://${admin}:${password}@`+process.env.COUCHDB_URL); //TODO: put inside each API call?
+import * as Nano from 'nano';
+
+const router = express.Router();
 const admin = secrets.couch_admin;
 const password = secrets.couch_password;
-const couchAuth = require('./couchauth');
-const nano = require('nano')(`http://${admin}:${password}@`+process.env.COUCHDB_URL); //TODO: put inside each API call?
+const nano = Nano.default(`http://${admin}:${password}@`+process.env.COUCHDB_URL);
+const testUser = 'joesmith2';
 
-function sleep(ms) {
+function sleep(ms: number) {
     return new Promise(resolve => setTimeout(resolve, ms));
 }
-
-const testUser = 'joesmith2';
 
 /* GET api listing. */
 router.get('/', function(req, res, next) {
   res.send('COUCHDB_URL = '+process.env.COUCHDB_URL+', secrets = '+admin+', '+password);
 });
+/*
 router.get('/test', function(req, res, next) {
   couchAuth.passport.authenticate('local', function(err, user, info) {
     //logger.info('req = '+util.inspect(req));
@@ -68,6 +72,7 @@ router.get('/test', function(req, res, next) {
     });
   }
 );
+*/
 
 router.get('/list', function(req, res, next) {
   nano.db.list().then((dblist) => {
@@ -111,7 +116,7 @@ router.get('/getjoe', function(req, res, next) {
 });
 
 router.get('/login', function(req, res, next) {
-  couchAuth.createSession(testUser, 'local', req).then((resp) => {
+  couchAuth.createSession({login:testUser, provider:'local'}).then((resp) => {
   //couchAuth.createSession('public', 'local', req).then((resp) => { //only works with SL users, not regular users
     res.send('resp = '+JSON.stringify(resp));
   }).catch((err) => {
@@ -119,4 +124,4 @@ router.get('/login', function(req, res, next) {
   });
 });
 
-module.exports = router;
+export default router;

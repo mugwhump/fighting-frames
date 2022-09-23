@@ -1,18 +1,18 @@
-const express = require('express');
-const path = require('path');
-const cookieParser = require('cookie-parser');
+import express, { Express, Request, Response } from 'express';
+import path from 'path';
+import cookieParser from 'cookie-parser';
 //const logger = require('morgan'); //this one sucks
 
-const bodyParser = require('body-parser');
-const cors = require('cors');
+import bodyParser from 'body-parser';
+import cors from 'cors';
 
-const indexRouter = require('./routes/index');
-const apiRouter = require('./routes/api');
+import indexRouter from './routes/index';
+import apiRouter from './routes/api';
 //const superlogin = require('./routes/superlogin');
-const couchAuth = require('./routes/couchauth');
-const logger = require('./util/logger');
+import couchAuth from './routes/couchauth';
+import logger from './util/logger';
 
-const app = express();
+const app: Express = express();
 
 //app.use(logger('dev'));
 app.use(express.json());
@@ -33,10 +33,7 @@ const config = {
   host: '0.0.0.0',
 };
 
-app.listen(config.port, config.host, (e)=> {
-  if(e) {
-    throw new Error('Internal Server Error');
-  }
+app.listen(config.port, config.host, ()=> {
   logger.info(`*glomp* uwu ${config.name} running on ${config.host}:${config.port}`);
 });
 

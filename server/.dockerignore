@@ -1,3 +1,7 @@
+routes
+util
+server.ts
+tsconfig.json
 node_modules
 log
 npm-debug.log

@@ -3,8 +3,9 @@
   "version": "0.0.0",
   "private": true,
   "scripts": {
-    "start": "node server.js",
-    "dev": "nodemon server.js"
+    "build": "npx tsc",
+    "start": "node dist/server.js",
+    "dev": "concurrently \"npx tsc --watch\" \"nodemon -q dist/index.js\""
   },
   "dependencies": {
     "@perfood/couch-auth": "^0.18.2",
@@ -19,7 +20,13 @@
     "nano": "^10.0.0"
   },
   "devDependencies": {
-    "nodemon": "^2.0.19"
+    "@types/cookie-parser": "^1.4.3",
+    "@types/cors": "^2.8.12",
+    "@types/express": "^4.17.14",
+    "@types/node": "^18.7.18",
+    "concurrently": "^7.4.0",
+    "nodemon": "^2.0.19",
+    "typescript": "^4.8.3"
   },
   "nodemonConfig": {
     "ext": "js,mjs,json,html,css"

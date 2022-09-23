@@ -1,8 +1,9 @@
 //var express = require('express');
 //var router = express.Router();
 //const SuperLogin = require('@sensu/superlogin');
-const { CouchAuth } = require('@perfood/couch-auth');
-const { secrets } = require("docker-secret");
+import { CouchAuth } from '@perfood/couch-auth';
+import { Config } from '@perfood/couch-auth/lib/types/config';
+import { secrets } from "docker-secret";
 const admin = secrets.couch_admin;
 const adminPassword = secrets.couch_password;
 const mailFrom = secrets.mail_from_address;
@@ -15,10 +16,10 @@ const mailApiKey = secrets.mail_api_key;
 //});
 
 // see https://github.com/colinskow/superlogin/blob/master/config.example.js for all options and their default values
-const config = {
+const config: Config = {
   dbServer: {
     protocol: 'http://',
-    host: process.env.COUCHDB_URL,
+    host: process.env.COUCHDB_URL!,
     user: admin,
     password: adminPassword,
     userDB: 'sl-users',
@@ -68,14 +69,13 @@ const config = {
     confirmEmailRedirectURL: '/',
     //passwordContraints: { various password restrictions }
   },
-  emails: {
-    confirmEmail: {
-      subject: 'Please confirm your email',
-      //template: path.join(__dirname, './templates/email/confirm-email.ejs'),
-      // 'text' or 'html'
-      format: 'text'
-    },
-    //forgotPassword: {} same format as above
+  emailTemplates: {
+    templates: {
+      confirmEmail: {
+        subject: 'Please confirm your email',
+      },
+      //forgotPassword: {} same format as above
+    }
   },
   testMode: {
     noEmail: false,
@@ -86,4 +86,4 @@ const config = {
 
 const couchAuth = new CouchAuth(config);
 
-module.exports = couchAuth;
+export default couchAuth;
