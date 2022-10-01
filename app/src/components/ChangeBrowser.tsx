@@ -24,9 +24,10 @@ export const ChangeBrowser: React.FC<ChangeBrowserProps> = ({}) => {
     <IonGrid>
     hewwo
       {rows.map((row: any) => {
+        const changeTitle = row.id.split('/')[3];
         return (
-          <IonRow>
-            <IonItem>{row.id.split('/')[7]}</IonItem>
+          <IonRow key={row.value}>
+            <IonItem>{changeTitle}</IonItem>
             <IonItem>{row.value}</IonItem>
           </IonRow>
         );

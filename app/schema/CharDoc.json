@@ -1,0 +1,82 @@
+{
+    "$schema": "http://json-schema.org/draft-07/schema#",
+    "definitions": {
+        "MoveCols": {
+            "type": "object"
+        },
+        "MoveOrder": {
+            "properties": {
+                "indent": {
+                    "type": "number"
+                },
+                "isCategory": {
+                    "enum": [
+                        true
+                    ],
+                    "type": "boolean"
+                },
+                "name": {
+                    "type": "string"
+                }
+            },
+            "required": [
+                "name"
+            ],
+            "type": "object"
+        },
+        "PropCols": {
+            "properties": {
+                "moveOrder": {
+                    "items": {
+                        "$ref": "#/definitions/MoveOrder"
+                    },
+                    "type": "array"
+                }
+            },
+            "required": [
+                "moveOrder"
+            ],
+            "type": "object"
+        }
+    },
+    "properties": {
+        "changeHistory": {
+            "items": {
+                "type": "string"
+            },
+            "type": "array"
+        },
+        "charName": {
+            "type": "string"
+        },
+        "displayName": {
+            "type": "string"
+        },
+        "moves": {
+            "additionalProperties": {
+                "$ref": "#/definitions/MoveCols"
+            },
+            "type": "object"
+        },
+        "universalProps": {
+            "$ref": "#/definitions/PropCols"
+        },
+        "updatedAt": {
+            "type": "string"
+        },
+        "updatedBy": {
+            "type": "string"
+        }
+    },
+    "required": [
+        "changeHistory",
+        "charName",
+        "displayName",
+        "moves",
+        "universalProps",
+        "updatedAt",
+        "updatedBy"
+    ],
+    "type": "object"
+}
+

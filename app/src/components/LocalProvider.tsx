@@ -28,9 +28,9 @@ export type LocalData = {
   wantedDbs: StringSet, //if name of DB is here, user wants it. Includes top.
 }
 
-type LocalDoc = PouchDB.Core.Document<LocalData> & PouchDB.Core.IdMeta & PouchDB.Core.GetMeta;
+type LocalDoc = PouchDB.Core.Document<LocalData>;
 type LatestPage = {latestPage: string};
-type LatestPageDoc = PouchDB.Core.Document<LatestPage> & PouchDB.Core.IdMeta & PouchDB.Core.GetMeta;
+type LatestPageDoc = PouchDB.Core.Document<LatestPage>;
 
 const initialState: LocalData = {
   //credentials: {"sc6": {username:"bobbu", password:"pw"}},
@@ -165,7 +165,7 @@ export const LocalProvider: React.FC = ({children}) => {
   }
 
   // Returns promise resolving to LocalDoc, or throws error
-  async function getLocalDoc(): Promise<LocalDoc> {
+  async function getLocalDoc(): Promise<LocalDoc & PouchDB.Core.GetMeta> {
     if(!state.preferences.localEnabled) throw new Error("Called getLocalDoc() when local not enabled");
     return await database.get<LocalDoc>(docId);
   }
@@ -174,7 +174,7 @@ export const LocalProvider: React.FC = ({children}) => {
     //if(!state.preferences.localEnabled) throw new Error("Called getLocalDocs() when local not enabled");
     //return await database.allDocs<LocalDoc | LatestPageDoc>({include_docs: true});
   //}
-  async function getLatestPageDoc(): Promise<LatestPageDoc> {
+  async function getLatestPageDoc(): Promise<LatestPageDoc & PouchDB.Core.GetMeta> {
     if(!state.preferences.localEnabled) throw new Error("Called getLocalDoc() when local not enabled");
     return await database.get<LatestPageDoc>(locationDocId);
   }
@@ -208,7 +208,7 @@ export const LocalProvider: React.FC = ({children}) => {
     const putDoc: PouchDB.Core.PutDocument<LatestPage> = {latestPage: path};
     putDoc._id = locationDocId; 
     try {
-      const doc: LatestPageDoc = await getLatestPageDoc(); //get current _rev, must specify when updating existing doc or get conflict
+      const doc = await getLatestPageDoc(); //get current _rev, must specify when updating existing doc or get conflict
       if(doc) {
         putDoc._rev = doc._rev;
       }
@@ -236,7 +236,7 @@ export const LocalProvider: React.FC = ({children}) => {
     const putDoc: PouchDB.Core.PutDocument<LocalData> = state; 
     putDoc._id = docId; 
     if(docExists) {
-      const doc: LocalDoc = await getLocalDoc(); //get current _rev, must specify when updating existing doc or get conflict
+      const doc = await getLocalDoc(); //get current _rev, must specify when updating existing doc or get conflict
       putDoc._rev = doc._rev;
     }
     return await database.put(putDoc).catch((err) => {

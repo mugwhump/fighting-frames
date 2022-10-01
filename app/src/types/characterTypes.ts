@@ -134,35 +134,42 @@ export type DesignDoc = {
 export type CharDoc = {
   charName: string,
   displayName: string,
-  updatedAt: Date, //remember validation functions run on replication if a VDU is where I want to add this... not running VDU locally then
+  updatedAt: string, // created via new Date().toString()
   updatedBy: string,
   changeHistory: string[]; //array of changelist IDs used to create this. Changes not listed can be cleaned up after a time to make room?
   // ^^ would be nice if size of changeHistory matched revision #...
   universalProps: PropCols,
   moves: MoveList; //will be empty object when first created
 }
-//TODO: Document seems to already include IDMeta
-export type CharDocWithMeta = PouchDB.Core.Document<CharDoc> & PouchDB.Core.IdMeta & PouchDB.Core.GetMeta;
+//export type CharDocWithMeta = PouchDB.Core.Document<CharDoc> & PouchDB.Core.IdMeta & PouchDB.Core.GetMeta;
+export type CharDocWithMeta = CharDoc & {_id: string, _rev: string};
 
-export type ChangeDoc = {
+type Optional<T, K extends keyof T> = Omit<T, K> & Partial<Pick<T, K>> //utility type to make one or more props optional
+export type ChangeDoc = Optional<ChangeDocServer, 'updateTitle'> & {
+  conflictList?: ConflictList; 
+}
+// Separate ChangeDoc type used internally and ChangeDocServer type used for server-side validation (which requires title and excludes all validation stuff)
+export type ChangeDocServer = {
   //_id is blabla/local-edit when saved/loaded locally, blabla/updateTitle on the server
-  updateTitle?: string; //user slug
+  updateTitle: string; //user slug
   updateDescription?: string; //users give more details, say who they are
   updateVersion?: string; //game version. Can't enforce accuracy.
-  createdAt: Date; //server-side
+  createdAt: string; //server-side. 
   createdBy: string; //server-side, couch username? Even writers won't usually be signed in... but can use to prioritize change cleanup
-  baseRevision: string; //version of doc that these changes have seen and accounted for. The "old" values of changes match this doc.
-  previousChange?: string; //SS, previous WRITER change before this, latest item in baseRev doc's history, can follow chain back to construct history even if doc is nuked. First change doesn't have.
+  baseRevision: string; //version of charDoc that these changes have seen and accounted for. The "old" values of changes match this doc.
+  //SS, previous WRITER change before this, latest item in baseRev doc's history, can follow chain back to construct history even if doc is nuked. First change doesn't have.
+  //API publish call can set it.
+  previousChange?: string; 
   //NON-WRITER changes that were merged in. Copied when non-writers pull in. Useful? Guess it tells writers "x already merged y, don't need both."
   //Starts empty when you begin editing, added to by every version/change you merge in.
   //Can't tell what changes were previously merged into base, seems pointless
   //mergedChanges: string[]; 
   universalPropChanges?: PropChanges; //better to separate them, even at the cost of many undefined checks
   moveChanges?: MoveChangeList;
-  conflictList?: ConflictList; //each conflict gets deleted as its resolution is applied
 }
-//export type ChangeDocWithMeta = PouchDB.Core.Document<ChangeDoc> & PouchDB.Core.IdMeta; //NOT including _rev, changedocs should be immutable!
 export type ChangeDocWithMeta = ChangeDoc & {_id: string, _rev: undefined}; //_rev key must be present to put(), but don't allow updating change docs
+//export type ChangeDocServer = Omit<ChangeDoc, "conflictList"> & {updateTitle: NonNullable<ChangeDoc['updateTitle']>};
+//Meh, just do manual checks on optional properties
 
 //generics can enforce that both pieces of data in a modify change are the same
 export type ColumnChange<T extends ColumnData = ColumnData> = Modify<T> | Add<T> | Delete<T>;

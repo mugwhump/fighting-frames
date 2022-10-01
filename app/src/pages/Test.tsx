@@ -12,6 +12,7 @@ import { remote, getDB, pullDB, pushDB, deleteDBWhichOutdatesDBReferences, remot
 import type * as T from '../types/characterTypes'; //==
 import * as util from '../services/util';
 import { cloneDeep, isEqual } from 'lodash';
+//const Validator = require('../schema/CharDoc-validator-copy').default;
 
 //Could extend the router props if wanted to. Pass in db as prop from parent?
 type TestProps = {
@@ -61,9 +62,28 @@ const Test: React.FC<TestProps> = ({propNum, propStr}) => {
     });
   }
 
+  //TODO: this functionality will be moved to the API. Then it should use replication-guy as the user.
   async function replicatorUpdate(newDbName: string) {
     const name = myPouch.remote+'_replicator/_design/replicate_from_template/_update/create';
     console.log("======$$$$$$$$$$$$$ BEGIN REPLICATOR UPDATE TEST");
+    let fetchPromise = myPouch.makeRequest(name, 'admin', 'password', "POST", {id: 'sc6', username: 'admin', password: 'password'});
+    fetchPromise.then((response) => {
+      if (!response.ok) {
+        throw new Error(`HTTP error! Status: ${response.status}`);
+      }
+      return response.text(); //my update function returns text, but it could return JSON
+    })
+    .then((data) => {
+      console.log("Returned data = " + JSON.stringify(data));
+    }).catch((err) => {
+      console.log("YA BEEFED IT KID" + err);
+    });
+  }
+
+  async function testUpdateFun() {
+    const name = myPouch.remote+'test/_design/testdesign/_update/updateFun';
+    //const name = myPouch.remote+'test/_design/testdesign/_update/testExternal'; //yeah can't use libs from other design docs
+    console.log("======$$$$$$$$$$$$$ BEGIN UPDATE FUNC TEST");
     let fetchPromise = myPouch.makeRequest(name, 'admin', 'password', "POST", {id: 'sc6', username: 'admin', password: 'password'});
     fetchPromise.then((response) => {
       if (!response.ok) {
@@ -153,6 +173,15 @@ const Test: React.FC<TestProps> = ({propNum, propStr}) => {
     //}
   }
 
+  //function validatorTest() {
+    ////Validator.default()
+    //let doc: T.CharDoc = E.CharDocs.baseDoc;
+    //delete doc.displayName;
+    //let result = Validator({banana: 1});
+    //if(result) console.log("Validateded! Validator = " + JSON.stringify(Validator));
+    //else console.log("Validation failed: " + JSON.stringify(Validator));
+  //}
+
 
   useIonViewDidEnter(() => {
     console.log('ion view did enter event fired');
@@ -163,7 +192,7 @@ const Test: React.FC<TestProps> = ({propNum, propStr}) => {
     //pullDB("test");
     //replicatorUpdate('muhDeeBee');
     //setupDbSecurity('testo');
-    apiTest();
+    //apiTest();
     //getDocById("_design/testdesign", (doc) => {
       //setText(doc.title);
     //});
@@ -172,7 +201,9 @@ const Test: React.FC<TestProps> = ({propNum, propStr}) => {
   async function pushButton() {
     setText("Pushed da button!");
     //noPublicPasswordChange();
-    superLoginTest();
+    //superLoginTest();
+    //validatorTest();
+    testUpdateFun();
     //await deleteTest();
     //console.log("Baleet finito");
     //getFirstDoc((doc) => {

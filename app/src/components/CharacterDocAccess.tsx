@@ -17,7 +17,6 @@ type CharProviderProps = {
 
 export const CharacterDocAccess: React.FC<CharProviderProps> = ({children, gameId}) => {
   const { character } = useParams<{ character: string; }>(); //router has its own props
-  const baseUrl = util.getSegmentUri(gameId, character, SegmentUrl.Base);
   //TODO: just use existing local db with no revisions or conflict? Need some changes to Local Provider then... and can't sync in future... use conflicty one?
   const remoteDatabase: PouchDB.Database = usePouch('remote'); 
   const localPersonalDatabase: PouchDB.Database = usePouch('localPersonal'); 
@@ -121,11 +120,11 @@ export const CharacterDocAccess: React.FC<CharProviderProps> = ({children, gameI
       return;
     }
     const changeList: T.ChangeDoc = action.changes;
-    const id: string = util.getChangeUri(gameId, state.characterId, changeList.updateTitle!);
+    const id: string = util.getChangeId(state.characterId, changeList.updateTitle!);
     console.log("Uploading ID " + id);
     const uploadDoc: T.ChangeDocWithMeta = {...changeList, _id: id, _rev: undefined};
     remoteDatabase.put(uploadDoc).then((response) => {
-      //TODO: redirect to it in changes section
+      //TODO: redirect to it in changes section. Also lets writers publish what they just uploaded.
       //TODO: delete local edits? Perhaps prompt for it?
       console.log("Upload response = " + JSON.stringify(response));
       presentToast("Upload successful!", 3000);

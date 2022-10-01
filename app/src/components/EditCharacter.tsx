@@ -2,17 +2,17 @@ import { useIonModal, IonModal, useIonAlert, useIonToast, IonPopover, IonIcon, I
 import React, { useRef, useState, useEffect, useCallback, MouseEvent }from 'react';
 import { add, } from 'ionicons/icons';
 import { useDoc, usePouch } from 'use-pouchdb';
-import {MoveOrder, MoveCols, ColumnDefAndData, ColumnDef, ColumnDefs, ColumnData, Cols, ColumnChange, CharDoc, CharDocWithMeta, ChangeDoc, ChangeDocWithMeta, MoveChanges, Changes, AddMoveChanges , PropChanges, Modify, Conflicts } from '../types/characterTypes';
+import {MoveOrder, MoveCols, ColumnDefAndData, ColumnDef, ColumnDefs, ColumnData, Cols, ColumnChange, CharDoc, CharDocWithMeta, ChangeDoc, ChangeDocServer, MoveChanges, Changes, AddMoveChanges , PropChanges, Modify, Conflicts } from '../types/characterTypes';
 import type { FieldError } from '../types/utilTypes'; //==
-import * as E from '../constants/exampleData';
 import { moveNameColumnDef } from '../constants/internalColumns';
 import { getDefsAndData, getChangeListMoveOrder, keys, updateMoveOrPropChanges } from '../services/util';
 import { reduceChanges, resolveMoveOrder } from '../services/merging';
 import MoveOrUniversalProps from './MoveOrUniversalProps';
 import CategoryAndChildRenderer  from './CategoryAndChildRenderer';
-import MoveEditModal, { MoveEditModalProps } from './MoveEditModal';
+import MoveEditModal from './MoveEditModal';
 import MoveOrdererModal from './MoveOrdererModal';
 import { State, useCharacterDispatch, useTrackedCharacterState, useCharacterSelector, useMiddleware, selectMoveOrder } from '../services/CharacterReducer';
+import { useLoginInfoContext } from './GameProvider';
 import { cloneDeep } from 'lodash';
 
 
@@ -30,6 +30,7 @@ type EditCharProps = {
 export const EditCharacter: React.FC<EditCharProps> = ({gameId, columnDefs, universalPropDefs}) => {
   const dispatch = useCharacterDispatch();
   const state = useTrackedCharacterState();
+  const loginInfo = useLoginInfoContext();
   const charDoc = state.charDoc;
   const changeList: ChangeDoc | undefined = state.editChanges;
   const moveToEdit: string | undefined = state.moveToEdit;
@@ -128,7 +129,7 @@ export const EditCharacter: React.FC<EditCharProps> = ({gameId, columnDefs, univ
     function submit(opts: any) {
       console.log("Current values: "+JSON.stringify(opts));
       //Validate title
-      const titleRegex = new RegExp(/^[\w-.~]{3,25}$/); //alphanumeric and _, -, ., ~ length between 3-25
+      const titleRegex = new RegExp(/^[\w-.~]{1,25}$/); //alphanumeric and _, -, ., ~ length between 3-25
       const titleValid = titleRegex.test(opts.title);
       if(!titleValid) {
         presentToast('Title must be between 3-25 characters, which must be alphanumeric or ~_-. (no spaces)', 5000);
@@ -144,7 +145,15 @@ export const EditCharacter: React.FC<EditCharProps> = ({gameId, columnDefs, univ
           return false; 
         }
       }
-      let uploadChanges: ChangeDoc = {...changeList!, updateTitle: opts.title, updateDescription: opts.description, updateVersion: opts.version};
+      let uploadChanges: ChangeDocServer = {
+        ...changeList!, 
+        updateTitle: opts.title, 
+        updateDescription: opts.description, 
+        updateVersion: opts.version,
+        createdAt: new Date().toString(),
+        //createdAt: "Thu Sep 29 2022 19:45:25 GMT-0700",
+        createdBy: loginInfo.currentCreds.username
+      };
       dispatch({actionType:'uploadChangeList', changes: uploadChanges!});
     }
   }

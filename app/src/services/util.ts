@@ -29,8 +29,8 @@ export function shallowCompare(obj1: any, obj2: any): boolean {
 export function getSegmentUri(gameId: string, character: string, segment: SegmentUrl): string {
   return "/game/"+gameId+"/character/"+character+segment;
 }
-export function getChangeUri(gameId: string, character: string, changeTitle: string): string {
-  return getSegmentUri(gameId, character, SegmentUrl.Changes) + '/' +changeTitle;
+export function getChangeId(character: string, changeTitle: string): string {
+  return `character/${character}/changes/${changeTitle}`;
 }
 
 //TODO: how is this at all better than just optional chaining

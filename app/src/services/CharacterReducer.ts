@@ -32,7 +32,7 @@ function getEmptyCharDoc(): T.CharDocWithMeta {
     _rev: "",
     charName: "",
     displayName: "",
-    updatedAt: new Date(), 
+    updatedAt: new Date().toString(), 
     updatedBy: "",
     changeHistory: [], 
     universalProps: {moveOrder: []},
@@ -42,7 +42,7 @@ function getEmptyCharDoc(): T.CharDocWithMeta {
 function getEmptyChangeList(charDoc: T.CharDocWithMeta): T.ChangeDoc { 
   return {
     updateDescription: "",
-    createdAt: new Date(),
+    createdAt: new Date().toString(),
     createdBy: "",
     baseRevision: charDoc._rev, //emptry string if emptyCharDoc
   }
