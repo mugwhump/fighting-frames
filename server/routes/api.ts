@@ -6,7 +6,8 @@ import { secrets } from "docker-secret";
 import couchAuth from './couchauth';
 //const nano = require('nano')(`http://${admin}:${password}@`+process.env.COUCHDB_URL); //TODO: put inside each API call?
 import * as Nano from 'nano';
-import type { ChangeDocWithMeta, CharDocWithMeta } from '../../app/src/types/characterTypes'; //= //not included in runtime build
+//import { ChangeDocWithMeta, CharDocWithMeta } from '../app-symlinks/types/characterTypes'; //= //not included in runtime build
+import { ChangeDocWithMeta, CharDocWithMeta } from '../app-symlinks/characterTypes'; //= //not included in runtime build
 
 const router = express.Router();
 const admin = secrets.couch_admin;

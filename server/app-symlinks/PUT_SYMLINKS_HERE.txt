@@ -1,0 +1,1 @@
+Create symlinks to directories/files in the frontend app project here. See .gitignore in parent dir for a list.
