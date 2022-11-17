@@ -3,6 +3,7 @@ import * as util from '../services/util';
 import { cloneDeep, isEqual } from 'lodash';
 
 export function applyChangeDoc(doc: T.CharDoc, changeDoc: T.ChangeDoc) {
+  //TODO: this occurs on server from API call, which also verifies changeDoc's old values
   //modify doc, don't return copy
   //Reject if changeDoc.baseRev !== doc._rev
   //Chardoc has changes added to changeHistory
@@ -22,8 +23,13 @@ export function invertChangeDoc(changeDoc: T.ChangeDoc): void {
     }
   }
   if(changeDoc.universalPropChanges) changeDoc.universalPropChanges = getInvertedMoveChanges(changeDoc.universalPropChanges) as T.PropChanges;
+  //Add invert- to beginning of title (staying in character limit)
+  if(changeDoc.updateTitle) {
+    changeDoc.updateDescription = "Undoing changes " + changeDoc.updateTitle;
+    changeDoc.updateTitle = "invert-".concat(changeDoc.updateTitle).slice(0, 25);
+  }
 }
-function getInvertedMoveChanges(changes: Readonly<T.Changes>): T.Changes {
+export function getInvertedMoveChanges(changes: Readonly<T.Changes>): T.Changes {
   let result: T.Changes = {};
   for(const [col, change] of util.keyVals(changes)) {
     if(!change) continue;
@@ -43,7 +49,7 @@ function getInvertedMoveChanges(changes: Readonly<T.Changes>): T.Changes {
 export function rebaseAndResolve(baseDoc: Readonly<T.CharDocWithMeta>, changeDoc: T.ChangeDoc) {
   rebaseChangeDoc(baseDoc, changeDoc); //now full of rebase conflicts without resolutions
   autoResolveConflicts (changeDoc, "yours"); //creates resolutions for all conflicts, favoring given changeDoc
-  applyResolutions(baseDoc, changeDoc, false); //apply all resolutions
+  applyResolutions(changeDoc, false); //apply all resolutions
 }
 
 //Create (but don't apply) resolutions for changeDoc's conflicts, preferring yours or theirs 
@@ -60,8 +66,26 @@ export function autoResolveConflicts (changeDoc: T.ChangeDoc, preference: "yours
   }
 }
 
-export function rebaseChangeDoc(baseDoc: Readonly<T.CharDoc>, changeDoc: T.ChangeDoc) {
-  //clone changeDoc??
+//Generate conflicts between changeDoc and a newer charDoc in case they changed the same stuff.
+//Can safely call this even if there's unresolved or partially-resolved rebase conflicts.
+export function rebaseChangeDoc(baseDoc: Readonly<T.CharDocWithMeta>, changeDoc: T.ChangeDoc, skipRevCheck?: boolean) {
+  //Check that rebase is needed
+  if(!skipRevCheck && ( util.getRevNumber(changeDoc.baseRevision) >= util.getRevNumber(baseDoc._rev) || 
+                       (changeDoc.rebaseSource && util.getRevNumber(changeDoc.rebaseSource._rev) >= util.getRevNumber(baseDoc._rev)) )) {
+    console.warn(`No rebase needed, given baseDoc ${baseDoc._rev} probably outdated or already seen`);
+    return;
+  }
+  //Existing rebase conflicts can be cleared out without fear
+  if(changeDoc.conflictList) {
+    if(changeDoc.rebaseSource) {
+      console.log(`Overwriting existing rebase conflicts from rev ${changeDoc.rebaseSource._rev} with new base ${baseDoc._rev}`);
+      delete changeDoc.conflictList;
+      delete changeDoc.rebaseSource;
+    }
+    else {
+      throw new Error("Attempting to rebase changes using "+baseDoc._rev+" when there are unresolved conflicts, probably from a merge");
+    }
+  }
   //conflictList full of unresolved conflicts and any autoresolved changes needing rebasing
   let conflictList: T.ConflictList = {};
   if(changeDoc.moveChanges) {
@@ -79,6 +103,8 @@ export function rebaseChangeDoc(baseDoc: Readonly<T.CharDoc>, changeDoc: T.Chang
       conflictList.universalProps = propConflicts;
     }
   }
+  //TODO: is the clone needed? Does useDoc hook return new objects when doc updates? Test.
+  changeDoc.rebaseSource = cloneDeep<T.CharDocWithMeta>(baseDoc);
   if(util.keys(conflictList).length > 0) {
     changeDoc.conflictList = conflictList;
   }
@@ -128,7 +154,7 @@ export function getRebaseConflicts(name: string, changes: T.Changes, baseValues?
         }
       }
     }
-    // If you're adding or deleting move...
+    // moveName change, so you're adding or deleting move...
     else {
       if(change.type === "add") {
         if(baseValues) {
@@ -147,6 +173,7 @@ export function getRebaseConflicts(name: string, changes: T.Changes, baseValues?
         else {
           //loop through theirs, see if they modified/added columns which conflicts with your move deletion
           let baseAddedOrModified: boolean = false;
+          let conflictsIfBaseAddedOrModified: T.ConflictsRebase = {};
           for(const [baseCol, val] of util.keyVals(baseValues)) {
             if(!val) continue;
             const yourDeletion = changes[baseCol];
@@ -156,13 +183,21 @@ export function getRebaseConflicts(name: string, changes: T.Changes, baseValues?
               result[baseCol] = del;
               baseAddedOrModified = true;
             }
-            else if(yourDeletion.type === "delete" && !isEqual(val, yourDeletion.old)){
-              baseAddedOrModified = true;
+            else if(yourDeletion.type === "delete"){
+              if(!isEqual(val, yourDeletion.old)) {
+                //The conflict for this was or will be created once the outer loop reaches this column
+                baseAddedOrModified = true;
+              }
+              else { //they ignored column, but create conflict to make all-or-nothing choice to keep or delete move
+                const del: T.ConflictRebase = {yours: yourDeletion, theirs: "no-op"};
+                conflictsIfBaseAddedOrModified[baseCol] = del;
+              }
             }
           }
           if(baseAddedOrModified) {
             const moveNameConflict = {yours: change, theirs: "no-op" as const};
             result.moveName = moveNameConflict;
+            result = {...result, ...conflictsIfBaseAddedOrModified};
           }
           //if you're deleting move they ignored, no conflict
         }
@@ -172,6 +207,7 @@ export function getRebaseConflicts(name: string, changes: T.Changes, baseValues?
 
   return util.keys(result).length === 0 ? null : result;
   //MOVE ADDITION: If you modified move missing from base, make conflict adding movename+your modifications rebased to additions, other is all-noop
+  //NOTE: When stealth adding, if make all-or-nothing choice to "keep" move, no way to get vals of unmodified cols! They're gone without looking up the changeDoc(s) of the rebase
   //Buuut if you manually added move already in base, no-alternative autoresolve your movename addition into no-op
   //MOVE DELETION: If you have explicit deletion and base...
   //...lacks move, they made same change as you, autoresolve moveName del to noop without alternative
@@ -190,12 +226,18 @@ export function getRebaseConflicts(name: string, changes: T.Changes, baseValues?
 export function mergeChangeDocs(theirChangeDoc: T.ChangeDoc, yourChangeDoc: T.ChangeDoc, baseDoc: Readonly<T.CharDocWithMeta>) {
   // Check that theirs is up-to-date
   if(theirChangeDoc.baseRevision !== baseDoc._rev) {
+    //TODO: rebase still needs to update baseRev and prevChange if there's no conflicts found
     console.log("Their changes out of date, rebasing");
     rebaseAndResolve(baseDoc, theirChangeDoc);
   }
   if(theirChangeDoc.baseRevision !== yourChangeDoc.baseRevision) {
     console.error(`Their base revision ${theirChangeDoc.baseRevision} doesn't match yours ${yourChangeDoc.baseRevision}`);
+  }
+  if(theirChangeDoc.conflictList) {
     console.error("Theirs has unresolved conflicts: " + JSON.stringify(theirChangeDoc.conflictList));
+  }
+  if(yourChangeDoc.mergeSource) {
+    throw new Error("Attempting merge when there are unresolved merge conflicts");
   }
 
   //loop through their changed moves, generating conflicts
@@ -217,6 +259,8 @@ export function mergeChangeDocs(theirChangeDoc: T.ChangeDoc, yourChangeDoc: T.Ch
       yourChangeDoc.conflictList.universalProps = conflicts;
     }
   }
+  //TODO: is the clone needed? Does useDoc hook return new objects when doc updates? Test.
+  yourChangeDoc.mergeSource = cloneDeep<T.CharDocWithMeta>(baseDoc);
 }
 
 //Get conflicts for a single move
@@ -255,10 +299,11 @@ export function getMergeConflicts(theirChanges: T.Changes, yourChanges?: T.Chang
   const theyDeleteMove: boolean = theirChanges?.moveName?.type === "delete";
   let youAddedOrModified: boolean = false;
   if(yourChanges) {
-    if(theyDeleteMove) {
+    if(theyDeleteMove || (youDeleteMove && theyAddedOrModified)) {
       for(let [col, yourChange] of util.keyVals(yourChanges)) {
-        if(yourChange?.type === "add" && col !== "moveName") {
-          //if you added a new column while they delete move, make conflict to noop out your add if deletion selected
+        if(!yourChange) continue;
+        if(yourChange?.type === "add" || (!theirChanges[col])) {
+          //if you added a new column while they delete move OR you delete move while they ignore this col (but changed others), make conflict to noop out your add/delete if theirs selected
           let mergeConflict: T.ConflictMergeAllOrNothing = {yours: yourChange, theirs: "no-op"};
           result[col] = mergeConflict;
         }
@@ -271,11 +316,6 @@ export function getMergeConflicts(theirChanges: T.Changes, yourChanges?: T.Chang
         delete result!.moveName!.resolution;
       }
     }
-    //if you delete move and they have at least one add or modify, make moveName conflict where theirs is no-op
-    if(youDeleteMove && theyAddedOrModified) {
-      let mergeConflict: T.ConflictMergeAllOrNothing = {yours: yourChanges.moveName!, theirs: "no-op"};
-      result.moveName = mergeConflict;
-    }
   }
 
   //If result empty, means there were only redundant changes
@@ -287,9 +327,9 @@ export function getMergeConflicts(theirChanges: T.Changes, yourChanges?: T.Chang
 
   //MOVE DELETION: 
   //If theyDeleted and youDeleted, no conflicts, return null
-  //If moveName deleted in one or the other, UI presents all-or-nothing choice between "theirs" and "yours" for whole move, moveName conflict
+  //If moveName deleted in one or the other, UI presents all-or-nothing choice between "theirs" and "yours" for whole move, moveName (and every other column) conflict
   //If theyDeleted, choice between their (rebased) Deletes and your changes
-  //If youDeleted, choice between their (rebased) changes and your Deletes
+  //If youDeleted, choice between their (rebased) changes or no-ops and your Deletes
   //MOVE ORDER: standard rules, autoresolved conflict if only they changed
 }
 
@@ -297,10 +337,15 @@ export function getMergeConflicts(theirChanges: T.Changes, yourChanges?: T.Chang
 
 //Modifies changeDoc by applying resolutions of all conflicts
 //If all conflicts resolved, updates changeDoc's metadata and resolves moveOrder. 
-//Provide theirChanges if merging
-//TODO: what if new rebase comes in while still resolving? Don't allow until conflicts resolved.
+//used rebaseSource/mergeSource for baseDoc
 //Keep in mind you can do multiple rebases and merges before uploading a changeDoc
-export function applyResolutions(baseDoc: Readonly<T.CharDocWithMeta>, yourChanges: T.ChangeDoc, isMerge: boolean): void {
+export function applyResolutions(yourChanges: T.ChangeDoc, isMerge?: boolean): void {
+  if(isMerge === undefined) isMerge = !yourChanges.rebaseSource;
+  if(!yourChanges.conflictList) {
+    console.log("No conflicts to apply resolutions to, updating metaData and returning");
+    updateChangeDocMetaDataIfResolved(yourChanges);
+    return;
+  }
   // Delete moveOrder conflict if it has resolution to manually resolve it after all other conflicts
   // (If there's conflicts without resolutions, it's reinserted)
   let resolvedMoveOrderConflict : T.ConflictMoveOrder | undefined = yourChanges?.conflictList?.universalProps?.moveOrder;
@@ -325,25 +370,23 @@ export function applyResolutions(baseDoc: Readonly<T.CharDocWithMeta>, yourChang
 
   // Now resolve moveOrder IF all conflicts have been resolved. Otherwise put it back in.
   if(!yourChanges.conflictList) {
-    const newOrder: T.MoveOrder[] = resolveMoveOrder(baseDoc.universalProps.moveOrder, yourChanges, isMerge, resolvedMoveOrderConflict );
-    const orderChange: T.ColumnChange<T.MoveOrder[]> | null = createChange(baseDoc.universalProps.moveOrder, newOrder);
+    // Get base move order from rebaseSource (if rebasing), then your change's old (if you changed in merge), then conflict's resolution (if they changed in merge)
+    //TODO: test what happens if moveOrder not changed at all
+    const baseOrder: T.MoveOrder[] = yourChanges.rebaseSource?.universalProps?.moveOrder ||
+      yourChanges.mergeSource?.universalProps?.moveOrder || [];
+      //|| yourChanges.universalPropChanges?.moveOrder?.old || 
+      //(resolvedMoveOrderConflict?.theirs !== "no-op" && resolvedMoveOrderConflict?.theirs?.old) || []; 
+    const newOrder: T.MoveOrder[] = resolveMoveOrder(baseOrder, yourChanges, isMerge, resolvedMoveOrderConflict );
+    const orderChange: T.ColumnChange<T.MoveOrder[]> | null = createChange(baseOrder, newOrder);
     util.updateColumnChange(yourChanges, "universalProps", "moveOrder", orderChange);
   }
-  else if(resolvedMoveOrderConflict ) {
+  else if(resolvedMoveOrderConflict) {
     yourChanges.conflictList.universalProps = {...yourChanges.conflictList.universalProps, moveOrder: resolvedMoveOrderConflict };
   }
 
-  //With all conflicts resolved, update changeDoc's metadata
-  if(!yourChanges.conflictList) {
-    //In rebase, returned changeDoc has baseDoc as baseRev, its last change as prevChange
-    if(!isMerge) { 
-      yourChanges.baseRevision = baseDoc._rev;
-      if(baseDoc.changeHistory.length > 0) {
-        yourChanges.previousChange = baseDoc.changeHistory[baseDoc.changeHistory.length -1];
-      }
-    }
-  }
+  updateChangeDocMetaDataIfResolved(yourChanges);
 }
+
 // Returns cloned set of changes with resolutions applied
 // Deletes conflicts as they're resolved
 // If they have uncontested merge changes, you might not have changes for move.
@@ -368,11 +411,30 @@ function applyMoveResolutions(conflictsToModify: T.Conflicts, changes: Readonly<
   return (util.keys(result).length > 0) ? result : null;
 }
 
+function updateChangeDocMetaDataIfResolved(changes: T.ChangeDoc) {
+  //With all conflicts resolved, update changeDoc's metadata then delete rebaseSource/mergeSource
+  if(!changes.conflictList) {
+    //In rebase, returned changeDoc has baseDoc as baseRev, its last change as prevChange
+    const rebaseSource = changes.rebaseSource;
+    const mergeSource = changes.mergeSource;
+    if(rebaseSource) { 
+      changes.baseRevision = rebaseSource._rev;
+      if(rebaseSource.changeHistory.length > 0) {
+        changes.previousChange = rebaseSource.changeHistory[rebaseSource.changeHistory.length -1];
+      }
+      delete changes.rebaseSource;
+    }
+    else if(mergeSource) {
+      delete changes.mergeSource;
+    }
+  }
+}
+
 
 //Inserts item from source into target at the position of the nearest common predecessor or successor, or at the end if none found
 //Returns the insertion index, or -1 if item not inserted (if missing in source or already in target)
 //TODO: could probably forego sourceMap if given starting index
-function insertByNeighbor(insertName: string, targetMap: Map<string, T.MoveOrder>, targetArray: T.MoveOrder[], 
+export function insertByNeighbor(insertName: string, targetMap: Map<string, T.MoveOrder>, targetArray: T.MoveOrder[], 
                           sourceMap: ReadonlyMap<string, [T.MoveOrder, number]>, sourceArray: Readonly<T.MoveOrder[]>): number {
   const startPoint = sourceMap.get(insertName);
   if(!startPoint) return -1;
@@ -412,13 +474,34 @@ function insertByNeighbor(insertName: string, targetMap: Map<string, T.MoveOrder
   return targetArray.length;
 }
 
+//scans for any moves (not categories) that are in source and missing from target, adds them to target
+//Returns true if anything added
+export function addMissingMoves(targetMap: Map<string, T.MoveOrder>, targetArray: T.MoveOrder[], 
+                                sourceMap: ReadonlyMap<string, [T.MoveOrder, number]>, sourceArray: Readonly<T.MoveOrder[]>): boolean {
+  for(let i = 0; i < sourceArray.length; i++) {
+    const item: T.MoveOrder = sourceArray[i];
+    const name = item.name;
+    if(item.isCategory) continue;
+    if(!targetMap.has(name)) {
+      console.log("Adding "+name+" to preferred from nonpreferred");
+      //Came from resolved if rebasing, present in yours if merging. So always in nonpreferred.
+      if(!sourceMap.has(name)) throw new Error(`Item ${name} not in target OR source`);
+      insertByNeighbor(name, targetMap, targetArray, sourceMap, sourceArray);
+    }
+  }
+  return false;
+}
 
 //Return new moveOrder incorporating resolved changes (which may add or delete things)
 //The changes in given changeDoc are resolved, except for moveOrder
 //If there's an effective deletion/addition from base, there'll be a resolved Delete/Add change for moveName
 //Can provide moveOrder conflict as argument, or have it inside changelist's conflicts
 export function resolveMoveOrder(baseOrder: Readonly<T.MoveOrder[]>, yourChanges: T.ChangeDoc, isMerge: boolean, conflict?: T.ConflictMoveOrder): T.MoveOrder[] {
+//export function resolveMoveOrder(yourChanges: T.ChangeDoc, isMerge: boolean, conflict?: T.ConflictMoveOrder): T.MoveOrder[] {
   //don't need their changeDoc in merge, their accepted additions/deletions have been added to yourChanges, if they changed moveOrder it's in conflicts
+
+  //don't need baseOrder, it's in rebaseSource or mergeSource, but w/e
+  //const baseOrder: Readonly<T.MoveOrder[]> = yourChanges.universalPropChanges?.moveOrder?.old || yourChanges.conflictList?.universalProps?.moveOrder?.yours?.old || []; 
 
   //This moveOrder's either from yourChange, or from baseDoc (rebase) or theirs (merge)
   let preferredOrder: Readonly<T.MoveOrder[]> = yourChanges.universalPropChanges?.moveOrder?.new || baseOrder;
@@ -483,11 +566,6 @@ export function resolveMoveOrder(baseOrder: Readonly<T.MoveOrder[]>, yourChanges
                 let item: T.MoveOrder = {name: name};
                 resolvedOrder.splice(resolvedOrder.length, 0, item); 
                 resolvedOrderMap.set(name, item);
-                //if(isMerge) {
-                  ////If merging, you might or not have changed order, but the resolved addition is from them, and it's not present in your order
-                  ////TODO: unused if changeList has been auto-rebased, they'll have gone through this resolution process preferring theirs once already
-                  //mergedStealthAdditions.push(item);
-                //}
               }
             }
             else console.log("Found and inserted from preferred");
@@ -512,6 +590,15 @@ export function resolveMoveOrder(baseOrder: Readonly<T.MoveOrder[]>, yourChanges
   }
   //If you made explicit moveOrder changes but there was no conflict between moveOrders...
   if(!nonPreferredOrder) {
+    console.log("You made uncontested moveOrder changes while rebasing, returning your order");
+    //TODO: if you deleted move they changed and chose to keep move, it's still gone from your changed moveOrder, but there's no moveName change!
+    // need to do resolution for moves missing from your order.
+    let result: T.MoveOrder[] = [...preferredOrder];
+    let resultMap: Map<string, T.MoveOrder> = new Map<string, T.MoveOrder>(result.map((item)=>[item.name, item])); 
+    let resolvedIndexedMap: ReadonlyMap<string, [T.MoveOrder, number]> = new Map<string, [T.MoveOrder, number]>(resolvedOrder.map((item, index)=>[item.name, [item, index]]));
+    addMissingMoves(resultMap, result, resolvedIndexedMap, resolvedOrder);
+    return result;
+    /*
     //If rebasing...
     if(!isMerge) {
       //If you changed w/o conflict means baseOrder=your old, changes were yours and explicit. Can safely return your new aka preferred.
@@ -527,16 +614,15 @@ export function resolveMoveOrder(baseOrder: Readonly<T.MoveOrder[]>, yourChanges
       console.log("You made uncontested moveOrder changes while merging, returning your order"); //with stealth additions " + JSON.stringify(mergedStealthAdditions));
       return preferredOrder as T.MoveOrder[]; //.concat(mergedStealthAdditions);
     }
+    */
   }
 
   //Rebase preferring base already returned resolved
-  //Merge preferring yours already returned preferred+stealthAdditions
   // ----------------- RESOLVED NOW HAS EXACTLY WHAT MOVES SHOULD AND SHOULDN'T BE PRESENT -----------------
   // ----------------- THERE IS NOW A NONPREFERRED ORDER AND A LEGITIMATE ORDERING CONFLICT -----------------
-  // ----------------- PREFERRED === YOURS (IN REBASE), THEIRS (IN MERGE) -----------------
-  // ----------------- NONPREFERRED === RESOLVED (IN REBASE), YOURS W/O RESOLUTION (IN MERGE) -----------------
-  //Merge preferring theirs, both changed, nonpreferred/yours has your manual additions but not their manual+stealth additions
-  //Merge preferring theirs, only they changed, nonpreferred/yours is base
+  // ----------------- IN REBASE, PREFERRED NOW YOURS, NONPREFERRED = RESOLVED -----------------
+  //Merge preferring theirs, if both changed, nonpreferred/yours has your manual additions but not their manual+stealth additions
+  //Merge preferring theirs, if only they changed, nonpreferred/yours is base
   if(!nonPreferredOrderMap) throw new Error("nonPreferredOrderMap undefined");
   console.log("Genuine moveOrder conflict, changing preferred order to match resolved");
 
@@ -544,24 +630,26 @@ export function resolveMoveOrder(baseOrder: Readonly<T.MoveOrder[]>, yourChanges
   let result: T.MoveOrder[] = [...preferredOrder];
   let resultMap: Map<string, T.MoveOrder> = new Map<string, T.MoveOrder>(result.map((item)=>[item.name, item])); //for fast lookups
   //Loop through resolved, add anything not in preferred/result
-  for(let i=0; i<resolvedOrder.length; i++) {
-    const item: T.MoveOrder = resolvedOrder[i];
-    const name = item.name;
-    if(item.isCategory) continue;
-    if(!preferredOrderMap.has(name)) {
-      console.log("Adding "+name+" to preferred from nonpreferred")
-      //Came from resolved if rebasing, present in yours if merging. So always in nonpreferred.
-      if(!nonPreferredOrderMap.has(name)) throw new Error(`Item ${name} not in preferredOrder OR nonPreferredOrder`);
-      insertByNeighbor(name, resultMap, result, nonPreferredOrderMap, nonPreferredOrder);
-    }
-    else {
-      //TODO: could perhaps detect if theirs changed the indentation while yours didn't and keep theirs
-      //if merging would need their old order
-    }
-  }
+  //Came from resolved if rebasing, present in yours if merging. So always in nonpreferred. 
+  //TODO: BUT only resolved says if move was chosen in all-or-nothing resolution. 
+  //If prefer your changed order, nonpreferred added move but you rejected it... gets deleted below
+  //If prefer your changed order in rebase, can't reject base's added move
+  addMissingMoves(resultMap, result, nonPreferredOrderMap, nonPreferredOrder);
+  //for(let i=0; i<resolvedOrder.length; i++) {
+    //const item: T.MoveOrder = resolvedOrder[i];
+  //for(let i=0; i < nonPreferredOrder.length; i++) {
+    //const item: T.MoveOrder = nonPreferredOrder[i];
+    //const name = item.name;
+    //if(item.isCategory) continue;
+    //if(!preferredOrderMap.has(name)) {
+      //console.log("Adding "+name+" to preferred from nonpreferred");
+      //if(!nonPreferredOrderMap.has(name)) throw new Error(`Item ${name} not in preferredOrder OR nonPreferredOrder`);
+      //insertByNeighbor(name, resultMap, result, nonPreferredOrderMap, nonPreferredOrder);
+    //}
+  //}
 
-  //{//Loop backwards through result/preferred, delete moves not in resolved
-  for(let i=result.length-1; i >= 0; i--) {
+  //Loop backwards through result/preferred, delete moves not in resolved
+  for(let i = result.length-1; i >= 0; i--) {
     const item: T.MoveOrder = result[i];
     const name = item.name;
     if(item.isCategory) continue;
@@ -578,16 +666,20 @@ export function resolveMoveOrder(baseOrder: Readonly<T.MoveOrder[]>, yourChanges
 // Returns columns with changes applied. If columns are null (eg for new move), creates columns from changes.
 // Note this doesn't do sorting, new columns are added to the end. Returns a changed deep clone.
 // Returns empty object if every column was deleted.
-export function getChangedCols(originalCols: Readonly<T.Cols> | undefined, changes: T.Changes | undefined): T.Cols {
+// If noMoveName=true, the moveName column won't be present when adding a move
+export function getChangedCols(originalCols: Readonly<T.Cols> | undefined, changes: T.Changes | undefined, noMoveName?: boolean): T.Cols {
   let newCols: T.Cols = originalCols ? cloneDeep<T.Cols>(originalCols) : {};
   if(!changes && !originalCols) throw new Error("originalCols and changes cannot both be undefined");
   if(!changes) return newCols; 
+  if(changes.moveName && changes.moveName.type === "delete") return {}; //delete ALL columns
 
   for(const [key, change] of util.keyVals(changes)) {
     if(!change) continue;
     if(change.type === "modify" || change.type === "add") {
       //if(change.type === "add" && originalCols[key] !== undefined) console.warn(`Adding ${JSON.stringify(change)} to move despite existing data ${JSON.stringify(originalCols[key])}`);
-      newCols[key] = change.new;
+      if(!(noMoveName && key === "moveName")) {
+        newCols[key] = change.new;
+      }
     }
     else if(change.type === "delete") {
       delete newCols[key];
