@@ -1,23 +1,34 @@
 //var express = require('express');
 import express, { Express, Request, Response } from 'express';
+import nodeUtil from 'util'; //node's util
 import logger from '../util/logger';
-import util from 'util'; //node's util
+import * as Security from '../util/security';
 import { secrets } from "docker-secret";
 import couchAuth from './couchauth';
+import * as CouchAuthTypes from '@perfood/couch-auth/lib/types/typings';
 //const nano = require('nano')(`http://${admin}:${password}@`+process.env.COUCHDB_URL); //TODO: put inside each API call?
+import { cloneDeep, isEqual } from 'lodash';
 import * as Nano from 'nano';
-//import { ChangeDocWithMeta, CharDocWithMeta } from '../app-symlinks/types/characterTypes'; //= //not included in runtime build
-import { ChangeDocWithMeta, CharDocWithMeta } from '../app-symlinks/characterTypes'; //= //not included in runtime build
+//import * as T from '@app/types/characterTypes';
+//import * as util from '@app/services/util';
+//import * as merging from '@app/services/merging';
+import type * as T from '../app-symlinks/types/characterTypes'; //= //not included in runtime buildo
+import * as util from '../app-symlinks/services/util';
+import * as merging from '../app-symlinks/services/merging';
 
 const router = express.Router();
 const admin = secrets.couch_admin;
 const password = secrets.couch_password;
-const nano = Nano.default(`http://${admin}:${password}@`+process.env.COUCHDB_URL);
+const adminNano = Nano.default(`http://${admin}:${password}@`+process.env.COUCHDB_URL); //can configure http pool size, by default has infinite active connections
 const testUser = 'joesmith2';
 
 function sleep(ms: number) {
     return new Promise(resolve => setTimeout(resolve, ms));
 }
+//function getSlBearerCreds(authString: string): [string, string] {
+  //let res = authString.replace("Bearer ", "").split(":");
+  //return [res[0], res[1]];
+//}
 
 /* GET api listing. */
 router.get('/', function(req, res, next) {
@@ -76,14 +87,110 @@ router.get('/test', function(req, res, next) {
 );
 */
 
-//router.post('/game/:gameId/character/:characterId/publish/:changeId', (req, res) => {
-router.get('/game/:gameId/character/:characterId/publish/:changeId', (req: Request<{gameId:string, characterId:string, changeId:string}>, res) => {
-  res.send('params = ' + JSON.stringify(req.params));
+
+function sendSuccess(res: Response, message: string, code: number = 200) {
+  return res.status(code).json({message: message, status: code});
+}
+function sendError(res: Response, message: string, code: number = 500) {
+  // Pouchdb error obj has name, error, message, and reason fields
+  logger.warn(`${code} error: ${message}`);
+  return res.status(code).json({message: message, status: code});
+}
+
+// Couchauth middleware verifies user is who they say they are. If not, rejects with 401.
+router.post('/game/:gameId/character/:characterId/changes/:changeTitle/publish', couchAuth.requireAuth, couchAuth.requireRole("user") as any,
+           async (req: Request<{gameId:string, characterId:string, changeTitle:string}>, res) => {
+  try {
+    const {gameId, characterId, changeTitle} = req.params;
+    const user: CouchAuthTypes.SlRequestUser = req.user!;
+    const db = adminNano.use(req.params.gameId);
+    const sec = await db.get("_security") as Security.SecObj;
+    const isWriter = Security.userIsWriterOrHigher(user, sec);
+    //if(!isWriter) return res.status(403).send("Write permissions required to publish changes"); 
+    if(!isWriter) return sendError(res, "Write permissions required to publish changes", 403); 
+
+    //fetch specified changeList
+    const changeList = await db.get(`character/${characterId}/changes/${changeTitle}`) as T.ChangeDocServer & Nano.DocumentGetResponse;
+    //fetch current charDoc
+    const charDoc = await db.get('character/' + characterId) as T.CharDocWithMeta;
+    //verify changeList's prevChange and baseRevision
+    const lastHistoryItem = charDoc.changeHistory.at(-1);
+    const prevChange = changeList.previousChange;
+    if(charDoc._rev !== changeList.baseRevision) {
+      return sendError(res, `Outdated change: listed base revision ${changeList.baseRevision} does not match current revision, ${charDoc._rev}. Try importing the change.`, 409);
+    }
+    if(charDoc.changeHistory.length > 0) {
+      if(prevChange !== lastHistoryItem) {
+        return sendError(res, `Outdated change: listed previous change ${prevChange} does not match final item of document's change history, ${lastHistoryItem}. Try importing the change.`, 409);
+      }
+      if(charDoc.changeHistory.includes(changeTitle)) {
+        //TODO: test
+        return sendError(res, `Duplicate change: change ${changeTitle} has already been published. You can import and upload it as a new change.`, 409);
+      }
+    }
+    else { // this is the first change
+      if(prevChange) {
+        return sendError(res, `Malformed change: listed previous change ${prevChange} does not match, since document has not yet been changed`, 400);
+      }
+    }
+    //apply changeList to charDoc
+    if(changeList.universalPropChanges) {
+      //let newProps = applyAndCheckChanges("universalProps", changeList.universalPropChanges, charDoc.universalProps);
+      let changedProps = merging.getChangedCols(charDoc.universalProps, changeList.universalPropChanges);
+      charDoc.universalProps = changedProps as T.PropCols;
+    }
+    else {
+      if(!changeList.moveChanges) {
+        return sendError(res, "Change list has no changes", 400);
+      }
+    }
+    if(changeList.moveChanges) {
+      for(const [moveName, moveChanges] of util.keyVals(changeList.moveChanges)) {
+        if(!moveChanges) {
+          logger.warn(`move ${moveName} in ${JSON.stringify(req.params)} has key but no value`);
+          continue;
+        }
+        let changedMove = merging.getChangedCols(charDoc.moves[moveName], moveChanges, true) as T.MoveCols;
+        charDoc.moves[moveName] = changedMove;
+        if(Object.keys(changedMove).length === 0) {
+          delete charDoc.moves[moveName];
+        }
+      }
+    }
+    //write charDoc w metadata
+    charDoc.changeHistory.push(changeTitle);
+    charDoc.updatedAt = (new Date()).toString();
+    charDoc.updatedBy = changeList.createdBy;
+    const putResult = await db.insert(charDoc); 
+    //possibly update changeList w/ published status? But a single pass/fail write operation does make it more atomic.
+
+    return sendSuccess(res, "Successfully published change!");
+  }
+  catch(err) {
+    sendError(res, JSON.stringify(err));
+  }
 });
 
+//TODO: validate changeList old values
+//throws error if no match
+//function applyAndCheckChanges<C extends T.ColumnData>(moveName: string, changes: T.GetChangesType<C>, baseValues?: Readonly<T.Cols>): T.Cols<C> {
+  //for(const colName in changes) {
+    //const change = changes[colName];
+    //const baseVal = baseValues?.[colName];
+    //if(!change) {
+      //logger.warn(`key ${colName} in ${moveName} missing value`);
+      //continue;
+    //}
+    //if(change.type !== "add") {
+      //if(change.old !== baseVal) {
+      //}
+    //}
+  //}
+//}
+
 router.get('/list', function(req, res, next) {
-  nano.db.list().then((dblist) => {
-    res.send('list = '+util.inspect(dblist));
+  adminNano.db.list().then((dblist) => {
+    res.send('list = '+nodeUtil.inspect(dblist));
   }).catch((err) => {
     res.send('you made a booboo, '+err.message);
   });
@@ -99,7 +206,7 @@ router.get('/cleanup', function(req, res, next) {
 
 router.get('/signup', function(req, res, next) {
   //logger.info('finna create!' + util.inspect(req));
-  logger.info('finna create! protocol=' + util.inspect(req.protocol) + ', host=' + util.inspect(req.headers.host));
+  logger.info('finna create! protocol=' + nodeUtil.inspect(req.protocol) + ', host=' + nodeUtil.inspect(req.headers.host));
   couchAuth.createUser({
     "name": "Joe Smith",
     "username": testUser,

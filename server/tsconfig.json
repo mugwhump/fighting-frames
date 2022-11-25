@@ -1,4 +1,19 @@
 {
+  // Busted attempt at sharing project references, thwarted by the fact other project is CRA.
+  //"references": [                                      /* points to my project */
+  //  { "path": "../app" }
+  //],
+  //"compilerOptions": {
+  //  /* Visit https://aka.ms/tsconfig to read more about this file */
+
+  //  /* Projects */
+  //  // "incremental": true,                              /* Save .tsbuildinfo files to allow for incremental compilation of projects. */
+  //  "composite": true,                                /* Enable constraints that allow a TypeScript project to be used with project references. */
+  //  "paths": {
+  //    "@app": ["../app"],
+  //    "@app/*": ["../app/src/*"]
+  //  },
+  //} 
   "compilerOptions": {
     /* Visit https://aka.ms/tsconfig to read more about this file */
 

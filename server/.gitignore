@@ -2,7 +2,8 @@
 /log
 
 # symlinks from frontend project
-/app-symlinks/characterTypes.ts
+/app-symlinks/types
+/app-symlinks/services
 
 # dependencies
 /node_modules
