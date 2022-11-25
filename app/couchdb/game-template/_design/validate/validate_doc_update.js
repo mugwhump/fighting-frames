@@ -10,6 +10,18 @@ function (newDoc, oldDoc, userCtx, secObj) {
   const isGameWriter = userCtx.roles.indexOf(userCtx.db+'-write') !== -1 || (secObj.members.names && secObj.members.names.includes(userId)); //put public in member list to make anyone a writer
   const regex = new RegExp('character/[\\w\\-~]+/changes/[\\w\\-.~]{3,25}$');
   const isChangeDoc = regex.test(newDoc._id);
+  const isDesignDoc = newDoc._id.indexOf("_design/") === 0;
+
+  //TODO: test
+  if(isDesignDoc) {
+    if (!isServerAdmin) {
+      throw({
+        unauthorized: 'Only server admins may write design docs'
+      });
+    }
+  }
+
+  //TODO: only server admins can update charDoc?
 
   if(newDoc._deleted === true) {
     if (!isServerAdmin && !isGameAdmin) {
@@ -25,7 +37,8 @@ function (newDoc, oldDoc, userCtx, secObj) {
     // OR could just use an update function for admins/writers to use to update metadata.
 
     // Replications ignore these checks
-    if(!isReplication) {
+    //if(!isReplication) {
+    if(!isServerAdmin) { // Let server admin ignore for testing purposes
       if(oldDoc && !isServerAdmin) {
         throw({
           unauthorized: 'Changedocs cannot be edited except by server admins'
