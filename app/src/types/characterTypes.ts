@@ -38,13 +38,18 @@ export enum DataType { //these mostly determine the editing interface presented 
   Ord = "MOVE_ORDER",
   //Img = "IMAGE", //would probably be a url or base64 blob
   List = "LIST", //array of strings, allowed values can be constrained. For tags. Could use for height sequence (ie HLLL)
-  //ORDER?? For conflicts, same items in different order will be seen as different. Forcibly sort? New type, or optional prop indicating list is ordered?
+  //ORDER?? For conflicts, same items in different order may be seen as different. Forcibly sort? New type, or optional prop indicating list is ordered?
   //Use tags, or give each tag a "boolean" field? Less work for admins to make list of allowed vals...
   //Ionic Select component can do multi-selection (if using alert instead of popover/action sheet)
+  //TODO: a string which is searched for keywords which are used as tags? When filtering for tag, just searches the string?
+  //keywords could also be moveNames
+  //TagStr = "TAG_STRING",
   NumStr = "NUMERIC_STRING", //for things that are usually numeric/sortable, but can be strings like "KDN" or "STN" or "LAUNCH"
   // Can also be strings like 18(10+4+4) eg for multihit, or 8[-2] for moves that change. Takes beginning until punctuation as number. Parses as float.
 };
 
+export type Breakpoint =  "xs" | "sm" | "md" | "lg" | "xl";
+export type SizeBreakpoint =  `size-${Breakpoint}`;
 export type ColumnDef = {
   columnName: string;
   displayName?: string; //allows easier changing. Show columnName if absent.
@@ -53,15 +58,14 @@ export type ColumnDef = {
   dataType: DataType;
   prefix?: string; //display 12 as i12
   suffix?: string; //display 6.5 as 6.5%
-  // mobile:  xs=2/12 sm=3/12 md=4/12 lg=6/12 xl=row
-  // desktop: xs=1/12 sm=2/12 md=3/12 lg=4/12 xl=6/12
-  // does anything truly need a full desktop row?
-  width?: "xs" | "sm" | "md" | "lg" | "xl"; 
-  group?: "title" | "needsHeader" | "normal" | "defaultHide" | "meta";//UI will force items in same group next to each other
-  //group: string; 
-  //needsHeader: boolean; //if needsHeader and no more room, shows it above data
-  //priority: "high" | "medium" | "low"; //priority within group determined by order?
-  //defaultShow: boolean, //describes what gets collapsed? TODO: remove
+  //width?: Breakpoints | "auto"; //cols without width specified will share remaining space, minimum width same as "auto". "auto" fits to content... but could be awkward. 
+
+  // "size" prop by default specifies xs and up; more entries override larger breakpoints. Must define xs.
+  widths?: {[key in SizeBreakpoint]?: number}; //can give key undefined value to share remaining space in row. If needsHeader, must define numeric widths. Warn if first cols don't add to 12.
+  _calculatedTableHeaderHideClass ?: string;
+  _calculatedMoveHeaderHideClass ?: string;
+  //columndef editor forces columns in groups to be put next to each other. Also where order determined. no-definition isn't choosable, it's assigned to columns missing a definition.
+  group: "title" | "needsHeader" | "normal" | "defaultHide" | "meta" | "no-definition";
   cssRegex?: {regex: RegExp, css: string}; //TODO: can RegExp serialize? Prob gotta do it manually.
   // Things db admins can set as required (damage etc) vs universalProps *I* can set as required (character display name, move order)
   // If they're my requirements, hardcode that into the codebase
@@ -71,7 +75,7 @@ export type ColumnDef = {
   minSize?: number; //length of strings, number of tags, value of number
   maxSize?: number;
   allowedRegex?: RegExp; //TODO: can RegExp serialize?
-  //hasMoveReference?: boolean, //whether to parse for references to another move, ie for cancels+followups, could click to jump to that move
+  //hasMoveReference?: boolean, //whether to parse TagStr for references to another move, ie for cancels+followups, could click to jump to that move
 }
 export type ColumnDefs = {
   [columnName: string]: ColumnDef | undefined;
@@ -88,16 +92,19 @@ What if no-show item not ordered at end?
 2) modal/popup (like sf app). Column per row? Already have the editmodal.
 
 Use ionic flex grid and breakpoints to construct header row that auto-hides things at certain breakpoints, and lets overflow columns occupy half-lines with their column name
-EDITOR: copy MoveOrder modal, "categories" make groups, use indent controls for col width
+Only show floating header on small screens, big screens can always show per-col headers. NeedsHeader cols must know how far into the row they are, if previous widths + their width > max width, they'll be pushed to new row. Do calculation for every breakpoint to determine header hiding. Auto and undefined widths tho... needsHeader cols must specify size?
+//TODO: each group could be a row on mobile, or a column containing a row of columns on desktop. So title columns could stack on left. Complex... unless I always do that, and just set the inner column to full-width on mobile! But... really doesn't seem worth it just for title cols.
+COLUMN DEF EDITOR: copy MoveOrder modal, "categories" make groups, use indent controls for col width
 */
 
-//internal utility type lets us show empty columns with no data, or data with no definition (to prompt for deletion)
-//also useful for sorting/hiding columns
+//internal utility type to help rendering, lets us show empty columns with no data, or data with no definition (to prompt for deletion)
+//Can apply css classes to do various highlighting or showing/hiding
 export type ColumnDefAndData = {
   columnName: string;
   def?: ColumnDef;
   data?: ColumnData;
-  display: boolean;
+  //display: boolean;
+  cssClasses: string[];
 }
 export interface Cols<T extends ColumnData = ColumnData> {
   [columnName: string]: T | undefined; //forces checking that column's actually there... but keys can exist with value undefined, thus show up in loops :(
@@ -136,7 +143,7 @@ export type CharDoc = {
   displayName: string,
   updatedAt: string, // created via new Date().toString()
   updatedBy: string,
-  changeHistory: string[]; //array of changelist IDs used to create this. Changes not listed can be cleaned up after a time to make room?
+  changeHistory: string[]; //array of changelist IDs used to create this. Full doc Id, not just title updateTitle. Changes not listed can be cleaned up after a time to make room?
   // ^^ would be nice if size of changeHistory matched revision #...
   universalProps: PropCols,
   moves: MoveList; //will be empty object when first created
@@ -147,6 +154,10 @@ export type CharDocWithMeta = CharDoc & {_id: string, _rev: string};
 type Optional<T, K extends keyof T> = Omit<T, K> & Partial<Pick<T, K>> //utility type to make one or more props optional
 export type ChangeDoc = Optional<ChangeDocServer, 'updateTitle'> & {
   conflictList?: ConflictList; 
+  rebaseSource?: CharDocWithMeta; //chardoc that current changedoc saw and rebase conflicts were generated from, needed if an even newer charDoc comes in mid-rebase.
+  // Gets set on all docs that are rebased even if they have no conflicts, then used to update metadata when resolutions applied.
+  mergeSource?: CharDocWithMeta; //chardoc that changeDocs causing merge conflicts were based on
+  // If conflicts came from a merge, nothing from the other changelist is needed, just the base
 }
 // Separate ChangeDoc type used internally and ChangeDocServer type used for server-side validation (which requires title and excludes all validation stuff)
 export type ChangeDocServer = {
@@ -154,11 +165,11 @@ export type ChangeDocServer = {
   updateTitle: string; //user slug
   updateDescription?: string; //users give more details, say who they are
   updateVersion?: string; //game version. Can't enforce accuracy.
-  createdAt: string; //server-side. 
-  createdBy: string; //server-side, couch username? Even writers won't usually be signed in... but can use to prioritize change cleanup
+  createdAt: string; //server-side validation
+  createdBy: string; //server-side validation, will usually be "public"
   baseRevision: string; //version of charDoc that these changes have seen and accounted for. The "old" values of changes match this doc.
-  //SS, previous WRITER change before this, latest item in baseRev doc's history, can follow chain back to construct history even if doc is nuked. First change doesn't have.
-  //API publish call can set it.
+  //Previous _id of WRITER change before this, latest item in baseRev doc's history, can follow chain back to construct history even if doc is nuked. First change doesn't have.
+  //API publish call validates.
   previousChange?: string; 
   //NON-WRITER changes that were merged in. Copied when non-writers pull in. Useful? Guess it tells writers "x already merged y, don't need both."
   //Starts empty when you begin editing, added to by every version/change you merge in.
@@ -167,7 +178,7 @@ export type ChangeDocServer = {
   universalPropChanges?: PropChanges; //better to separate them, even at the cost of many undefined checks
   moveChanges?: MoveChangeList;
 }
-export type ChangeDocWithMeta = ChangeDoc & {_id: string, _rev: undefined}; //_rev key must be present to put(), but don't allow updating change docs
+export type ChangeDocWithMeta = ChangeDocServer & {_id: string, _rev: undefined}; //_rev key must be present to put(), but don't allow updating change docs
 //export type ChangeDocServer = Omit<ChangeDoc, "conflictList"> & {updateTitle: NonNullable<ChangeDoc['updateTitle']>};
 //Meh, just do manual checks on optional properties
 
@@ -187,6 +198,7 @@ export interface Delete<T extends ColumnData = ColumnData> {
   readonly old: T;
 }
 type GetDataType<ChangeType> = ChangeType extends ColumnChange<infer D> ? D : never;
+export type GetChangesType<D extends ColumnData> = D extends MoveData ? MoveChanges : PropChanges;
 
 export type Changes = MoveChanges | PropChanges;
 export interface MoveChanges {

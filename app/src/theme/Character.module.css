@@ -1,0 +1,73 @@
+/* Module CSS can be imported in component with import styles from '../theme/Character.module.css'
+ * and then used like <Button className={styles.redButton}
+ * Mostly use classes, with camelCase instead of dashes for names.
+ * Webpack adds random text to classnames to prevent collisions.
+ * Top-level element and #id selectors ignored, but children of classes get scoped.
+ * Classes can extend other classes via composes (only top-level classes tho), and import them from other files
+ * */
+
+/* Vars can also be imported from a file */
+@value colModified: #669cff;
+@value colAdded: #52d73a;
+@value colDeleted: #ff0000;
+@value colUnresolved: #ffe216;
+@value colYours: #de37e1;
+@value colTheirs: #e38523;
+
+@value colSuperText: #555555;
+
+@value conflictBorderStyle: dashed;
+@value conflictBorderWidth: 2px;
+
+.characterRenderer {
+    /*color: red;*/
+}
+.highlightChanges {
+}
+.highlightChanges .addChange {
+    background-color: colAdded;
+}
+.highlightChanges .modifyChange {
+    background-color: colModified;
+}
+.highlightChanges .deleteChange {
+    background-color: colDeleted;
+}
+/*TODO: give the "you have conflicts" message a distinctive border which can also be used around columns that have unresolved conflicts.
+ * Buttons to choose all-yours or all-theirs have different colored borders which can be used for cells that are resolved yours vs theirs*/
+.highlightConflicts {
+}
+.highlightConflicts .unresolved {
+    border-style: conflictBorderStyle;
+    border-width: conflictBorderWidth;
+    border-color: colUnresolved;
+}
+.highlightConflicts .resolvedYours {
+    border-style: conflictBorderStyle;
+    border-width: conflictBorderWidth;
+    border-color: colYours;
+}
+.highlightConflicts .resolvedTheirs {
+    border-style: conflictBorderStyle;
+    border-width: conflictBorderWidth;
+    border-color: colTheirs;
+}
+.textYours {
+    color: colYours;
+}
+.textTheirs {
+    color: colTheirs;
+}
+
+.moveNameSuperText {
+    font-size: 10pt;
+    color: colSuperText;
+}
+/* for the headers of every needsHeader column in a move */
+.standaloneHeader {
+    font-size: 10pt;
+}
+/* for the single row of headers above the movelist */
+.tableHeader {
+    border: solid 1px black;
+}

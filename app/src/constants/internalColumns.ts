@@ -1,7 +1,19 @@
-import { ColumnDef, DataType } from '../types/characterTypes'; 
+import { ColumnDef, ColumnDefs, DataType } from '../types/characterTypes'; 
 
 // These "built-in" columns have special handling. Defs are still stored in DB for consistency.
 // Automatically added to defs if not found
+
+  // mobile:  xs=2/12 sm=3/12 md=4/12 lg=6/12 xl=row
+  // desktop: xs=1/12 sm=2/12 md=3/12 lg=4/12 xl=6/12
+export const predefinedWidths = {
+  "extra small": {"size-xs": 2, "size-md": 1},
+  "small": {"size-xs": 3, "size-md": 2},
+  "medium": {"size-xs": 4, "size-md": 3},
+  "large": {"size-xs": 6, "size-md": 4},
+  "extra large": {"size-xs": 12, "size-md": 6},
+  "test": {"size-xs": 12, "size-sm": 10, "size-md": 8, "size-lg": 6, "size-xl": 4},
+  "full": {"size-xs": 12},
+} as const;
 
 // --------------------- UNIVERSAL PROP COLUMNS --------------------
 //Creating or deleting a move must generate a new ColumnChange for this 
@@ -14,7 +26,8 @@ export const moveOrderColumnDef: ColumnDef = {
   dataType: DataType.Ord,
   required: true,
   group: "meta",
-  width: "xl",
+  //width: "xl",
+  widths: predefinedWidths["full"],
 }
 
 //const charBannerDef: ColumnDef = {
@@ -24,10 +37,11 @@ export const moveOrderColumnDef: ColumnDef = {
   //required: false,
   //defaultShow: false,
 //}
-export const requiredPropDefs: Readonly<ColumnDef[]> = [moveOrderColumnDef];
+export const requiredPropDefs: Readonly<ColumnDefs> = {moveOrder: moveOrderColumnDef};
 
 
 // --------------------- MOVE COLUMNS --------------------
+
 
 export const moveNameColumnDef: Readonly<ColumnDef> = {
   columnName: "moveName",
@@ -36,8 +50,8 @@ export const moveNameColumnDef: Readonly<ColumnDef> = {
   required: true,
   forbiddenValues: ["universalProps","moveName","moveOrder","displayName"],
   minSize: 1,
-  group: "meta",
-  width: "xl",
+  group: "title",
+  widths: predefinedWidths['full'],
 }
 // Suggested columns
 export const displayNameColumnDef: Readonly<ColumnDef> = {
@@ -47,7 +61,7 @@ export const displayNameColumnDef: Readonly<ColumnDef> = {
   required: false,
   forbiddenValues: ["universalProps","moveName","moveOrder","displayName"],
   group: "title",
-  width: "sm",
+  widths: predefinedWidths['medium'],
 }
 export const damageColumnDef: Readonly<ColumnDef> = {
   columnName: "damage",
@@ -56,7 +70,7 @@ export const damageColumnDef: Readonly<ColumnDef> = {
   dataType: DataType.Num, //Hard to say what should be NumStr to let users enter multi-hit info...
   required: false,
   group: "needsHeader",
-  width: "xs",
+  widths: predefinedWidths['extra small'],
 }
 export const startupFramesColumnDef: Readonly<ColumnDef> = {
   columnName: "startup",
@@ -66,7 +80,7 @@ export const startupFramesColumnDef: Readonly<ColumnDef> = {
   dataType: DataType.Int,
   required: false,
   group: "needsHeader",
-  width: "xs",
+  widths: predefinedWidths['extra small'],
 }
 export const guardFramesColumnDef: Readonly<ColumnDef> = {
   columnName: "onBlock",
@@ -75,7 +89,7 @@ export const guardFramesColumnDef: Readonly<ColumnDef> = {
   dataType: DataType.Int,
   required: false,
   group: "needsHeader",
-  width: "xs",
+  widths: predefinedWidths['extra small'],
 }
 export const hitFramesColumnDef: Readonly<ColumnDef> = {
   columnName: "onHit",
@@ -85,7 +99,7 @@ export const hitFramesColumnDef: Readonly<ColumnDef> = {
   allowedValues: ['#','-','STN','KDN','LNC'],
   required: false,
   group: "needsHeader",
-  width: "xs",
+  widths: predefinedWidths['extra small'],
 }
 export const totalFramesColumnDef: Readonly<ColumnDef> = {
   columnName: "totalFrames",
@@ -94,6 +108,35 @@ export const totalFramesColumnDef: Readonly<ColumnDef> = {
   dataType: DataType.Int,
   required: false,
   group: "needsHeader",
-  width: "xs",
+  widths: predefinedWidths['extra small'],
 }
 //active frames, recovery frames, move inputs
+export const wideTest1: Readonly<ColumnDef> = {
+  columnName: "wide1",
+  displayName: "wide-1",
+  shortName: "WID1",
+  dataType: DataType.Str,
+  required: false,
+  group: "needsHeader",
+  widths: predefinedWidths['small'],
+}
+export const wideTest2: Readonly<ColumnDef> = {
+  columnName: "wide2",
+  displayName: "wide-2",
+  shortName: "WID2",
+  dataType: DataType.Str,
+  required: false,
+  group: "needsHeader",
+  widths: predefinedWidths['small'],
+}
+export const wideTest3: Readonly<ColumnDef> = {
+  columnName: "wide3",
+  displayName: "wide-3",
+  shortName: "WID3",
+  dataType: DataType.Str,
+  required: false,
+  group: "needsHeader",
+  widths: predefinedWidths['extra large'],
+}
+
+export const requiredColumnDefs: Readonly<ColumnDefs> = {moveName: moveNameColumnDef, displayName: displayNameColumnDef, };

@@ -1,14 +1,17 @@
 import PouchDB from 'pouchdb'; //TODO: use a smaller package (check Custom Builds section on pouch website)
 import PouchAuth from 'pouchdb-authentication';
 import superlogin from 'superlogin-client';
+import { usePouch } from 'use-pouchdb';
 import { useEffect, useState, useRef, MutableRefObject, useCallback } from 'react';
 import { useGameDispatch, Action as GameAction } from '../components/GameProvider';
+import type { LoginInfo } from '../components/LoginProvider'; //=}
 import CompileConstants from '../constants/CompileConstants';
 
 // also currently have admin:password
 export const remoteWithBasicCreds: string = `http://${CompileConstants.DEFAULT_CREDENTIALS.username}:${CompileConstants.DEFAULT_CREDENTIALS.password}@localhost:5984/`;
 export const remoteWithTestAdminCreds: string = 'http://admin:password@localhost:5984/';
 export const remote: string = 'http://localhost:5984/';
+export const apiUrl: string = 'http://localhost:3000/api/';
 PouchDB.plugin(PouchAuth);
 
 superlogin.configure({
@@ -48,6 +51,39 @@ export function makeRequest(url: string, username: string, password: string, met
     body: JSON.stringify(body),
   });
   return response;
+}
+
+// For api calls using superlogin session bearer auth
+//TODO: consider using the new Awaited type for return vals
+export function makeApiCall(uri: string, method: "GET" | "PUT" | "POST", body?: Object) {
+  if(uri.indexOf("http") !== -1) throw new Error("Only include the part of the address after website.com/api/");
+  if(uri.indexOf("/") === 0) throw new Error("Do not start address with a /, it's already included. Given uri: "+uri);
+
+  let session = superlogin.getSession();
+  if(!session) return Promise.reject("No superlogin session found");
+
+  //return makeRequest(apiUrl + uri, session.token, session.password, method, body);
+  const response = fetch(apiUrl + uri, {
+    method: method,
+    mode: 'cors',
+    headers: {
+      'Content-Type': 'application/json',
+      'Authorization': 'Bearer ' + session.token+':'+session.password,
+      //TODO: if posting with no body, make length 0 or some routers might get confused
+      //'Authorization': 'Bearer admin:madeUpPassword', //couchAuth middleware rejects if client sends invalid creds
+    },
+    body: JSON.stringify(body),
+  });
+  //return response. Full response can't be accessed by caller. Can go makeApiCall.then((data) => {bla}).catch((err) => {err.message})
+  //Returned errors and fetch's network errors (TypeErrors) are caught the same, both have message.
+  return response.then((res) => {
+    return res.json().then((data) => {
+      if(res.ok) {
+        return Promise.resolve(data);
+      }
+      return Promise.reject(data);
+    });
+  });
 }
 
 export function syncDB(db: PouchDB.Database, live: boolean) {
@@ -92,7 +128,7 @@ export function printSession(database: PouchDB.Database) {
 
 // This hook returns a set of pouchDB references for the given gameID.
 // If gameId="top", it includes localTop, remoteTop, and localPersonal (where personal notes and edits are stored).
-// If otherwise, it also includes local and remote, the actual databases for the given game.
+// If otherwise, it's a DIFFERENT REF that also includes local and remote, the actual databases for the given game.
 export type DeletionCallbackType = (db: string)=>Promise<void>;
 export function usePersistentDBRefs(gameId: string): [MutableRefObject<{[key: string]: PouchDB.Database}>, DeletionCallbackType] {
   const [initialUsedDBs] = useState<Record<string, PouchDB.Database>>(() => {
@@ -102,7 +138,7 @@ export function usePersistentDBRefs(gameId: string): [MutableRefObject<{[key: st
     "remote-top": getDB(remoteWithBasicCreds + "top"), //remote indexes will just be "remote-gameId"
     }
   }); 
-  //for some reason useRef isn't allowed to have an initialization function that only runs once
+  //Only using state above because for some reason useRef isn't allowed to have an initialization function that only runs once
   const usedDBs = useRef<Record<string, PouchDB.Database>>(initialUsedDBs); 
 
   const dbTop = useRef<{[key: string]: PouchDB.Database}>({
@@ -149,21 +185,63 @@ export function usePersistentDBRefs(gameId: string): [MutableRefObject<{[key: st
   }
 }
 
+//Hook to only dispatch fetchFailure events if the current usingLocal matches what hook remembers when loading started
+//When there's no default db (aka on main menu using top db), pass the pouch object.
+//TODO: remove doc from this and from GP actions?
+export function useDocumentLocalRemoteSwitching(state: string, error: PouchDB.Core.Error | null | Error, componentName: string = '', db?: PouchDB.Database, doc?: PouchDB.Core.Document<any>): void { 
+  const gameDispatch = useGameDispatch();
+  const [failureAlreadyDispatched, setFailureAlreadyDispatched] = useState<boolean>(false);
+  let currentPouch = usePouch(db ? 'remoteTop' : '_default');
+  if(db) currentPouch = db;
 
+  useEffect(() => { 
+    const usingLocal = !nameIsRemote(currentPouch.name);
+    //if(componentName === 'Game') 
+    //console.log(`${componentName} debug: state=${state}, usingLocal=${usingLocal}, error=${error?.message} failureAlreadyDispatched=${failureAlreadyDispatched} pouch=${currentPouch.name} `); //`
+
+    if(state === 'loading') {
+       setFailureAlreadyDispatched(false);
+    }
+
+    //const loading: boolean = state === 'loading';
+    //if(loading && fetchedWithLocal === null) { //useDoc is initiating a fetch, store whether it's local or remote
+      ////console.log(`${componentName} setting fetchedWithLocal, state=${state}, usingLocal=${usingLocal}`);
+      //setFetchedWithLocal(usingLocal); //won't apply until re-render, below lines execute with old value
+    //} 
+    //NOTE: state does appear to go error or done between re-fetches if the database is changed
+    //STATE IS SET TO LOADING EVERY TIME GAMEPROVIDER RERENDERS
+    //if(fetchedWithLocal !== null) { //for one render state will still be error while usingLocal is switched and fetchedWithLocal is null
+      if (state === 'error' && !failureAlreadyDispatched) {
+        console.log(`Error loading ${componentName} ` + (usingLocal ? "locally: " : "remotely: ") + error?.message);
+        gameDispatch({actionType: 'fetchFailure', error: error, usedLocal: usingLocal, dispatcher: componentName} as GameAction);
+        setFailureAlreadyDispatched(true);
+        //setFetchedWithLocal(null);
+      }
+      if (state === 'done') {
+        gameDispatch({actionType: 'fetchSuccess', usedLocal: usingLocal, doc} as GameAction); //must only dispatch once unless provider changes...
+        //console.log(`${componentName} WOULD BE DISPATCHING HERE HAHAHA`);
+        //setFetchedWithLocal(null);
+      }
+    //}
+  }, [state, error, currentPouch]);
+}
+
+/*
 //Hook to only dispatch fetchFailure events if the current usingLocal matches what hook remembers when loading started
 //TODO: remove doc from this and from GP actions?
 export function useDocumentLocalRemoteSwitching(state: string, error: PouchDB.Core.Error | null | Error, usingLocal: boolean, componentName: string = '', doc?: PouchDB.Core.Document<any>): void { const gameDispatch = useGameDispatch();
   const [fetchedWithLocal, setFetchedWithLocal] = useState<boolean | null>(null);
+  const currentPouch = usePouch();
 
   useEffect(() => { 
+    if(componentName === 'Game') 
+    console.log(`Game debug: pouch=${currentPouch.name} state=${state}, usingLocal=${usingLocal}, fetchedWithLocal=${fetchedWithLocal}, error=${error?.message}`); //`
+
     const loading: boolean = state === 'loading';
     if(loading && fetchedWithLocal === null) { //useDoc is initiating a fetch, store whether it's local or remote
       //console.log(`${componentName} setting fetchedWithLocal, state=${state}, usingLocal=${usingLocal}`);
       setFetchedWithLocal(usingLocal); //won't apply until re-render, below lines execute with old value
-    }
-    else {
-      //console.log(`${componentName} NOT setting fetchedWithLocal, state=${state}, usingLocal=${usingLocal}, fetchedWithLocal=${fetchedWithLocal}`);
-    }
+    } 
     //NOTE: state does appear to go error or done between re-fetches if the database is changed
     //STATE IS SET TO LOADING EVERY TIME GAMEPROVIDER RERENDERS
     if(fetchedWithLocal !== null) { //for one render state will still be error while usingLocal is switched and fetchedWithLocal is null
@@ -178,5 +256,53 @@ export function useDocumentLocalRemoteSwitching(state: string, error: PouchDB.Co
         setFetchedWithLocal(null);
       }
   }
-  }, [usingLocal, state, error, fetchedWithLocal]);
+  }, [usingLocal, state, error, fetchedWithLocal, currentPouch]);
+}
+*/
+
+export type PermissionLevel = "Reader" | "Writer" | "GameAdmin" | "ServerManager" | "ServerAdmin";
+
+export function userHasPerms(loginInfo: LoginInfo, permissions: PermissionLevel): boolean {
+  switch(permissions) {
+    case "Reader": {
+      return true;
+    }
+    case "Writer": {
+      return userIsWriterOrHigher(loginInfo);
+    }
+    case "GameAdmin": {
+      return userIsGameAdminOrHigher(loginInfo);
+    }
+    case "Writer": {
+      return userIsServerManagerOrHigher(loginInfo);
+    }
+    case "Writer": {
+      return userIsServerAdmin(loginInfo);
+    }
+  }
+  throw new Error("Unrecognized permission level: "+permissions);
+}
+
+export type SecObj = {
+  admins?: {
+    names?: string[],
+    roles?: string[],
+  };
+  members?: {
+    names?: string[],
+    roles?: string[],
+  };
+}
+
+function userIsWriterOrHigher(loginInfo: LoginInfo): boolean {
+  return loginInfo.secObj?.members?.names && loginInfo.secObj.members.names.includes(loginInfo.currentUser) || userIsGameAdminOrHigher(loginInfo);
+}
+function userIsGameAdminOrHigher(loginInfo: LoginInfo): boolean {
+  return loginInfo.secObj?.admins?.names && loginInfo.secObj.admins.names.includes(loginInfo.currentUser) || userIsServerManagerOrHigher(loginInfo);
+}
+function userIsServerManagerOrHigher(loginInfo: LoginInfo): boolean {
+  return loginInfo.roles.includes("server-manager") || userIsServerAdmin(loginInfo);
+}
+function userIsServerAdmin(loginInfo: LoginInfo): boolean {
+  return loginInfo.roles.includes("_admin");
 }

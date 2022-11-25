@@ -1,12 +1,14 @@
-import { DBStatus, initialDBStatus } from '../components/GameProvider';
-
 
 //these are suffixes that go at the end of the url. Used for local and remote database URIs too.
 export enum SegmentUrl {
   Base = '',
-  Edit = '/local-edit',
-  Changes = '/changes', //TODO: change to Changes
-  History = '/history'
+  Edit = 'local-edit',
+  Changes = 'changes', 
+  History = 'history'
+  //Base = '',
+  //Edit = '/local-edit',
+  //Changes = '/changes', 
+  //History = '/history'
 }
 
 //fixes JSON.stringify for Set<string>. Still can't use for(let i in set), must use for...of
@@ -18,24 +20,6 @@ export class StringSet extends Set<string> {
   }
 }
 
-//Map with a custom get() method that creates a default value if the db key isn't there
-export class DBStatuses extends Map<string, DBStatus> {
-  get(key: string): DBStatus {
-    const val = super.get(key);
-    if(val === undefined) {
-      console.log("creating DBStatus for key "+key);
-      const newVal = {...initialDBStatus};
-      super.set(key, newVal);
-      return newVal;
-    }
-    else {
-      return val;
-    }
-  }
-  toJSON() {
-    return Array.from(super.entries());
-  }
-}
 
 export type FieldError = {
   columnName: string;

@@ -1,31 +1,28 @@
 import { useIonModal, IonModal, useIonAlert, useIonToast, IonPopover, IonIcon, IonFab, IonFabButton, IonLabel, IonList, IonButton, IonContent, IonItem, IonGrid, IonRow } from '@ionic/react';
-import React, { useRef, useState, useEffect, useCallback, MouseEvent }from 'react';
-import { add, } from 'ionicons/icons';
-import { useDoc, usePouch } from 'use-pouchdb';
+import React, { useRef, useState, useMemo, useEffect, useCallback, MouseEvent }from 'react';
+import { add, warningOutline, checkmarkOutline } from 'ionicons/icons';
 import {MoveOrder, MoveCols, ColumnDefAndData, ColumnDef, ColumnDefs, ColumnData, Cols, ColumnChange, CharDoc, CharDocWithMeta, ChangeDoc, ChangeDocServer, MoveChanges, Changes, AddMoveChanges , PropChanges, Modify, Conflicts } from '../types/characterTypes';
 import type { FieldError } from '../types/utilTypes'; //==
 import { moveNameColumnDef } from '../constants/internalColumns';
-import { getDefsAndData, getChangeListMoveOrder, keys, updateMoveOrPropChanges } from '../services/util';
+import { getChangeListMoveOrder, keys, updateMoveOrPropChanges, getDateString, unresolvedConflictInList } from '../services/util';
+import { getDefsAndData } from '../services/renderUtil';
 import { reduceChanges, resolveMoveOrder } from '../services/merging';
-import MoveOrUniversalProps from './MoveOrUniversalProps';
-import CategoryAndChildRenderer  from './CategoryAndChildRenderer';
+//import MoveOrUniversalProps from './MoveOrUniversalProps';
+//import CategoryAndChildRenderer  from './CategoryAndChildRenderer';
 import MoveEditModal from './MoveEditModal';
 import MoveOrdererModal from './MoveOrdererModal';
-import { State, useCharacterDispatch, useTrackedCharacterState, useCharacterSelector, useMiddleware, selectMoveOrder } from '../services/CharacterReducer';
-import { useLoginInfoContext } from './GameProvider';
+import CharacterRenderer from './CharacterRenderer';
+import { State, EditAction, useCharacterDispatch, useTrackedCharacterState, useCharacterSelector, useMiddleware, selectMoveOrder } from '../services/CharacterReducer';
+import { useLoginInfoContext } from './LoginProvider';
+import styles from '../theme/Character.module.css';
 import { cloneDeep } from 'lodash';
 
 
 type EditCharProps = {
   gameId: string,
-  //charDoc: CharDocWithMeta, 
   columnDefs: ColumnDefs,
   universalPropDefs: ColumnDefs,
-  //changeList?: ChangeDoc,
-  //moveToEdit?: string,
-  //promptForMoveOrder?: boolean,
 }
-//TODO: pass editDoc from provider?
 
 export const EditCharacter: React.FC<EditCharProps> = ({gameId, columnDefs, universalPropDefs}) => {
   const dispatch = useCharacterDispatch();
@@ -33,6 +30,8 @@ export const EditCharacter: React.FC<EditCharProps> = ({gameId, columnDefs, univ
   const loginInfo = useLoginInfoContext();
   const charDoc = state.charDoc;
   const changeList: ChangeDoc | undefined = state.editChanges;
+  const hasConflicts: boolean = !!changeList?.conflictList;
+  const hasUnresolvedConflicts: boolean = useMemo<boolean>(() => unresolvedConflictInList(changeList?.conflictList), [changeList?.conflictList]);
   const moveToEdit: string | undefined = state.moveToEdit;
   const moveOrder: MoveOrder[] = useCharacterSelector<MoveOrder[]>(selectMoveOrder);
   const [presentAlert, dismissAlert] = useIonAlert(); //used for deletion confirmation, new move conflicts, other
@@ -43,6 +42,7 @@ export const EditCharacter: React.FC<EditCharProps> = ({gameId, columnDefs, univ
       changeMoveOrder: (newOrder: MoveOrder[])=>{dispatch({actionType:'reorderMoves', newMoveOrder: newOrder})},
       onDismiss: () => { dismissMoveOrder(); dismissAlert(); }
   });
+
   const addMoveCallback = useCallback((state, action, dispatch) => {
     presentAlert(
       {
@@ -60,7 +60,47 @@ export const EditCharacter: React.FC<EditCharProps> = ({gameId, columnDefs, univ
       }
     );
   }, []);
-  useMiddleware("EditCharacter", {addMove: addMoveCallback});
+
+  const tryUndoUniversalPropChangesCallback = useCallback((state: State, action, dispatch) => {
+    const changeList = state.editChanges;
+    const propChanges = changeList?.universalPropChanges;
+    if(!propChanges) return;
+    let addedMoves: string[] = [];
+    let deletedMoves: string[] = [];
+    if(propChanges.moveOrder && changeList?.moveChanges) {
+      // Check if there's a move addition or deletion
+      for(const key in changeList.moveChanges) {
+        const moveNameChange = changeList.moveChanges[key]?.moveName;
+        if(moveNameChange?.type === "add") {
+          addedMoves.push(key);
+        }
+        else if(moveNameChange?.type === "delete") {
+          deletedMoves.push(key);
+        }
+      }
+    }
+    let undoChanges: Changes | null = null;
+    if(propChanges.moveOrder && (addedMoves.length > 0 || deletedMoves.length > 0)) {
+      let addedString = addedMoves.length > 0 ? " (Added " + addedMoves.join(", ") + ")" : "";
+      let deletedString = deletedMoves.length > 0 ? " (Deleted " + deletedMoves.join(", ") + ")" : "";
+      let otherChangesString = keys(propChanges).length > 1 ? ", but your other changes were." : ".";
+      presentAlert(
+        {
+          header: "Cannot undo changes to move order",
+          message: "Because moves being added or deleted affects move order, your move order wasn't reverted" + otherChangesString + addedString + deletedString,
+          buttons: [
+            { text: 'OK', role: 'cancel' },
+          ], 
+        }
+      );
+      //undo all changes besides moveOrder
+      undoChanges = {moveOrder: propChanges.moveOrder};
+    }
+    dispatch({actionType: 'editMove', moveName: 'universalProps', moveChanges: undoChanges} as EditAction);
+  }, []);
+
+  useMiddleware("EditCharacter", {addMove: addMoveCallback, tryUndoUniversalPropChanges: tryUndoUniversalPropChangesCallback});
+
 
   // Present Alert
   //TODO: reducer actions to accept moveORder change, and to unset promptForMoveOrder either way
@@ -150,12 +190,26 @@ export const EditCharacter: React.FC<EditCharProps> = ({gameId, columnDefs, univ
         updateTitle: opts.title, 
         updateDescription: opts.description, 
         updateVersion: opts.version,
-        createdAt: new Date().toString(),
+        createdAt: getDateString(),
         //createdAt: "Thu Sep 29 2022 19:45:25 GMT-0700",
-        createdBy: loginInfo.currentCreds.username
+        createdBy: loginInfo.currentUser,
       };
       dispatch({actionType:'uploadChangeList', changes: uploadChanges!});
     }
+  }
+
+  //FOR TESTING. Artifically load a new base chardoc
+  function rebaseTest() {
+    let newDoc = cloneDeep<CharDocWithMeta>(charDoc);
+    //delete AA
+    //delete newDoc.moves.AA;
+    //newDoc.universalProps.moveOrder = newDoc.universalProps.moveOrder.filter((ord) => ord.name !== "AA");
+    //modify AA
+    if(newDoc.moves?.AA?.damage) newDoc.moves.AA.damage = 12345;
+    if(newDoc.moves?.AA) newDoc.moves.AA.displayName = "booper";
+    newDoc._rev = "9999-fakerino";
+    newDoc.changeHistory.push("fake-rebase-test-change");
+    dispatch({actionType:'setCharDoc', charDoc:newDoc});
   }
 
   function dismissPopOver() { popOver.current && popOver.current.dismiss() }
@@ -191,6 +245,9 @@ export const EditCharacter: React.FC<EditCharProps> = ({gameId, columnDefs, univ
           <IonItem button={true} detail={false} disabled={!changeList || !!changeList.conflictList} onClick={()=> { dismissPopOver(); promptUploadChangeList() }}>
             <IonLabel>Upload</IonLabel>
           </IonItem>
+          <IonItem button={true} detail={false} onClick={rebaseTest}>
+            <IonLabel>Test Rebasing</IonLabel>
+          </IonItem>
         </IonList>
       </IonContent> 
     </IonPopover>
@@ -214,7 +271,8 @@ export const EditCharacter: React.FC<EditCharProps> = ({gameId, columnDefs, univ
         }
       }
       moveNameDef.forbiddenValues = forbidden;
-      defs = {moveName: moveNameDef, ...defs}; //ensure moveName at front 
+      //defs = {moveName: moveNameDef, ...defs}; //ensure moveName at front 
+      defs.moveName = moveNameDef;
     }
     return getDefsAndData(defs, cols, changes);
   }, [charDoc, changeList, universalPropDefs, columnDefs]);
@@ -223,38 +281,55 @@ export const EditCharacter: React.FC<EditCharProps> = ({gameId, columnDefs, univ
   return (
     <>
       {editFAB}
-      <IonModal isOpen={moveToEdit !== undefined} >
+      <IonModal isOpen={moveToEdit !== undefined} onDidDismiss={() => dispatch({actionType: 'closeMoveEditModal'})}>
         <MoveEditModal moveName={moveToEdit!} getDefsAndData={getModalDefsAndData}
           originalChanges={moveToEdit === "universalProps" ? changeList?.universalPropChanges : changeList?.moveChanges?.[moveToEdit!]} 
         />
       </IonModal>
-      <IonGrid>
-        <IonRow>
-          <IonItem>
-            <p>{charDoc.charName} is the character (DB)</p><br />
-            <p>{JSON.stringify(charDoc)}</p>
-          </IonItem>
-        </IonRow>
-        <MoveOrUniversalProps moveName="universalProps" columns={charDoc.universalProps} columnDefs={universalPropDefs} 
-          editMove={true} changes={changeList?.universalPropChanges} moveConflicts={changeList?.conflictList?.universalProps} />
-        {moveOrder.map((moveOrCat: MoveOrder) => { 
-          const {name, isCategory, indent} = {...moveOrCat};
-          let moveCols = charDoc.moves[name];
-          let moveChanges = changeList?.moveChanges?.[name];
-          return (
-            <CategoryAndChildRenderer key={name} name={name} isCategory={isCategory} >
-            {!(moveCols === undefined && moveChanges === undefined)
-              ? <MoveOrUniversalProps moveName={name} indentLevel={indent} columns={moveCols} columnDefs={columnDefs} 
-                 editMove={true} changes={changeList?.moveChanges?.[name]} moveConflicts={changeList?.conflictList?.[name]} />
-              : <div>No data for move {name}</div>
-            }
-            </CategoryAndChildRenderer> 
-          );
-          {/*TODO: for debugging, good idea to point out moves that have data but are missing from moveOrder*/}
-          })}
-      </IonGrid>
+      <CharacterRenderer charDoc={charDoc} columnDefs={columnDefs} universalPropDefs={universalPropDefs} 
+        editingEnabled={true} changes={changeList} highlightChanges={true} highlightConflicts={true} >
+        {hasConflicts && 
+          (hasUnresolvedConflicts ?
+            <IonItem color="danger">
+              <IonIcon color="warning" slot="start" md={warningOutline} />
+              <IonLabel class="ion-text-wrap">Your edits have one or more conflicts with {changeList?.rebaseSource ? "this character's latest update" : "your imported change"}. Swipe a column right or left to prefer <span className={styles.textYours}>your data</span> or <span className={styles.textTheirs}>theirs</span>.</IonLabel>
+            </IonItem>
+          : 
+            <IonItem color="success" button onClick={() => dispatch({actionType: "applyResolutions"})}>
+              <IonIcon slot="start" md={checkmarkOutline} />
+              <IonLabel class="ion-text-wrap">All conflicts resolved! Click here to apply these resolutions.</IonLabel>
+            </IonItem>
+          )
+        }
+      </CharacterRenderer>
     </>
   );
 };
+
+      //<IonGrid>
+        //<IonRow>
+          //<IonItem>
+            //<p>{charDoc.charName} is the character (DB)</p><br />
+            //<p>{JSON.stringify(charDoc)}</p>
+          //</IonItem>
+        //</IonRow>
+        //<MoveOrUniversalProps moveName="universalProps" columns={charDoc.universalProps} columnDefs={universalPropDefs} 
+          //editMove={true} changes={changeList?.universalPropChanges} moveConflictsToHighlight={changeList?.conflictList?.universalProps} />
+        //{moveOrder.map((moveOrCat: MoveOrder) => { 
+          //const {name, isCategory, indent} = {...moveOrCat};
+          //let moveCols = charDoc.moves[name];
+          //let moveChanges = changeList?.moveChanges?.[name];
+          //return (
+            //<CategoryAndChildRenderer key={name} name={name} isCategory={isCategory} >
+            //{!(moveCols === undefined && moveChanges === undefined)
+              //? <MoveOrUniversalProps moveName={name} indentLevel={indent} columns={moveCols} columnDefs={columnDefs} 
+                 //editMove={true} changes={changeList?.moveChanges?.[name]} moveConflictsToHighlight={changeList?.conflictList?.[name]} />
+              //: <div>No data for move {name}</div>
+            //}
+            //</CategoryAndChildRenderer> 
+          //);
+          //[>TODO: for debugging, good idea to point out moves that have data but are missing from moveOrder<]
+          //})}
+      //</IonGrid>
 
 export default EditCharacter;

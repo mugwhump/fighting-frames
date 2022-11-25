@@ -17,7 +17,7 @@ import { useLocation } from 'react-router-dom';
 import { cloudDoneOutline, cloudDownloadOutline, cloudOfflineOutline, skullOutline } from 'ionicons/icons';
 import { CreateAnimation, Animation } from '@ionic/react';
 import './Menu.css';
-import { useDoc } from 'use-pouchdb'
+import { useDoc, usePouch } from 'use-pouchdb'
 import { useDocumentLocalRemoteSwitching } from '../services/pouch';
 import { DBListDoc, DBListDocItem } from '../types/characterTypes';
 import LoginButton from './LoginButton';
@@ -41,8 +41,9 @@ const Menu: React.FC<MenuProps> = ({usingLocal}) => {
   //console.log("Render menu, usingLocal: " + usingLocal);
   const location = useLocation(); //access current page url and update when it changes
   const topDB: string = usingLocal ? "localTop" : "remoteTop";
+  const currentPouch: PouchDB.Database = usePouch(topDB);
   const { doc, loading, state, error } = useDoc<PouchDB.Core.Document<DBListDoc>>("top/list", {db: topDB}); 
-  useDocumentLocalRemoteSwitching(state, error, usingLocal, 'Menu');
+  useDocumentLocalRemoteSwitching(state, error, 'Menu', currentPouch);
   const gameDispatch = useGameDispatch();
 
   if (state === 'error') {

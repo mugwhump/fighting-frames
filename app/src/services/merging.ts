@@ -361,7 +361,7 @@ export function applyResolutions(yourChanges: T.ChangeDoc, isMerge?: boolean): v
     for(const [moveName, conflicts] of util.keyVals(yourChanges.conflictList)) {
       if(!conflicts) continue;
       let changes: T.Changes | null = ((moveName === "universalProps") ? yourChanges.universalPropChanges : yourChanges.moveChanges?.[moveName]) ?? null;
-      let newChanges: T.Changes | null = applyMoveResolutions(conflicts, changes);
+      let newChanges: T.Changes | null = applyMoveResolutions(conflicts, changes, true);
       util.updateMoveOrPropChanges(yourChanges, moveName, newChanges);
       if(util.keys(conflicts).length === 0) delete yourChanges.conflictList[moveName];
     }
@@ -388,11 +388,11 @@ export function applyResolutions(yourChanges: T.ChangeDoc, isMerge?: boolean): v
 }
 
 // Returns cloned set of changes with resolutions applied
-// Deletes conflicts as they're resolved
-// If they have uncontested merge changes, you might not have changes for move.
+// Deletes conflicts as they're resolved if deleteResolvedConflicts is true
+// If they have uncontested merge changes, you might not have changes for move, so pass null.
 // If changes all deleted since resolutions are all no-ops (for say, a redundant move deletion), returns null.
 // Doesn't resolve moveOrder
-function applyMoveResolutions(conflictsToModify: T.Conflicts, changes: Readonly<T.Changes> | null): T.Changes | null {
+export function applyMoveResolutions(conflictsToModify: T.Conflicts, changes: Readonly<T.Changes> | null, deleteResolvedConflicts: boolean): T.Changes | null {
   let result: T.Changes = (changes) ? cloneDeep<T.Changes>(changes) : {};
   for(const [col, conflict] of util.keyVals(conflictsToModify)) {
     if(!conflict) continue;
@@ -404,10 +404,9 @@ function applyMoveResolutions(conflictsToModify: T.Conflicts, changes: Readonly<
       else {
         result[col] = resolvedChange;
       }
-      delete conflictsToModify[col]; //delete conflict that was just resolved
+      if(deleteResolvedConflicts) delete conflictsToModify[col]; //delete conflict that was just resolved
     }
   }
-
   return (util.keys(result).length > 0) ? result : null;
 }
 
@@ -590,7 +589,7 @@ export function resolveMoveOrder(baseOrder: Readonly<T.MoveOrder[]>, yourChanges
   }
   //If you made explicit moveOrder changes but there was no conflict between moveOrders...
   if(!nonPreferredOrder) {
-    console.log("You made uncontested moveOrder changes while rebasing, returning your order");
+    console.log("You made uncontested moveOrder changes while rebasing, returning your order with resolved additions");
     //TODO: if you deleted move they changed and chose to keep move, it's still gone from your changed moveOrder, but there's no moveName change!
     // need to do resolution for moves missing from your order.
     let result: T.MoveOrder[] = [...preferredOrder];

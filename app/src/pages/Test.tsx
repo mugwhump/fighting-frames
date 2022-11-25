@@ -185,10 +185,10 @@ const Test: React.FC<TestProps> = ({propNum, propStr}) => {
 
   useIonViewDidEnter(() => {
     console.log('ion view did enter event fired');
-    //moveOrderTest();
+    moveOrderTest();
     //mergeTest();
     //rebaseTest();
-    //resolutionTest();
+    resolutionTest();
     //pullDB("test");
     //replicatorUpdate('muhDeeBee');
     //setupDbSecurity('testo');
@@ -357,6 +357,14 @@ const Test: React.FC<TestProps> = ({propNum, propStr}) => {
     compareResults( E.Order.addedK , result );
     console.log('^^^^^^^^^^^^^ merge with added K from them, you reverse, conflict preferring theirs');
 
+    result = getResolvedMoveOrder (undefined, E.Order.reversedOrder, E.Order.addedK, "yours" );
+    compareResults( E.Order.reversedOrder , result );
+    console.log('^^^^^^^^^^^^^ merge with added K from them which you reject, you reverse, conflict preferring yours');
+
+    result = getResolvedMoveOrder (undefined, E.Order.reversedOrder, E.Order.addedK, "theirs" );
+    compareResults( E.Order.baseOrder, result );
+    console.log('^^^^^^^^^^^^^ merge with added K from them which you reject, you reverse, conflict preferring theirs');
+
     result = getResolvedMoveOrder (undefined, undefined, E.Order.noBBReverse, "theirs", E.MoveListChanges.delBB);
     compareResults( E.Order.noBBReverse , result );
     console.log('^^^^^^^^^^^^^ merge with deleted BB and reversal from them, conflict preferring theirs');
@@ -489,6 +497,10 @@ const Test: React.FC<TestProps> = ({propNum, propStr}) => {
                 {...E.MoveChanges.damage13, ...E.MoveChanges.heightAddL}, 
                 {...E.MoveChanges.moveDelBB, ...E.MoveChanges.damageDel1});
 
+    doMergeTest("you delete BB, they change damage and ignore height, conflicts for all columns", E.MoveCons.m_youDelTheyChangeDamage , 
+                {...E.MoveChanges.damage13}, 
+                {...E.MoveChanges.moveDelBB, ...E.MoveChanges.damageDel1, ...E.MoveChanges.heightDelH});
+
     doMergeTest("both deleted, redundant", null, {...E.MoveChanges.moveDelBB, ...E.MoveChanges.damageDel1}, {...E.MoveChanges.moveDelBB, ...E.MoveChanges.damageDel1});
 
     doMergeTest("both added same, redundant", null, {...E.MoveChanges.moveAddBB, ...E.MoveChanges.damageAdd3}, {...E.MoveChanges.moveAddBB, ...E.MoveChanges.damageAdd3});
@@ -534,8 +546,7 @@ const Test: React.FC<TestProps> = ({propNum, propStr}) => {
 
     doRebaseTest("uncontested move+damage+height delete", null, {...E.MoveChanges.moveDelBB, ...E.MoveChanges.heightDelH, ...E.MoveChanges.damageDel1}, E.Vals.dmgHeight);
 
-    doRebaseTest("you del move+height but not dmg, conflict to delete", {...E.MoveCons.r_delBB, damage: {yours: E.ColChange.del1, theirs: "no-op"}}, 
-                 {...E.MoveChanges.moveDelBB, ...E.MoveChanges.heightDelH}, E.Vals.dmgHeight);
+    doRebaseTest("you del move+height but not dmg, conflict to delete", {...E.MoveCons.r_delBB, damage: {yours: E.ColChange.del1, theirs: "no-op"}, height: {yours: E.ColChange.delH, theirs:"no-op"}}, {...E.MoveChanges.moveDelBB, ...E.MoveChanges.heightDelH}, E.Vals.dmgHeight);
 
     doRebaseTest("you del move+damage+height, base altered both", {...E.MoveCons.r_delBB, damage: {yours: E.ColChange.del2, theirs: "no-op"}, height: {yours: E.ColChange.delM, theirs: "no-op"}}, 
                  {...E.MoveChanges.moveDelBB, ...E.MoveChanges.heightDelH, ...E.MoveChanges.damageDel1}, E.Vals.dmgHeight2);
@@ -548,6 +559,11 @@ const Test: React.FC<TestProps> = ({propNum, propStr}) => {
   }
 
   function resolutionTest() {
+    doResolutionTest("Rebase, you have contested AA and BB changes, resolve yours", E.ChangeDocs.modAA_dmgBB32, "yours",
+                     E.ChangeDocs.modAA32_dmgBB12, undefined, E.CharDocs.baseDoc);
+    doResolutionTest("Rebase, you have uncontested AA and BB changes, no conflicts", E.ChangeDocs.modAA_dmgBB32, "no-resolve",
+                     E.ChangeDocs.modAA_dmgBB32, undefined, E.CharDocs.baseDoc);
+
     //Rebase updates metadata and prevChange
     doResolutionTest("Rebase, you have uncontested AA changes, you stealth add BB by changing damage, don't resolve", E.ChangeDocs.modAA_stealthBB_conflicts, "no-resolve",
                      E.ChangeDocs.modAA_dmgBB, undefined, E.CharDocs.noBB);
@@ -589,7 +605,10 @@ const Test: React.FC<TestProps> = ({propNum, propStr}) => {
     yours = cloneDeep<T.ChangeDoc>(yours ?? E.ChangeDocs.talimChanges);
     if(!base) base = cloneDeep<T.CharDocWithMeta>(E.CharDocs.baseDoc);
     if(!theirs) {
-      rebaseChangeDoc(base, yours);
+      //if(yours.baseRevision >= base._rev) {
+        //base._rev = "999"; //quick workaround for "this rebase is unnecessary" check
+      //}
+      rebaseChangeDoc(base, yours, true);
     }
     else {
       mergeChangeDocs(theirs, yours, base);
@@ -609,7 +628,9 @@ const Test: React.FC<TestProps> = ({propNum, propStr}) => {
         autoResolveConflicts(yours, resolution);
       }
     }
-    applyResolutions(base, yours, !!theirs);
+    applyResolutions(yours, !!theirs);
+    delete yours.rebaseSource;
+    delete yours.mergeSource;
     compareResults(expected, yours, true);
     console.log("^^^^^^^^^^ " + testName); 
   }

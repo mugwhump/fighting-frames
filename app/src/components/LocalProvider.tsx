@@ -149,7 +149,7 @@ export const LocalProvider: React.FC = ({children}) => {
       console.log('Loaded saved LocalData'); //state updates are deferred, new state isn't visible to this console.log
       await getAndNavigateLatestPage();
     }
-    catch(err) {
+    catch(err: any) {
       if(err.name == "not_found") {
         createInitialDoc().catch((err) => {
           console.error("Error creating initial local document: " + JSON.stringify(err));

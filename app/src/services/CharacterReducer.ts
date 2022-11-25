@@ -1,30 +1,10 @@
 import { ToastOptions } from '@ionic/react';
 import React, { useReducer, Reducer, useEffect }from 'react';
 import * as util from '../services/util';
-import { reduceChanges, createChange } from '../services/merging';
+import { rebaseChangeDoc, mergeChangeDocs, reduceChanges, createChange, applyResolutions, insertByNeighbor } from '../services/merging';
 import { createContainer } from 'react-tracked';
 import { cloneDeep } from 'lodash';
 import type * as T from '../types/characterTypes'; //==
-
-//multiple eq rules for same column are OR (unless gt & lt both specified, then search in range). So can show mids or lows.
-//So string col with allowed vals H/M/L, have multiple EQ rules to allow different heights
-//But list col with possible tags LH/TC/TJ/UB, use contains rule for each val it can contain. EQ doesn't make sense I guess.
-//String col contains does substring search
-//rules for different columns are AND
-export interface FilterRule {
-  columnName: string;
-  operator: "gt" | "lt" | "eq" | "contains"; //column's relation to value
-  value: number | string;
-}
-export interface SortRule {
-  columnName: string;
-  operator: "asc" | "desc"; //for numeric strings, allowed values array explains how strings are ordered relative to numbers
-}
-export interface FilterSortRules {
-  filterRules: FilterRule[];
-  sortRule?: SortRule;
-}
-
 
 function getEmptyCharDoc(): T.CharDocWithMeta {
   return {
@@ -45,6 +25,7 @@ function getEmptyChangeList(charDoc: T.CharDocWithMeta): T.ChangeDoc {
     createdAt: new Date().toString(),
     createdBy: "",
     baseRevision: charDoc._rev, //emptry string if emptyCharDoc
+    previousChange: charDoc.changeHistory.length > 0 ? charDoc.changeHistory[charDoc.changeHistory.length-1] : undefined,
   }
 } 
 function isEmptyChangeList(changeList: T.ChangeDoc): boolean {
@@ -60,7 +41,7 @@ export function selectMoveOrder(state: State): T.MoveOrder[] {
   return (state.editChanges && util.getChangeListMoveOrder(state.editChanges)) || state.charDoc.universalProps.moveOrder;
 }
 
-export type NetworkOperationStatus = "in-progress" | "success" | "error"; //pending tells listener to begin, success/error tell... uh... the UI to do stuff?
+//export type NetworkOperationStatus = "in-progress" | "success" | "error"; //pending tells listener to begin, success/error tell... uh... the UI to do stuff?
 
 export function getInitialState(characterId: string): State {
   return {
@@ -85,16 +66,9 @@ export interface State {
   editChanges?: T.ChangeDoc; //NOT created if no changes! Set to undefined if you revert all changes.
   editsNeedWriting: boolean; //reducer sets to true to signify that CharacterDocAccess must write or delete local changes
   //preview and history changes live in their components
-  changesToUpload?: T.ChangeDoc; 
-  uploadStatus?: NetworkOperationStatus;
-  changeIdToPublish?: string;
-  publishStatus?: NetworkOperationStatus;
-
-  //TODO: make this a hook? [moveOrder, filters, setFilters] = useFilterSort(baseDoc, changeDoc)
-  //Each segment has independent filters that stay over segment switches. Best not to use in Edit, will just confuse ppl.
-  //FilterHeader component shows searchbar, indicator of active filters, modal button
 
   moveToEdit?: string; //If set, shows modal to edit move. If empty string, modal for adding new move.
+  moveToResolve?: string; //If set, shows modal to do conflict resolution for move.
 }
 /*
   Actions with side-effects triggered by state changes or which trigger state changes:
@@ -115,21 +89,25 @@ export interface State {
     | { actionType: 'addMove', moveChanges: T.AddMoveChanges } 
     | { actionType: 'deleteMove', moveName: string } 
     | { actionType: 'reorderMoves', newMoveOrder: T.MoveOrder[] } 
+    | { actionType: 'tryUndoUniversalPropChanges' } 
+    | { actionType: 'openResolutionModal', moveName: string }
+    | { actionType: 'closeResolutionModal' } 
 
     | { actionType: 'rebaseChanges', charDoc: T.CharDoc } //can be triggered by setCharDoc or setChangeList
     | { actionType: 'mergeChanges', changes: T.ChangeDoc } 
-    | { actionType: 'resolveColumnConflict', moveName: string, columnName: string, resolution: "yours" | "theirs" } 
+    | { actionType: 'resolveMove', moveName: string, resolutions: T.Conflicts } //not all conflicting columns will get resolutions
+    | { actionType: 'resolveColumn', moveName: string, columnName: string, resolution: T.Resolutions } //not all conflicting columns will get resolutions
     | { actionType: 'resolveMoveConflicts', moveName: string, resolution: "yours" | "theirs" } 
     | { actionType: 'resolveAllConflicts', resolution: "yours" | "theirs" } 
     | { actionType: 'applyResolutions' } 
 
     | { actionType: 'setCharDoc', charDoc: T.CharDocWithMeta } //reject if current unresolved conflicts
     | { actionType: 'loadEditsFromLocal', editChanges?: T.ChangeDoc } //when loading from local. Set undefined if can't find local changes
-    | { actionType: 'importEdits', editChanges: T.ChangeDoc } //import someone else's edits as yours
+    | { actionType: 'importEdits', editChanges: T.ChangeDoc } //import or merge someone else's edits
     | { actionType: 'deleteEdits' } //for manual deletion
     | { actionType: 'editsWritten' } //to signify that writes to (or deletion of) local edits have been completed in provider
     //should these be inside reducer? Local saving/writing shouldn't be.
-    | { actionType: 'uploadChangeList', changes: T.ChangeDoc } //upload current list, redirect to it in changes section, and delete local after success
+    | { actionType: 'uploadChangeList', changes: T.ChangeDocServer } //upload current list, redirect to it in changes section, and delete local after success
     | { actionType: 'publishChangeList', changeListId: string } //tells couch to calculate new doc based on that changeList id
 
 
@@ -139,7 +117,7 @@ export const characterReducer: Reducer<State, EditAction> = (state, action) => {
   console.log("Reducer in characterProvider: action=" + JSON.stringify(action));
   let newState = {...state};
 
-  //Update edits and check if they need to be written. Not called if edits being loaded or imported.
+  //Update edits and check if they need to be written. Also called when edits being imported.
   function updateEditsAndCheckForWrite(edits?: T.ChangeDoc) {
     if(edits) { //if there's new edits, they could be real change or empty changelist for implicit deletion
       if(edits === state.editChanges) {
@@ -175,13 +153,32 @@ export const characterReducer: Reducer<State, EditAction> = (state, action) => {
     return state.editChanges ?? getEmptyChangeList(state.charDoc);
   }
 
-  function setInitialized() {
+  // Called when charDoc is set (due to initial load or an update), and when your edits are loaded
+  function setInitializedAndCheckRebase() {
     newState.editsLoaded = true;
     newState.initialized = true;
-    if(newState.editChanges && newState.editChanges.baseRevision === "") {
-      newState.editChanges.baseRevision = newState.charDoc._rev;
+    if(newState.editChanges) {
+      if(newState.editChanges.baseRevision === "") {
+        newState.editChanges.baseRevision = newState.charDoc._rev;
+        let historyLength = newState.charDoc.changeHistory.length;
+        newState.editChanges.previousChange = historyLength > 0 ? newState.charDoc.changeHistory[historyLength - 1] : undefined;
+      }
+      else {
+        checkRebase(newState.editChanges);
+      }
     }
     console.log("character initialized");
+  }
+  function checkRebase(edits: T.ChangeDoc) {
+    if(edits && edits.baseRevision !== newState.charDoc._rev) {
+      if(edits.conflictList && edits.mergeSource) {
+        //you have merge conflicts and either new base loads, or your outdated edits get loaded
+        console.warn("New base document loaded, but existing edits have conflicts from merge. Edits will be rebased after merge conflicts are resolved.");
+      }
+      else {
+        rebaseChangeDoc(newState.charDoc, edits);
+      }
+    }
   }
 
   //If not initialized, only allow actions that perform initialization
@@ -221,12 +218,12 @@ export const characterReducer: Reducer<State, EditAction> = (state, action) => {
       newState.characterId = characterId;
       newState.characterDisplayName = characterDisplayName;
       if(state.editsLoaded) {
-        setInitialized();
+        //will be called if already initialized but new charDoc loaded
+        setInitializedAndCheckRebase();
       }
       else {
         console.log("chardoc loaded but edits not")
       }
-      //TODO: check if editChanges exists and needs rebasing. Reject if unresolved conflicts?
       break;
     }
 
@@ -234,18 +231,34 @@ export const characterReducer: Reducer<State, EditAction> = (state, action) => {
       newState.editChanges = action.editChanges;
       newState.editsLoaded = true;
       if(state.charDoc._id !== "") {
-        setInitialized();
+        setInitializedAndCheckRebase();
       }
       else {
         console.log("Edits loaded but charDoc not")
       }
-      //TODO: check if editChanges needs rebasing
       break;
     }
 
-    case 'importEdits': { //unlike loading your own edits, this should trigger a local write
-      updateEditsAndCheckForWrite(action.editChanges);
-      //TODO: check if editChanges needs rebasing
+    case 'importEdits': { 
+      //if you have no edits, import and check for rebase and write
+      if(!state.editChanges) {
+        let newEdits: T.ChangeDoc = {...action.editChanges, createdBy:"", createdAt: new Date().toString()};
+        //clear imported edit metadata
+        delete newEdits.updateTitle;
+        delete newEdits.updateDescription;
+        delete newEdits.updateVersion;
+        rebaseChangeDoc(state.charDoc, newEdits);
+        updateEditsAndCheckForWrite(newEdits);
+      }
+      else { //if you have edits, merge and write
+        let yours: T.ChangeDoc = {...state.editChanges};
+        if(yours.conflictList) {
+          console.error("You have unresolved conflicts, not importing");
+          break;
+        }
+        mergeChangeDocs(action.editChanges, yours, state.charDoc);
+        updateEditsAndCheckForWrite(yours);
+      }
       break;
     }
 
@@ -299,9 +312,52 @@ export const characterReducer: Reducer<State, EditAction> = (state, action) => {
       break;
     }
 
+    case 'tryUndoUniversalPropChanges': { 
+      // Middleware call. If moveOrder was changed due to moves being added/deleted, can't undo that. 
+      // In that case, MW alerts user about moveOrder and dispatches editMove action to undo whatever can be undone.
+      break;
+    }
+
+    case 'resolveColumn': {
+      let conflict = state.editChanges?.conflictList?.[action.moveName]?.[action.columnName];
+      if(!conflict) {
+        console.error(`No conflict found for ${action.moveName}.${action.columnName}`);
+        break;
+      }
+      console.log(`resolving conflict for ${action.moveName}.${action.columnName}, changing resolution from "${conflict.resolution}" to "${action.resolution}"`);
+      let resolvedConflict = {...conflict, resolution: action.resolution};
+      //this will resolve all if it's a moveName conflict for whether the move should be deleted or not
+      let edits = util.updateColumnConflict(getEditsOrEmptyChangeList(), action.moveName, action.columnName, resolvedConflict, true);
+      updateEditsAndCheckForWrite(edits);
+      break;
+    }
+
+    case 'applyResolutions': {
+      if(!state.editChanges) {
+        console.warn('applyResolutions dispatched with no current edits');
+        break;
+      }
+      let edits = {...state.editChanges};
+      applyResolutions(edits);
+      checkRebase(edits);
+      updateEditsAndCheckForWrite(edits);
+      break;
+    }
+
     case 'uploadChangeList': {
-      // Remember entered title+description+version for next submission
+      // Mostly handled by middleware.
+      // Remember entered title+description+version for next submission. If upload succeeded, action will be dispatched deleting edits.
       updateEditsAndCheckForWrite(action.changes);
+      break;
+    }
+
+    case 'publishChangeList': {
+      // Uhhh do nothing? Middleware handles this.
+      break;
+    }
+    
+    default: {
+      console.warn("Action " + action.actionType + " not implemented");
       break;
     }
   }
@@ -340,33 +396,39 @@ function deleteMove(edits: Readonly<T.ChangeDoc>, charDoc: Readonly<T.CharDoc>, 
   return result;
 }
 
+
 //TODO: test in delete->add, whether move order changes get nooped out
 function addMoveToChangeList(edits: T.ChangeDoc, moveChanges: T.AddMoveChanges, baseMoveOrder: T.MoveOrder[]): T.ChangeDoc {
     const moveName = moveChanges.moveName.new;
-    //delete moveChanges.moveName;
     //consolidate deletion->addition into modification, check for existing changes and merge them. Addition->deletion handled in Modal... or maybe not?
     const oldChanges: T.MoveChanges | null = edits?.moveChanges?.[moveName] || null;
     const newOrMergedChanges: T.MoveChanges | null = oldChanges ? (reduceChanges(oldChanges, moveChanges) as T.MoveChanges) : moveChanges;
 
-    //if(!newOrMergedChanges) {
-      ////if re-adding deleted move, no change. Still prompt to re-add to moveOrder though.
-      //console.warn("No changes to move.");
-      //util.updateMoveOrPropChanges(edits, moveName, null);
-    //}
-
     console.log(`Adding new move ${moveName} with changes ${JSON.stringify(newOrMergedChanges)}`);
 
-    // add to the bottom of moveOrder with a change to universalProps
+    // add to moveOrder
     const moveOrder = edits.universalPropChanges?.moveOrder?.new ?? baseMoveOrder;
     let newMoveOrder = cloneDeep<T.MoveOrder[]>(moveOrder);
-    newMoveOrder.push({name: moveName});
-    //let moveOrderChange: T.Modify<T.MoveOrder[]> = {type: "modify", new: newMoveOrder, old: edits.universalPropChanges?.moveOrder?.old ?? moveOrder};
+    // If undoing deletion, search old moveOrder for its position and put it back
+    if(!newOrMergedChanges) {
+      let orderMap: Map<string, T.MoveOrder> = new Map<string, T.MoveOrder>(newMoveOrder.map((item)=>[item.name, item]));
+      let baseOrderMap: ReadonlyMap<string, [T.MoveOrder, number]> = new Map<string, [T.MoveOrder, number]>(baseMoveOrder.map((item, index)=>[item.name, [item, index]]));
+      let insertIndex = insertByNeighbor(moveName, orderMap, newMoveOrder, baseOrderMap, baseMoveOrder);
+      if(insertIndex !== -1) {
+        console.log(`Restored deleted move ${moveName} into order at index ${insertIndex}`);
+      }
+      else {
+        console.warn(`Restored deleted move ${moveName} but wasn't present in base order, adding to end`);
+        newMoveOrder.push({name: moveName});
+      }
+    }
+    else {
+      newMoveOrder.push({name: moveName});
+    }
     let moveOrderChange: T.Modify<T.MoveOrder[]> | null = createChange(baseMoveOrder, newMoveOrder) as T.Modify<T.MoveOrder[]> | null;
-    //let newUniversalPropChange: T.PropChanges = {...edits.universalPropChanges, moveOrder: moveOrderChange};
 
     // add move change and moveorder change. Removes change if undoing a previous deletion.
     let result = util.updateMoveOrPropChanges(edits, moveName, newOrMergedChanges, true);
-    //result.universalPropChanges = newUniversalPropChange;
     result = util.updateColumnChange(result, "universalProps", "moveOrder", moveOrderChange, false);
     return result;
 }

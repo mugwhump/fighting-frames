@@ -1,8 +1,8 @@
 import { IonItem, IonIcon, IonButton, IonLabel, IonInput } from '@ionic/react';
 import { logInOutline, logInSharp } from 'ionicons/icons';
-import React, { useState } from 'react';
+import React, { useEffect } from 'react';
 //import LoginModal from './LoginModal';
-import { useLoginInfoContext, LoginInfo } from './GameProvider';
+import { useLoginInfoContext, LoginInfo } from './LoginProvider';
 import CompileConstants from '../constants/CompileConstants';
 
 type LoginButtonProps = {
@@ -13,11 +13,15 @@ const LoginButton: React.FC<LoginButtonProps> = () => {
   const loginInfo: LoginInfo = useLoginInfoContext();
   // What else will render differently depending on who you're logged in as?
 
-  if(loginInfo.currentCreds.username !== CompileConstants.DEFAULT_CREDENTIALS.username) {
+  useEffect(() => {
+    console.log("LoginButton's loginInfo changed: "+JSON.stringify(loginInfo));
+  }, [loginInfo])
+
+  if(loginInfo.currentUser !== CompileConstants.DEFAULT_CREDENTIALS.username) {
     //If logged in as non-default user
     return (
       <>
-      <div>Logged in as {loginInfo.currentCreds.username}</div>
+      <div>Logged in as {loginInfo.currentUser}</div>
       <IonItem button className="login" onClick={() => loginInfo.logout()}>
         <IonIcon slot="start" ios={logInOutline} md={logInSharp} />
         <IonLabel>Log Out</IonLabel>

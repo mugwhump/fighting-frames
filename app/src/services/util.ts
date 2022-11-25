@@ -27,11 +27,25 @@ export function shallowCompare(obj1: any, obj2: any): boolean {
 }
 
 export function getSegmentUri(gameId: string, character: string, segment: SegmentUrl): string {
-  return "/game/"+gameId+"/character/"+character+segment;
+  return "/game/"+gameId+"/character/"+character+"/"+segment;
+}
+export function getChangeUri(gameId: string, character: string, changeTitle: string): string {
+  return getSegmentUri(gameId, character, SegmentUrl.Changes) + '/' + changeTitle;
 }
 export function getChangeId(character: string, changeTitle: string): string {
   return `character/${character}/changes/${changeTitle}`;
 }
+
+// Gets current time in alphabetically sortable ISO UTC format YYYY-MM-DDTHH:mm:ss.sssZ
+export function getDateString(): string {
+  return new Date().toISOString();
+}
+
+// Needed because "2-" > "100-" > "1-"
+export function getRevNumber(_rev: string): number {
+  return Number.parseInt(_rev.split('-')[0]);
+}
+
 
 //TODO: how is this at all better than just optional chaining
 export function getChangeListMoveOrder(changeList: T.ChangeDoc): T.MoveOrder[] | null {
@@ -51,6 +65,18 @@ export function getOldFromChange(change: T.ColumnChange): T.ColumnData | undefin
 export function getOppositeResolution(resolution: "yours" | "theirs"): "yours" | "theirs" {
   return resolution === "yours" ? "theirs" : "yours";
 }
+// unresolved conflict returns undefined. Otherwise returns "new" value of yours or theirs, or baseValue if no-op
+export function getConflictNew(conflict: T.Conflict, baseValue: T.ColumnData, resolution?: T.Resolutions): T.ColumnData | undefined {
+  if(!resolution) return undefined;
+  let preferred = conflict[resolution];
+  if(preferred === "no-op") return baseValue;
+  return getNewFromChange(preferred);
+}
+//returns undefined if no resolution
+export function getConflictResolvedValue(conflict: T.Conflict, baseValue: T.ColumnData): T.ColumnData | undefined {
+  return getConflictNew(conflict, baseValue, conflict.resolution);
+}
+
 export function isConflictMoveOrderMergeBothChange(conflict: T.ConflictMoveOrder): conflict is T.ConflictMoveOrderMergeBothChange {
   return conflict.yours !== "no-op" && conflict.theirs !== "no-op";
 }
@@ -66,6 +92,13 @@ export function isConflictMoveOrderRebaseBothChange(conflict: T.ConflictMoveOrde
 //Null moveChanges means delete changes
 export function updateMoveOrPropChanges(changeList: T.ChangeDoc, moveName: string, moveChanges: Readonly<T.Changes> | null, updateRefs: boolean=false): T.ChangeDoc {
   const isPropChange = moveName === "universalProps";
+  if(updateRefs) {
+    //if updateRefs is true, want to create new object(s) and avoid changing anything in the old one
+    changeList = {...changeList};
+    if(!isPropChange && changeList.moveChanges) {
+      changeList.moveChanges = {...changeList.moveChanges};
+    }
+  }
   if(moveChanges) {
     if(isPropChange) {
       changeList.universalPropChanges = moveChanges as T.PropChanges;
@@ -92,13 +125,6 @@ export function updateMoveOrPropChanges(changeList: T.ChangeDoc, moveName: strin
       }
     }
   }
-  // Update the changeList.moveChanges reference for react rendering updates.
-  if(updateRefs) {
-    if(!isPropChange && changeList.moveChanges) {
-      changeList.moveChanges = {...changeList.moveChanges};
-    }
-    return {...changeList};
-  }
   return changeList;
 }
 
@@ -109,49 +135,62 @@ export function updateColumnChange(changeList: T.ChangeDoc, moveName: string, co
     changes = {...changes, [columnName]: change} as T.Changes;
   }
   else if(changes) { //deleting what might be the last change
+    changes = {...changes}; //shallow copy before modifying original
     delete changes?.[columnName];
     if(keys(changes).length === 0) {
       changes = null;
     }
-    else changes = {...changes};
   }
   return updateMoveOrPropChanges(changeList, moveName, changes, updateRefs);
 }
 
 
+//Never really used for adding new conflicts, those are made by rebase/merge functions that generate whole conflict lists
+//Resolving conflict for moveName resolves conflict for all other columns in move the same way
 export function updateColumnConflict(changeList: T.ChangeDoc, moveName: string, columnName: string, conflict: Readonly<T.Conflict> | null, updateRefs: boolean=false): T.ChangeDoc {
-  let conflicts: T.Conflicts | null = changeList.conflictList?.[moveName] ?? null;
+  let conflicts: T.Conflicts | undefined = changeList.conflictList?.[moveName] ?? undefined;
   if(conflict) { //getting one conflict means move conflicts can't be null
     conflicts = {...conflicts, [columnName]: conflict} as T.Conflicts;
   }
-  else if(conflicts) { //deleting what might be the last conflict
+  else if(conflicts) { //if removing conflict check if it's only one left
+    conflicts = {...conflicts};
     delete conflicts?.[columnName];
     if(keys(conflicts).length === 0) delete changeList.conflictList?.[moveName];
+    //applyResolutions handles deleting conflictList if it's empty after everything
+  }
+  //resolving all-or-nothing move deletion conflicts
+  if(columnName === "moveName" && conflict?.resolution && conflicts) {
+    for(const [key, otherConflict] of keyVals(conflicts)) {
+      if(!otherConflict || key === "moveName") continue;
+      if(otherConflict.resolution !== conflict.resolution) {
+        conflicts[key] = {...otherConflict, resolution: conflict.resolution};
+      }
+    }
   }
   //update reference to indicate change
   if(updateRefs) {
-    if(changeList.conflictList) changeList.conflictList = {...changeList.conflictList};
+    if(changeList.conflictList) changeList.conflictList = {...changeList.conflictList, [moveName]: conflicts};
     return {...changeList};
   }
   return changeList;
 }
 
-  // Returns definition/data pairs ordered by provided defs. Data with no definition goes at end with display set to false.
-  // If columns and changes both empty (like for new move), returns just definitions
-export function getDefsAndData(columnDefs: T.ColumnDefs, columns?: T.Cols, changes?: Readonly<T.Changes>): T.ColumnDefAndData[] {
-  let result: T.ColumnDefAndData[] = [];
-  let changedCols: T.Cols = {};
-  if(columns || changes) changedCols = getChangedCols(columns, changes);
-  let keyUnion: Set<string> = new Set(keys(columnDefs).concat(keys(changedCols)));
-
-  for(const key of keyUnion) {
-    let def: T.ColumnDef | undefined = columnDefs[key];
-    let data: T.ColumnData | undefined = changedCols[key];
-    let defData: T.ColumnDefAndData = {columnName: key, def: def, data: data, display: (def?.group !== "meta" && def?.group !== "defaultHide") || false};
-    result.push(defData);
+export function unresolvedConflictInList(conflictList?: Readonly<T.ConflictList>): boolean {
+  if(!conflictList) return false;
+  for(const moveName in conflictList) {
+    const moveConflicts = conflictList[moveName];
+    if(!moveConflicts) continue;
+    if(unresolvedConflictInMove(moveConflicts)) return true;
   }
-
-  return result;
+  return false;
+}
+export function unresolvedConflictInMove(moveConflicts: Readonly<T.Conflicts>): boolean {
+  for(const col in moveConflicts) {
+    const conflict = moveConflicts[col];
+    if(!conflict) continue;
+    if(!conflict.resolution) return true;
+  }
+  return false;
 }
 
 //returns string converted to columnData, with "empty" or unconvertable data as undefined
@@ -186,13 +225,16 @@ export function assertUnreachable(x: never): never {
     throw new Error("Return this at end of switch statement with value being switched on to type check exhaustiveness");
 }
 
-export function colDataToPrintable(data: T.ColumnData | undefined, type: T.DataType): string | number {
-  if(data === undefined) return '-';
-  else if(isNumber(data, type)) return data;
-  else if(isString(data, type)) return data;
+export function colDataToPrintable(defData: T.ColumnDefAndData): string | number {
+  let data = defData.data;
+  let type = defData.def?.dataType;
+  if(type) {
+    if(data === undefined) return '-';
+    else if(isNumber(data, type)) return data;
+    else if(isString(data, type)) return data;
+  }
   return JSON.stringify(data);
 }
-
 
 
 export function checkInvalid(data: T.ColumnData | undefined, def: T.ColumnDef): false | FieldError {

@@ -5,7 +5,7 @@ import { useLocation } from 'react-router-dom';
 import { bookmarkOutline, bookmarkSharp } from 'ionicons/icons';
 import './Menu.css';
 //import PouchDB from 'pouchdb';
-import { useView } from 'use-pouchdb'
+import { useView, usePouch } from 'use-pouchdb'
 import { useDocumentLocalRemoteSwitching } from '../services/pouch';
 //import { DBListDoc } from '../types/characterTypes';
 import LoginButton from './LoginButton';
@@ -25,7 +25,7 @@ const GameMenu: React.FC = () => {
   const gameDispatch = useGameDispatch();
   const [fetchedWithLocal, setFetchedWithLocal] = useState<boolean | null>(null);
   const { rows, loading, state, error } = useView("list/list-chars"); 
-  useDocumentLocalRemoteSwitching(state, error, gameContext.usingLocal, 'GameMenu');
+  useDocumentLocalRemoteSwitching(state, error, 'GameMenu');
   let menuContent: ReactNode = (<div>Ky is dishonest</div>);
 
   if (gameId === null) {

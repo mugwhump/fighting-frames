@@ -8,14 +8,14 @@ import CompileConstants from '../constants/CompileConstants';
 
 type LoginModalProps = {
   show: boolean;
-  creds: Credentials | undefined, //if none found, undefined
+  storedCredentials: Credentials | undefined, //if none found, undefined
   onDismiss: () => void; //callbacks defined in caller using this 
   logInModalCallback : (username: string, password: string) => Promise<PouchDB.Authentication.LoginResponse>;
 }
 
 // Auto-fill with locally stored credentials, present error messages for failed logins
 // Assumes db is remote since there's no point logging in to a local db
-const LoginModal: React.FC<LoginModalProps> = ({show, creds, onDismiss, logInModalCallback }) => {
+const LoginModal: React.FC<LoginModalProps> = ({show, storedCredentials, onDismiss, logInModalCallback }) => {
   const [username, setUsername] = useState<string>(''); 
   const [password, setPassword] = useState<string>(''); 
   const [errorText, setErrorText] = useState<string>('');
@@ -45,12 +45,12 @@ const LoginModal: React.FC<LoginModalProps> = ({show, creds, onDismiss, logInMod
 
   function willPresent() {
     console.log("ionModalWillPresent fired");
-    if (creds === undefined || creds.username === CompileConstants.DEFAULT_CREDENTIALS.username) {
+    if (storedCredentials === undefined || storedCredentials.username === CompileConstants.DEFAULT_CREDENTIALS.username) {
       console.log("No stored credentials found");
     }
     else {
-      setUsername(creds.username);
-      setPassword(creds.password);
+      setUsername(storedCredentials.username);
+      setPassword(storedCredentials.password);
     }
   };
 

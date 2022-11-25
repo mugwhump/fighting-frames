@@ -6,27 +6,19 @@ import PouchAuth from 'pouchdb-authentication';
 import ColumnDataEdit from './ColumnDataEdit';
 import type { Changes, AddMoveChanges , ColumnDef, ColumnDefs, Cols, ColumnData, ColumnDefAndData, DataType, ColumnChange, Add, Modify, Delete } from '../types/characterTypes'; //== 
 import type { FieldError } from '../types/utilTypes'; //==
-import { keys, isString, isStringColumn, isMoveOrder, checkInvalid, getDefsAndData } from '../services/util';
-import { createChange } from '../services/merging';
+import { keys, isString, isStringColumn, isMoveOrder, checkInvalid } from '../services/util';
+import { createChange, getInvertedMoveChanges } from '../services/merging';
 import { cloneDeep, isEqual } from 'lodash';
 import { useCharacterDispatch } from '../services/CharacterReducer';
-PouchDB.plugin(PouchAuth);
+import styles from '../theme/Character.module.css';
 
 export type MoveEditModalProps  = {
   moveName: string; //if new move, pass empty string
-  //columnDefs: ColumnDefs; //definitions for moves or universal props
-  //defsAndData: Readonly<ColumnDefAndData[]>; //has already had originalChanges applied once.
-  getDefsAndData: (moveName: string) => ColumnDefAndData[]; //has already had originalChanges applied once.
-  //columns: Cols | undefined;
+  getDefsAndData: (moveName: string) => ColumnDefAndData[]; //adds already-used move names to def of moveName column when adding new move
   originalChanges: Readonly<Changes> | undefined; //undefined means new move or nothing changed yet.
-  //conflicts?: Conflicts; //TODO: NO, TOO MUCH. MAKE SEPARATE COMPONENT FOR RESOLUTION.
-  //onDismiss: (prepareToDismiss?: boolean) => void; //callbacks defined in caller using this 
-  //editMove?: (moveName: string, changes: Changes | null, isDeletion?: boolean) => void; //to return edited move
-  //addMove?: (moveChanges: AddMoveChanges ) => void; //is undefined if editing existing move.
 }
 
-// Use with useIonModal, pass this as body. Used to edit moves or add new moves (in which case not child of MoveOrUniversalProps and must set moveName)
-//TODO: conflict resolution! Should conflicts disappear as values are edited? What if you want to compromise on notes or tags?
+// Use with useIonModal, pass this as body. Used to edit moves or add new moves 
 const MoveEditModal: React.FC<MoveEditModalProps > = ({moveName, getDefsAndData, originalChanges}) => {
   const addingNewMove: boolean = moveName === "";
   const defsAndData = useMemo<ColumnDefAndData[]>(()=>getDefsAndData(moveName), [moveName]);
@@ -36,7 +28,6 @@ const MoveEditModal: React.FC<MoveEditModalProps > = ({moveName, getDefsAndData,
   const hasChanges: boolean = !!originalChanges || keys(clonedChanges).length > 0;
   const characterDispatch = useCharacterDispatch();
 
-  console.log("rendered Move edit modal");
 
   function getClonedChanges(): Changes {
     if(originalChanges) {
@@ -51,7 +42,8 @@ const MoveEditModal: React.FC<MoveEditModalProps > = ({moveName, getDefsAndData,
   function getInitialErrors(): {[columnName: string]: FieldError} {
     let result: {[columnName: string]: FieldError} = {};
     for(const dataDef of defsAndData) {
-      if(dataDef.def) {
+      let skipCheck = dataDef.columnName === "moveName" && !addingNewMove;
+      if(dataDef.def && !skipCheck) {
         const err = checkInvalid(dataDef.data, dataDef.def);
         if (err) result[dataDef.def.columnName] = err;
       }
@@ -110,8 +102,7 @@ const MoveEditModal: React.FC<MoveEditModalProps > = ({moveName, getDefsAndData,
 
   function submit(): void {
     if(addingNewMove) {
-      let newMoveChanges: AddMoveChanges  = clonedChanges as AddMoveChanges ;
-      characterDispatch({actionType: 'addMove', moveChanges: newMoveChanges});
+      characterDispatch({actionType: 'addMove', moveChanges: clonedChanges as AddMoveChanges});
     }
     else {
       // Do deep compare to see if clonedChanges is equal to originals, if so just close
@@ -133,18 +124,49 @@ const MoveEditModal: React.FC<MoveEditModalProps > = ({moveName, getDefsAndData,
   }
 
   function resetChanges(): void {
-    characterDispatch({actionType:'editMove', moveName: moveName, moveChanges: null});
+    //If undoing the addition/deletion of a whole move, dispatch the deleteMove/addMove actions so they're deleted/removed from moveOrder too
+    if(clonedChanges.moveName) {
+      if(clonedChanges.moveName.type === "add") {
+        characterDispatch({actionType:'deleteMove', moveName: moveName});
+      }
+      else { //undo deletion by adding the move
+        let addMoveChanges = getInvertedMoveChanges(clonedChanges) as AddMoveChanges;
+        characterDispatch({actionType: 'addMove', moveChanges: addMoveChanges});
+      }
+    }
+    //If undoing universalProps and moveOrder was changed, let middleware handle it and notify user
+    else if(clonedChanges.moveOrder) {
+      characterDispatch({actionType:'tryUndoUniversalPropChanges'});
+    }
+    else {
+      characterDispatch({actionType:'editMove', moveName: moveName, moveChanges: null});
+    }
     characterDispatch({actionType: 'closeMoveEditModal'});
+  }
+
+
+  // Deleted moves only show option to un-delete
+  if(clonedChanges.moveName?.type === "delete") {
+    return (
+      <>
+      <IonItem key="header">
+        <IonLabel>Restore move?</IonLabel>
+      </IonItem>
+      <IonItem>The move {moveName} has been deleted. Would you like to restore it?</IonItem>
+      <IonItem key="footer">
+        <IonButton onClick={() => resetChanges()}>Restore move</IonButton>
+        <IonButton onClick={() => characterDispatch({actionType:'closeMoveEditModal'})}>Cancel</IonButton>
+      </IonItem>
+      </>
+    );
   }
 
   return (
     <>
-    {/*<IonModal isOpen={show}>*/}
       <IonItem key="header">
         <IonLabel>Editing {displayName}</IonLabel>
       </IonItem>
-      {/*<NewMoveNameInput />*/}
-      <IonItemGroup>
+      <IonItemGroup className={styles.highlightChanges} onKeyPress={(event: any) => {if(keys(fieldErrors).length === 0 && event.key === "Enter") submit()}}>
         {defsAndData.map((defData) => {
           const colName = defData.columnName;
           const err = fieldErrors[colName];
@@ -155,13 +177,11 @@ const MoveEditModal: React.FC<MoveEditModalProps > = ({moveName, getDefsAndData,
         })}
       </IonItemGroup>
       <IonItem key="footer">
-        <input type="submit" style={{display: "none"}}/> {/* enables enter key submission. TODO: test on mobile */}
-        <IonButton disabled={keys(fieldErrors).length>0} onClick={() => submit()}>Submit</IonButton>
+        <IonButton type="submit" disabled={keys(fieldErrors).length>0} onClick={() => submit()}>Submit</IonButton>
         {!addingNewMove && (moveName !== "universalProps") && <IonButton onClick={() => deleteMove()}>Delete</IonButton>}
-        {!addingNewMove && <IonButton disabled={!hasChanges} onClick={() => resetChanges()}>Undo All Changes</IonButton>}
+        {!addingNewMove && clonedChanges?.moveName?.type !== "add" && <IonButton disabled={!hasChanges} onClick={() => resetChanges()}>Undo All Changes</IonButton>}
         <IonButton onClick={() => characterDispatch({actionType:'closeMoveEditModal'})}>Cancel</IonButton>
       </IonItem>
-    {/*</IonModal>*/}
     </>
   )
 }
@@ -188,9 +208,10 @@ const MoveColumnInput: React.FC<MoveColumnInputProps> = ({defData, editSingleCol
     );
   }
   else {
+    //TODO: use the "Helper and Error text" as described in ion-item's documentation
     return (
         <IonItem> 
-          <IonLabel position={labelPosition}> {colDisplayName} {errorMSG} </IonLabel>
+          <IonLabel className={defData.cssClasses.join(" ")} position={labelPosition}> {colDisplayName} {errorMSG} </IonLabel>
           <ColumnDataEdit columnName={colName} colData={defData.data} colDef={defData.def} editSingleColumn={editSingleColumn} />
         </IonItem> 
     );

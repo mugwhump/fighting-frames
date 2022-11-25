@@ -51,6 +51,7 @@ export namespace MoveChanges {
   export const moveDelBB : T.MoveChanges = { moveName: {type: "delete", old: "BB"} };
   export const dmgHeight12HM : T.MoveChanges = {...damage12, ...heightHM};
   export const dmgHeight13HL : T.MoveChanges = {...damage13, ...heightHL};
+  export const dmgHeight32LM : T.MoveChanges = {...damage32, ...heightLM};
 }
 export namespace MoveListChanges {
   export const addK  : T.MoveChangeList = {K: MoveChanges.moveAddK };
@@ -79,6 +80,7 @@ export namespace MoveCons {
   export const m_delBBDamageCon : T.ConflictsMergeTheyDeleteYouChange = {moveName: {yours: "no-op", theirs: ColChange.delBB}, damage: {yours: ColChange.mod12, theirs: ColChange.del1}};
   export const m_delBBDamageAdd : T.ConflictsMergeTheyDeleteYouChange = {moveName: {yours: "no-op", theirs: ColChange.delBB}, damage: {yours: ColChange.add3, theirs: "no-op"}};
   export const m_youDelTheyChangeDamageAddHeight : T.ConflictsMergeYouDeleteTheyChange = {moveName: {yours: ColChange.delBB, theirs: "no-op"}, damage: {yours: ColChange.del1, theirs: ColChange.mod13}, height: Con.cAdd_L_AR};
+  export const m_youDelTheyChangeDamage : T.ConflictsMergeYouDeleteTheyChange = {moveName: {yours: ColChange.delBB, theirs: "no-op"}, damage: {yours: ColChange.del1, theirs: ColChange.mod13}, height: {yours: ColChange.delH, theirs: "no-op"}};
   //Rebase conflicts
   export function rebCon(change: T.ColumnChange): T.ConflictRebase {
     return {yours: change, theirs: "no-op"}
@@ -144,9 +146,7 @@ export namespace Order {
 
 // ------------------------ CHANGEDOCS -----------------------
 export namespace ChangeDocs {
-  export const talimChanges: Readonly<T.ChangeDocWithMeta> = {
-    _id: "c2",
-    _rev: undefined,
+  export const talimChanges: Readonly<T.ChangeDoc> = {
     updateDescription: "test",
     createdAt: new Date().toString(),
     createdBy: "testyman",
@@ -159,8 +159,8 @@ export namespace ChangeDocs {
     }
   }
 
-  export function newChangeDoc(moveChanges: T.MoveChangeList | undefined, propChanges: T.PropChanges | undefined, conflicts: T.ConflictList | undefined, updateMeta?: boolean): T.ChangeDocWithMeta {
-    let newDoc = cloneDeep<T.ChangeDocWithMeta>(talimChanges);
+  export function newChangeDoc(moveChanges: T.MoveChangeList | undefined, propChanges: T.PropChanges | undefined, conflicts: T.ConflictList | undefined, updateMeta?: boolean): T.ChangeDoc {
+    let newDoc = cloneDeep<T.ChangeDoc>(talimChanges);
     if(moveChanges) newDoc.moveChanges = moveChanges;
     else delete newDoc.moveChanges;
     if(propChanges) newDoc.universalPropChanges = propChanges;
@@ -174,32 +174,32 @@ export namespace ChangeDocs {
     return newDoc;
   }
 
-  export const unchanged: T.ChangeDocWithMeta = newChangeDoc(undefined, undefined, undefined, true);
+  export const unchanged: T.ChangeDoc = newChangeDoc(undefined, undefined, undefined, true);
   //changes to AA are uncontested
-  export const modAA_dmgBB : T.ChangeDocWithMeta = newChangeDoc({AA: MoveChanges.dmgHeight12HM, BB: MoveChanges.damage12}, undefined, undefined, true);
-  export const modAA_addBB: T.ChangeDocWithMeta = newChangeDoc({AA: MoveChanges.dmgHeight12HM, BB: {...MoveChanges.damageAdd2, ...MoveChanges.moveAddBB}}, undefined, undefined, true);
-  export const modAA_stealthBB_conflicts: T.ChangeDocWithMeta = {...modAA_dmgBB , conflictList: {BB: MoveCons.r_dmg_stealth_add}};
-  export const modAA_stealthBB_yours: T.ChangeDocWithMeta = {...modAA_addBB, ...Order.propsStealthAddBB }
-  export const modAA_stealthBB_theirs: T.ChangeDocWithMeta = newChangeDoc({AA: MoveChanges.dmgHeight12HM}, undefined, undefined, true); //AA change uncontested
+  export const modAA_dmgBB : T.ChangeDoc = newChangeDoc({AA: MoveChanges.dmgHeight12HM, BB: MoveChanges.damage12}, undefined, undefined, true);
+  export const modAA_dmgBB32 : T.ChangeDoc = newChangeDoc({AA: MoveChanges.dmgHeight12HM, BB: MoveChanges.damage32}, undefined, undefined, true);
+  export const modAA32_dmgBB12 : T.ChangeDoc = newChangeDoc({AA: MoveChanges.dmgHeight32LM, BB: MoveChanges.damage12}, undefined, undefined, true);
+  export const modAA_addBB: T.ChangeDoc = newChangeDoc({AA: MoveChanges.dmgHeight12HM, BB: {...MoveChanges.damageAdd2, ...MoveChanges.moveAddBB}}, undefined, undefined, true);
+  export const modAA_stealthBB_conflicts: T.ChangeDoc = {...modAA_dmgBB , conflictList: {BB: MoveCons.r_dmg_stealth_add}};
+  export const modAA_stealthBB_yours: T.ChangeDoc = {...modAA_addBB, ...Order.propsStealthAddBB }
+  export const modAA_stealthBB_theirs: T.ChangeDoc = newChangeDoc({AA: MoveChanges.dmgHeight12HM}, undefined, undefined, true); //AA change uncontested
 
   //becomes base without BB
-  export const old_modAAtoBase_delBB : T.ChangeDocWithMeta = newChangeDoc({AA: {...MoveChanges.damage21, ...MoveChanges.heightMH}, BB: MoveChanges.moveDelBB}, {...Order.chgDelBB}, undefined, false);
+  export const old_modAAtoBase_delBB : T.ChangeDoc = newChangeDoc({AA: {...MoveChanges.damage21, ...MoveChanges.heightMH}, BB: MoveChanges.moveDelBB}, {...Order.chgDelBB}, undefined, false);
 
-  export const old_modAA3_dmgBB_reverse: T.ChangeDocWithMeta = newChangeDoc({AA: MoveChanges.dmgHeight13HL, BB: MoveChanges.damage12}, {...Order.chgAddBBReverse}, undefined, false);
-  export const modAA3_dmgBB_reverse_theirs: T.ChangeDocWithMeta = newChangeDoc({AA: MoveChanges.dmgHeight13HL, BB: {...MoveChanges.moveAddBB, ...MoveChanges.damageAdd2}}, {...Order.chgAddBBReverse}, undefined, true);
+  export const old_modAA3_dmgBB_reverse: T.ChangeDoc = newChangeDoc({AA: MoveChanges.dmgHeight13HL, BB: MoveChanges.damage12}, {...Order.chgAddBBReverse}, undefined, false);
+  export const modAA3_dmgBB_reverse_theirs: T.ChangeDoc = newChangeDoc({AA: MoveChanges.dmgHeight13HL, BB: {...MoveChanges.moveAddBB, ...MoveChanges.damageAdd2}}, {...Order.chgAddBBReverse}, undefined, true);
   //you stealth add BB but its position is taken from theirs
-  export const modAA3_dmgBB_reverse_yours: T.ChangeDocWithMeta = {...modAA_addBB, ...Order.propsAddBBAfterAA };
+  export const modAA3_dmgBB_reverse_yours: T.ChangeDoc = {...modAA_addBB, ...Order.propsAddBBAfterAA };
 
-  export const delBBaddK : T.ChangeDocWithMeta = newChangeDoc({K: {...MoveChanges.moveAddK, ...MoveChanges.damageAdd3}, BB: MoveChanges.moveDelBB}, {...Order.chgDelBBaddK}, undefined, true);
-  export const reverseOrder: T.ChangeDocWithMeta = newChangeDoc(undefined, Order.chgReverse, undefined, true);
-  export const delBBaddKReverse : T.ChangeDocWithMeta = newChangeDoc({K: {...MoveChanges.moveAddK, ...MoveChanges.damageAdd3}, BB: MoveChanges.moveDelBB}, {...Order.chgDelBBReverseK}, undefined, true);
-  //export const delBBaddKReverseUnresolvedOrder: T.ChangeDocWithMeta = {...delBBaddKReverse, conflictList: {universalProps: Order.con_you_reverse_they_delBB_addK}};
-  export const delBBaddKReverseUnresolvedOrder: T.ChangeDocWithMeta = newChangeDoc(delBBaddK.moveChanges, reverseOrder.universalPropChanges, {universalProps: Order.con_you_reverse_they_delBB_addK}, true);
+  export const delBBaddK : T.ChangeDoc = newChangeDoc({K: {...MoveChanges.moveAddK, ...MoveChanges.damageAdd3}, BB: MoveChanges.moveDelBB}, {...Order.chgDelBBaddK}, undefined, true);
+  export const reverseOrder: T.ChangeDoc = newChangeDoc(undefined, Order.chgReverse, undefined, true);
+  export const delBBaddKReverse : T.ChangeDoc = newChangeDoc({K: {...MoveChanges.moveAddK, ...MoveChanges.damageAdd3}, BB: MoveChanges.moveDelBB}, {...Order.chgDelBBReverseK}, undefined, true);
+  //export const delBBaddKReverseUnresolvedOrder: T.ChangeDoc = {...delBBaddKReverse, conflictList: {universalProps: Order.con_you_reverse_they_delBB_addK}};
+  export const delBBaddKReverseUnresolvedOrder: T.ChangeDoc = newChangeDoc(delBBaddK.moveChanges, reverseOrder.universalPropChanges, {universalProps: Order.con_you_reverse_they_delBB_addK}, true);
 
   // Used for live testing, not automated tests, can change
-  export const testChangeList: T.ChangeDocWithMeta = {
-    _id: "1-banana",
-    _rev: undefined,
+  export const testChangeList: T.ChangeDoc = {
     updateDescription: "test",
     createdAt: new Date().toString(),
     createdBy: "testyman",

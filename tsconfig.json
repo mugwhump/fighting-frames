@@ -1,0 +1,8 @@
+/* the fact that app is a CRA project makes it pretty complicated to reference. Shelve this for later. */
+{
+  "references": [
+    { "path": "./server" },
+    { "path": "./app" }
+  ],
+  "files": []
+}

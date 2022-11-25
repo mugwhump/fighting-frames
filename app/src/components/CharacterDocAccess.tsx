@@ -1,9 +1,10 @@
 import { useIonToast, } from '@ionic/react';
 import React, { useEffect, useCallback }from 'react';
-import { useParams, } from 'react-router';
+import { useParams, useHistory } from 'react-router';
 import { useDoc, usePouch } from 'use-pouchdb';
 //import {MoveOrder, ColumnDef, T.ColumnDefs, ColumnData, Cols, PropCols, MoveCols, T.CharDoc, T.ChangeDoc, T.ChangeDocWithMeta } from '../types/characterTypes';
 import type * as T from '../types/characterTypes'; //==
+import * as myPouch from '../services/pouch';
 import * as util from '../services/util';
 import { State, useCharacterDispatch, useTrackedCharacterState, useMiddleware, MiddlewareFn } from '../services/CharacterReducer';
 import { SegmentUrl } from '../types/utilTypes';
@@ -17,12 +18,13 @@ type CharProviderProps = {
 
 export const CharacterDocAccess: React.FC<CharProviderProps> = ({children, gameId}) => {
   const { character } = useParams<{ character: string; }>(); //router has its own props
-  //TODO: just use existing local db with no revisions or conflict? Need some changes to Local Provider then... and can't sync in future... use conflicty one?
+  //TODO: just use existing local db with no revisions or conflict? Need some changes to Local Provider then... and can't sync in future... use conflicty one??
   const remoteDatabase: PouchDB.Database = usePouch('remote'); 
   const localPersonalDatabase: PouchDB.Database = usePouch('localPersonal'); 
   const { doc, loading, state: docState, error } = useDoc<T.CharDoc>('character/'+character); 
   const state = useTrackedCharacterState();
   const dispatch = useCharacterDispatch();
+  const history = useHistory();
   const [presentToast, dismissToast] = useIonToast(); 
   const docEditId = util.getSegmentUri(gameId, character, SegmentUrl.Edit);
 
@@ -119,21 +121,42 @@ export const CharacterDocAccess: React.FC<CharProviderProps> = ({children, gameI
       console.warn("Upload changelist middleware being called for action "+action.actionType);
       return;
     }
-    const changeList: T.ChangeDoc = action.changes;
+    const changeList: T.ChangeDocServer = action.changes;
     const id: string = util.getChangeId(state.characterId, changeList.updateTitle!);
     console.log("Uploading ID " + id);
     const uploadDoc: T.ChangeDocWithMeta = {...changeList, _id: id, _rev: undefined};
     remoteDatabase.put(uploadDoc).then((response) => {
-      //TODO: redirect to it in changes section. Also lets writers publish what they just uploaded.
-      //TODO: delete local edits? Perhaps prompt for it?
       console.log("Upload response = " + JSON.stringify(response));
-      presentToast("Upload successful!", 3000);
+      presentToast("Changes uploaded! Someone with write permissions must publish these changes.", 6000);
+      //TODO: redirect to this specific change in changes section, with info on how it was just published?. Also lets writers publish what they just uploaded.
+      let url = util.getSegmentUri(gameId, state.characterId, SegmentUrl.Changes);
+      history.push(url);
+      dispatch({actionType:'deleteEdits'});
     }).catch((err) => {
       console.log("Upload error = " + JSON.stringify(err));
-      presentToast('Upload failed: ' + err.message, 3000);
+      presentToast('Upload failed: ' + err.message, 6000);
     });
   }, [gameId]);
-  useMiddleware("CharacterDocAccess", {uploadChangeList: uploadChangeListCallback});
+
+  const publishChangeListCallback: MiddlewareFn = useCallback((state, action, dispatch) => {
+    if (action.actionType !== 'publishChangeList') {
+      console.warn("Publish changelist middleware being called for action "+action.actionType);
+      return;
+    }
+    let changeId = action.changeListId;
+    console.log("Publishing changeDoc " + changeId);
+    myPouch.makeApiCall(`game/${gameId}/${changeId}/publish`, "POST").then((data) => {
+      console.log("Response: "+JSON.stringify(data));
+      presentToast("Change successfully published!", 3000);
+      let url = util.getSegmentUri(gameId, state.characterId, SegmentUrl.Base); 
+      history.push(url);
+    }).catch((err) => {
+      console.error("Error publishing change: "+ err.message);
+      presentToast("Error publishing change: "+ err.message, 6000);
+    });
+  }, [gameId]);
+
+  useMiddleware("CharacterDocAccess", {uploadChangeList: uploadChangeListCallback, publishChangeList: publishChangeListCallback});
 
 
   if (docState === 'error') {

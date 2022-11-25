@@ -1,0 +1,4 @@
+/* Needed so the inner part doesn't cover up the background color */
+ion-item.swiper-item::part(native)  {
+  background: transparent;
+}

@@ -19,7 +19,7 @@ const ColumnDataEdit: React.FC<ColumnDataEditProps> = ({columnName, colData, col
   //if(colData === null && colDef === null) return (<span>Data and definition can't both be null</span>);
   let inputType: "number" | "text" = "text"; //ionic allows more possible types
   let isTextArea: boolean = false;
-  const debounceTime: number = 500; //number of MS after keystroke to wait before triggering input change event. 
+  const debounceTime: number = 20; //500; //number of MS after keystroke to wait before triggering input change event. If users submit too quick changes are ignored.
 
   interface InputChangeEventDetail {
     value: string | undefined | null;
