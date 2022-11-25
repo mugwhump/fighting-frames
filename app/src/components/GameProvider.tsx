@@ -1,6 +1,5 @@
 import React, { useRef, Ref, useReducer, ReducerAction, Dispatch, useState, useEffect, useMemo, MutableRefObject, useCallback } from 'react';
 import { useLocation, useHistory, useRouteMatch, matchPath, match } from 'react-router';
-import { useIonViewDidEnter } from '@ionic/react';
 import { Provider } from 'use-pouchdb'
 import PouchDB from 'pouchdb';
 import { Network, ConnectionStatus, ConnectionType } from '@capacitor/network';
@@ -8,14 +7,15 @@ import { Capacitor } from '@capacitor/core';
 import * as myPouch from '../services/pouch';
 import CompileConstants from '../constants/CompileConstants';
 import { shallowCompare } from '../services/util';
-import { StringSet, DBStatuses } from '../types/utilTypes';
+import { StringSet } from '../types/utilTypes';
+import { DBStatuses } from '../types/GPTypes';
 import { useLocalDispatch, Credentials, Action as LocalAction} from './LocalProvider';
+import LoginProvider from './LoginProvider';
 import LoginModal from './LoginModal';
 import { setTimeout, clearTimeout } from 'timers';
 //This component will become the container for a game with corresponding db,
 //within which chars/docs will be displayed. Has <Provider> with overriding db
 
-//TODO: take a closer look at rendering behavior with this and LocalProvider...
 type GameProviderProps  = {
   children: React.ReactNode,
   storedCredentials: Credentials,
@@ -93,7 +93,7 @@ function Reducer(state: State, action: Action) {
   }
 
   if(action.actionType === "fetchFailure" || action.actionType === "deletionFailure") {
-    if(Object.keys(action.error).length === 0){
+    if(Object.keys(action.error).length === 0 || (action.error.message && Object.getOwnPropertyDescriptor(action.error, 'message')?.enumerable === false)){
       if(action.error instanceof Error) {
         //TODO: should convert to an error type that works with JSON.stringify before storing in state
         console.log("Included error is instance of standard js Error. Stringified: " + action.error.toString());
@@ -104,13 +104,6 @@ function Reducer(state: State, action: Action) {
     }
   }
 
-  // make superlogin check if it needs to refresh a session upon every fetch (no http call unless it does refresh)
-  if(action.actionType === "fetchSuccess" || action.actionType === "fetchFailure") {
-    let promise = myPouch.superlogin.checkRefresh() as any;
-    promise.catch((err: any) => {
-      //throws whenever using default session, ignore
-    });
-  }
 
   switch(action.actionType) {
     case 'changeCurrentDB': {
@@ -250,9 +243,15 @@ function Reducer(state: State, action: Action) {
     }
     case 'downloadFailure': {
       // error.name = forbidden for madeup db, unauthorized for bad login
-      // set error for this DB. TODO: should this set a localError?
-      let newStatus: DBStatus = {...state.dbStatuses.get(action.db), currentTransition: null, remoteError: action.error};
-      updateDbStatus(newStatus, action.db);
+      // set error for this DB. 
+      // if the fetch already failed, don't update remoteError repeatedly with same TypeError, triggers re-download attempt
+      if(state.dbStatuses.get(action.db)?.remoteError?.message === "Failed to fetch" && action.error.message === "Failed to fetch") {
+        console.log(`Download for ${action.db} failed to fetch twice, not retrying.`);
+      }
+      else {
+        let newStatus: DBStatus = {...state.dbStatuses.get(action.db), currentTransition: null, remoteError: action.error};
+        updateDbStatus(newStatus, action.db);
+      }
       break;
     }
     case 'deleteDB': {
@@ -306,9 +305,6 @@ export const GameProvider: React.FC<GameProviderProps> = ({children, storedCrede
   const [initialized, setInitialized] = useState<boolean>(false);
   //const [loggingIn, setLoggingIn] = useState<boolean>(false);
   const [state, dispatch] = useReducer(Reducer, initialState, initializeState); //initializes state with wantedDbs
-  const [currentCreds, setCurrentCreds] = useState<Credentials>(CompileConstants.DEFAULT_CREDENTIALS);
-  const [showModal, setShowModal] = useState(false);
-  const loginTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
   const routeMatch = useRouteMatch<{gameId: string}>(CompileConstants.GAME_MATCH); //note for hooks, this returns new object every render
   const [gameId, dbListRef, deletionCallback] = useDBsForRouteMatch(routeMatch);
   if(!dbListRef || !dbListRef.current) throw new Error("dbListRef is somehow null");
@@ -355,17 +351,17 @@ export const GameProvider: React.FC<GameProviderProps> = ({children, storedCrede
   }
   useEffect(()=> {
     initialize();
-    return (() => {
-      if(loginTimer.current) clearTimeout(loginTimer.current);
-      console.log("Clearing login timer");
-    });
   }, []);
 
-
   useEffect(()=> {
-        dispatch({actionType: "setUserWants", wantedDBs: wantedDbs} as Action);
+    dispatch({actionType: "setUserWants", wantedDBs: wantedDbs} as Action);
   }, [wantedDbs]);
 
+  useEffect(()=> {
+    if(gameId !== state.gameId) { //if changing db or initially loading to non-homepage
+      dispatch({actionType: 'changeCurrentDB', db: gameId} as Action);
+    }
+  }, [gameId, state.gameId]); 
 
   //notice if a db is wanted but not downloading yet or needs to be deleted
   useEffect(()=> {
@@ -379,7 +375,7 @@ export const GameProvider: React.FC<GameProviderProps> = ({children, storedCrede
     }
     function someDBWithoutErrorsWantsDownload(): boolean {
       for(const [db, status] of state.dbStatuses) {
-        if(!hasErrorPreventingDownload(status)) {
+        if(status.userWants && !status.done && !hasErrorPreventingDownload(status)) {
           return true;
         }
       }
@@ -434,7 +430,7 @@ export const GameProvider: React.FC<GameProviderProps> = ({children, storedCrede
           console.log("Some db already downloading, not downloading "+db);
         }
         else {
-          if(downloadDB(db, skipIfError)) {
+          if(downloadDB(db, skipIfError)) { //If there's a db w/o errors wanting DL and this one has errors, skip it
             console.log("Noticed db download should start for db " + db);
             alreadyDownloading = true;
           }
@@ -447,132 +443,6 @@ export const GameProvider: React.FC<GameProviderProps> = ({children, storedCrede
     }
   }, [state.dbStatuses]);
 
-  // Handle DB changing and logging in. Default auth cookie determined by my couchDB settings (I set 1 hour for convenience).
-  // Start session as default user, who can read all DBs with same cookie. Stored creds start as default creds.
-  // I give db basic non-session authorization which is used in initial calls, then login, and it switches to session auth.
-  // Mostly use pouchdb-authentication to log in with public user for reading. Other accounts are superlogin accounts.
-  // Superlogin/couch-auth accounts use pouchdb-authentication to get cookie authentication.
-  // Manually manage refreshing login via setTimeout.
-  // Setting require_valid_user in couch means every request, including to _session, needs auth. So if default creds are wrong,
-  // all requests are sending wrong basic auth headers, and you can't login with right creds. So no point in extensive error handling.
-  useEffect(()=> {
-    let creds = storedCredentials;
-    //let creds = CompileConstants.DEFAULT_CREDENTIALS;
-    if(gameId !== state.gameId) { //if changing db or initially loading to non-homepage
-      dispatch({actionType: 'changeCurrentDB', db: gameId} as Action);
-      //logIn(creds.username, creds.password);
-    }
-    if(!initialized) { //if initial load 
-      logIn(creds.username, creds.password).then((response) => { 
-        console.log("Initial login success as " + creds.username);
-      }).catch((err) => { 
-        console.log("Initial login failure as " + creds.username);
-      });
-    }
-  }, [gameId, state.gameId, initialized]); 
-
-
-  useEffect(() => {
-    console.log("Current creds: "+currentCreds.username+", showModal: "+showModal);
-  });
-
-  // Always returns couchdb's login response, not superlogin's
-  async function logIn(name: string, password: string): Promise<PouchDB.Authentication.LoginResponse> {
-    const remoteDB: PouchDB.Database = dbListRef.current.remote ?? dbListRef.current.remoteTop;
-    type sessionType = {token: string, password: string};
-
-    // Called after logging into couch as default or SL as other user. Sets timer to login again.
-    function onSuccess(responseOrSession: PouchDB.Authentication.LoginResponse | sessionType) { 
-      console.log(`Successful login to ${gameId} as ${name}:${password}. Response: ${JSON.stringify(responseOrSession)}`); //`
-      if(name !== currentCreds.username) {
-        setCurrentCreds({username:name, password: password} as Credentials);
-      }
-      dispatch({actionType: 'loginSuccess', db: gameId} as Action);
-      //set timer to refresh login
-      if(loginTimer.current) clearTimeout(loginTimer.current);
-      loginTimer.current = setTimeout(() => {
-        console.log(`Login timer activated, logging in as ${name}/${password}`);
-        logIn(name, password);
-      }, CompileConstants.AUTH_TIMEOUT_SECONDS * 1000);
-    }
-    function onFailure(error: any) {
-      //actually doesn't throw error if the DB doesn't exist at all
-      console.log(`Failed login to ${gameId} as ${name}:${password}. Response: ${JSON.stringify(error)}`);
-      // SL returns {error: 'Unauthorized', message: 'Invalid username or password'}
-      // couch returns {error: 'unauthorized', reason: 'Name or password is incorrect.', status: 401, name: 'unauthorized', message: 'Name or password is incorrect.'}
-      dispatch({actionType: 'loginFailure', db: gameId, error: error} as Action);
-    }
-    // After starting a superlogin/couch-auth session, use those credentials for a couchdb session with cookie auth
-    function superloginCouchSession(session: sessionType) {
-      return remoteDB.logIn(session.token, session.password).then((response) => {
-        console.log("Cookie login for SL session, token "+session.token);
-        return response;
-      }).catch((loginError) => {
-        console.error("Cookie login error for SL session! Switching to default creds. " + JSON.stringify(loginError));
-        logoutCallback();
-        throw loginError;
-      });
-    }
-
-    // Default user does not use superlogin
-    if(name === CompileConstants.DEFAULT_CREDENTIALS.username) {
-      return remoteDB.logIn(name, password).then((response) => {
-        onSuccess(response);
-        return response;
-      }).catch((loginError) => {
-        onFailure(loginError);
-        throw loginError;
-      });
-    }
-    else {
-      //Upon login or refresh, make a couch session for the SL session. Only attach one listener.
-      //if(myPouch.superlogin.listeners('login').length === 0) myPouch.superlogin.on('login', superloginCouchSession);
-      //if(myPouch.superlogin.listeners('refresh').length === 0) myPouch.superlogin.on('refresh', superloginCouchSession);
-
-      //Check for existing locally-stored SL session
-      myPouch.superlogin.checkExpired(); //deletes sess if expired
-      let session = myPouch.superlogin.getSession();
-      if(session && name === session.user_id) {
-        console.log("Found existing SL session");
-        myPouch.superlogin.refresh(); //make sure it matches our timer
-      }
-      else { //SYNCHRONOUSLY make new SL session
-        session = await myPouch.superlogin.login({username: name, password: password}).then((response) => {
-          return response;
-        }).catch((loginError) => {
-          onFailure(loginError);
-          throw loginError;
-        });
-      }
-      onSuccess(session);
-      return superloginCouchSession(session);
-    }
-  }
-
-  function logInModalCallback(name: string, password: string): Promise<PouchDB.Authentication.LoginResponse> {
-    return logIn(name, password).then((response) => {
-      setShowModal(false);
-      return response;
-    });
-  }
-
-  //const logoutCallback = useCallback(() => {
-  function logoutCallback() {
-    console.log("Logging out of SL account then loggin in as default");
-    myPouch.superlogin.logoutAll(`Logging out ${currentCreds.username}, switching to public`).then((logoutResponse) => {
-      console.log(`SL logoutResponse = ${JSON.stringify(logoutResponse)}`);
-    }).catch((logoutError) => {
-      console.log("Error logging out of SL account: " + JSON.stringify(logoutError));
-    }).finally(() => {
-      logIn(CompileConstants.DEFAULT_CREDENTIALS.username, CompileConstants.DEFAULT_CREDENTIALS.password).catch((loginError) => {
-        console.error("Error logging in as default after logging out of SL account, setting current creds to default so user can login again");
-        if(loginTimer.current) clearTimeout(loginTimer.current);
-        setCurrentCreds({username:CompileConstants.DEFAULT_CREDENTIALS.username, password: CompileConstants.DEFAULT_CREDENTIALS.password} as Credentials);
-      });
-    });
-  }
-  //}, [currentCreds]); //nah, don't want closure capture. Isn't actually triggering LoginButton re-renders like I'd expect.
-
   if(routeMatch == null) {
     //console.log("GameProvider sez: no gameId, using top");
   }
@@ -582,44 +452,29 @@ export const GameProvider: React.FC<GameProviderProps> = ({children, storedCrede
       <span>Initializing GP...</span>
     );
   }
-  else if(state.gameId !== gameId) {
-    console.log("gameId changed before changeDB had chance to dispatch, not rendering");
-    return (
-      <span>Waiting for changeDB to finish...</span>
-    );
-  }
+  // Did I actually need this? Causes LoginProvider to unmount/remount.
+  //else if(state.gameId !== gameId) {
+    //console.log("gameId changed before changeDB had chance to dispatch, not rendering");
+    //return ( 
+      //<span>Waiting for changeDB to finish...</span>
+    //);
+  //}
   else {
     //TODO: all explicitly-rendered components (aka not {children}) rerender whenever GameProvider updates. That okay?
     return (
       <DispatchContext.Provider value={dispatch}>
         <GameContext.Provider value={state}>
-          <LoginInfoContext.Provider value={{currentCreds: currentCreds, setShowModal: setShowModal, logout: logoutCallback}}>
-            <LoginModal show={showModal} creds={storedCredentials} onDismiss={() => setShowModal(false)} logInModalCallback={logInModalCallback} />
             <Provider default={state.usingLocal ? 'local' : 'remote'} databases={dbListRef.current}>
-              {children}
+              <LoginProvider gameId={gameId} storedCredentials={storedCredentials} >
+                {children}
+              </LoginProvider>
             </Provider> 
-          </LoginInfoContext.Provider>
         </GameContext.Provider>
       </DispatchContext.Provider>
     );
   }
 };
 
-//If needed, can expand to pass memoized API object with multiple callbacks 
-//see https://medium.com/trabe/passing-callbacks-down-with-react-hooks-4723c4652aff
-export type LoginInfo = {
-  currentCreds: Credentials,
-  setShowModal: (showModal: boolean)=>void,
-  logout: ()=>void,
-}
-const LoginInfoContext = React.createContext<LoginInfo | null>(null);
-export function useLoginInfoContext(): LoginInfo {
-  const contextValue = React.useContext(LoginInfoContext);
-  if(contextValue === null) {
-    throw new Error("useLoginModalContext must be used within GameProvider");
-  }
-  return contextValue;
-}
 
 const GameContext = React.createContext<State>(initialState);
 export function useGameContext(): State {
@@ -639,6 +494,7 @@ export function useGameDispatch(): Dispatch<ReducerAction<typeof Reducer>> {
   return contextValue;
 }
 
+//TODO: this example has better type signatures https://www.developerway.com/posts/higher-order-components-in-react-hooks-era
 export const withGameContext = (
   mapState: (state: State, ...properinos: any[]) => any,
   //mapDispatchers: any = React.useContext(TestDispatchContext) // could use this, have components take dispatch as prop. Or just use hook
