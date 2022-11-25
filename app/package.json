@@ -3,11 +3,11 @@
   "version": "0.0.1",
   "private": true,
   "dependencies": {
-    "@capacitor/android": "^2.5.0",
-    "@capacitor/app": "^1.0.6",
-    "@capacitor/core": "^3.3.2",
-    "@capacitor/ios": "^2.4.1",
-    "@capacitor/network": "^1.0.6",
+    "@capacitor/android": "^4.0.0",
+    "@capacitor/app": "^4.0.0",
+    "@capacitor/core": "^4.0.0",
+    "@capacitor/ios": "^4.0.0",
+    "@capacitor/network": "^4.0.0",
     "@ionic/pwa-elements": "^3.0.2",
     "@ionic/react": "^6.0.8",
     "@ionic/react-router": "^6.0.7",
@@ -19,8 +19,8 @@
     "@types/lodash": "^4.14.178",
     "@types/node": "^12.12.24",
     "@types/pouchdb": "6.4.0",
-    "@types/react": "^16.9.17",
-    "@types/react-dom": "^16.9.4",
+    "@types/react": "^17.0.2",
+    "@types/react-dom": "^17.0.2",
     "@types/react-router": "^5.1.4",
     "@types/react-router-dom": "^5.1.3",
     "ionicons": "^5.0.0",
@@ -34,7 +34,7 @@
     "react-scripts": "^4.0.3",
     "react-tracked": "^1.7.9",
     "superlogin-client": "^0.8.0",
-    "typescript": "3.8.3",
+    "typescript": "^4.5.5",
     "use-pouchdb": "^1.2.3"
   },
   "scripts": {
@@ -75,9 +75,10 @@
   },
   "description": "An Ionic project",
   "devDependencies": {
-    "@capacitor/cli": "^3.3.2",
+    "@capacitor/cli": "^4.0.0",
     "ajv-cli": "^5.0.0",
     "react-error-overlay": "^6.0.9",
-    "typescript-json-schema": "^0.54.0"
+    "typescript-json-schema": "^0.54.0",
+    "typescript-plugin-css-modules": "^3.4.0"
   }
 }
