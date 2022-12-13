@@ -1,12 +1,11 @@
 import { IonModal, IonItem, IonInput, IonItemGroup, IonItemDivider, IonButton, IonLabel, IonIcon, IonText } from '@ionic/react';
 import { warningOutline, warningSharp } from 'ionicons/icons';
 import React, { useState, useRef, useEffect, useMemo, useCallback } from 'react';
-import PouchDB from 'pouchdb';
-import PouchAuth from 'pouchdb-authentication';
 import ColumnDataEdit from './ColumnDataEdit';
 import type { Changes, AddMoveChanges , ColumnDef, ColumnDefs, Cols, ColumnData, ColumnDefAndData, DataType, ColumnChange, Add, Modify, Delete } from '../types/characterTypes'; //== 
 import type { FieldError } from '../types/utilTypes'; //==
-import { keys, isString, isStringColumn, isMoveOrder, checkInvalid } from '../services/util';
+import { keys } from '../services/util';
+import { isString, isStringColumn, isMoveOrder, checkInvalid } from '../services/columnUtil';
 import { createChange, getInvertedMoveChanges } from '../services/merging';
 import { cloneDeep, isEqual } from 'lodash';
 import { useCharacterDispatch } from '../services/CharacterReducer';

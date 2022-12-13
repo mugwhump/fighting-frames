@@ -35,6 +35,7 @@ export type DBStatus = {
 
 type State = {
   gameId: string,
+  gameDisplayName?: string, //Game component sets this after loading game's design doc
   usingLocal: boolean,
   isOnline: boolean | null, //includes network issues and website issues, but not DB-specific or permissions issues
   dbStatuses: DBStatuses, //also includes top. If queried for db it has no info for, initializes it to initialDBStatus
@@ -55,6 +56,7 @@ export const initialDBStatus: DBStatus = { //created for top and latestpage duri
 }
 export type Action = 
   | { actionType: 'changeCurrentDB', db: string } //when db selected from menu
+  | { actionType: 'setGameDisplayName', gameId: string, displayName: string }
   //only dispatch fetch actions if the doc being fetched was from the current database
   | { actionType: 'fetchSuccess', usedLocal: boolean, doc?: any }
   // with usePouch, sometimes standard Errors (like TypeError from failed fetch) aren't converted to CustomPouchError, which has toJSON (but doesn't have a typescript definition)
@@ -109,6 +111,7 @@ function Reducer(state: State, action: Action) {
     case 'changeCurrentDB': {
       //called when provider loads and gets game from route match
       newState.gameId = action.db;
+      if(action.db === "top") newState.gameDisplayName = undefined;
       const status: DBStatus = state.dbStatuses.get(action.db);
       if(!state.usingLocal && status.userWants && status.done) {
         console.log(`Changing to downloaded db ${action.db}, so switching to local`);
@@ -119,6 +122,16 @@ function Reducer(state: State, action: Action) {
         newState.usingLocal = false;
       }
       //Logging in as default handled by useEffects, logging in as non-default is manual
+      break;
+    }
+    case 'setGameDisplayName': {
+      if(action.gameId === gameId) {
+        newState.gameDisplayName = action.displayName;
+      }
+      else {
+        console.warn(`Not setting display name to ${action.displayName} because provided gameId ${action.gameId} doesn't match current gameId ${gameId}`);
+        newState.gameDisplayName = undefined;
+      }
       break;
     }
     // isOnline and done(+userWants) are what prevents loops

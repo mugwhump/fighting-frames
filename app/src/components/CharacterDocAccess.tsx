@@ -21,12 +21,12 @@ export const CharacterDocAccess: React.FC<CharProviderProps> = ({children, gameI
   //TODO: just use existing local db with no revisions or conflict? Need some changes to Local Provider then... and can't sync in future... use conflicty one??
   const remoteDatabase: PouchDB.Database = usePouch('remote'); 
   const localPersonalDatabase: PouchDB.Database = usePouch('localPersonal'); 
-  const { doc, loading, state: docState, error } = useDoc<T.CharDoc>('character/'+character); 
+  const { doc, loading, state: docState, error } = useDoc<T.CharDoc>(util.getCharDocId(character)); 
   const state = useTrackedCharacterState();
   const dispatch = useCharacterDispatch();
   const history = useHistory();
   const [presentToast, dismissToast] = useIonToast(); 
-  const docEditId = util.getSegmentUri(gameId, character, SegmentUrl.Edit);
+  const docEditId = util.getDocEditId(gameId, character);
 
   //Initialization, start loading local edits (charDoc automatically starts reloading due to the hook)
   //Also called when switching characters.
@@ -129,7 +129,7 @@ export const CharacterDocAccess: React.FC<CharProviderProps> = ({children, gameI
       console.log("Upload response = " + JSON.stringify(response));
       presentToast("Changes uploaded! Someone with write permissions must publish these changes.", 6000);
       //TODO: redirect to this specific change in changes section, with info on how it was just published?. Also lets writers publish what they just uploaded.
-      let url = util.getSegmentUri(gameId, state.characterId, SegmentUrl.Changes);
+      let url = util.getSegmentUrl(gameId, state.characterId, SegmentUrl.Changes);
       history.push(url);
       dispatch({actionType:'deleteEdits'});
     }).catch((err) => {
@@ -146,9 +146,10 @@ export const CharacterDocAccess: React.FC<CharProviderProps> = ({children, gameI
     let changeId = action.changeListId;
     console.log("Publishing changeDoc " + changeId);
     myPouch.makeApiCall(`game/${gameId}/${changeId}/publish`, "POST").then((data) => {
+      //TODO: if this change was submitted by a user without write perms and current user is admin, prompt for whether to give author write perms
       console.log("Response: "+JSON.stringify(data));
       presentToast("Change successfully published!", 3000);
-      let url = util.getSegmentUri(gameId, state.characterId, SegmentUrl.Base); 
+      let url = util.getSegmentUrl(gameId, state.characterId, SegmentUrl.Base); 
       history.push(url);
     }).catch((err) => {
       console.error("Error publishing change: "+ err.message);

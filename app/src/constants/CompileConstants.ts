@@ -5,9 +5,14 @@ export let CompileConstants = {
   DEFAULT_LOCAL_ENABLED: true,
   DELETE_TOP_IF_NOTHING_ELSE_WANTED: true,
 
+  //URLs
   GAME_MATCH: "/game/:gameId",
   CHARACTER_MATCH: "/game/:gameId/character/:character",
   SEGMENT_MATCH: "/game/:gameId/character/:character/:segment",
+  CONFIGURATION_MATCH: "/game/:gameId/game-configuration",
+  ADD_CHARACTER_MATCH: "/game/:gameId/add-character",
+  DELETE_CHARACTER_MATCH: "/game/:gameId/delete-character",
+  AUTHORIZED_USERS_MATCH: "/game/:gameId/authorized-users",
   HOME_PATH: "/page/Inbox",
 
   AUTH_TIMEOUT_SECONDS: 3600,

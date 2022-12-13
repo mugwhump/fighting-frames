@@ -1,6 +1,6 @@
 import type * as T from '../types/characterTypes'; //== 
 import React, { useState, useEffect, useMemo } from 'react';
-import { IonRow, IonCol, IonItem, IonIcon } from '@ionic/react';
+import { IonRow, IonCol, IonItem, IonItemDivider, IonIcon } from '@ionic/react';
 import { keyVals, } from '../services/util';
 import styles from '../theme/Character.module.css';
 
@@ -17,7 +17,7 @@ const ColumnHeaders: React.FC<ColumnHeaderProps> = ({columnDefs}) => {
     if(def.group === "needsHeader" && def._calculatedTableHeaderHideClass !== 'ion-hide') { //don't bother rendering if always hidden
       //header will show when column's header hides and vice-versa
       headerCols.push(
-        <IonCol key={def.columnName} {...def.widths} className={def._calculatedTableHeaderHideClass +' '+styles.tableHeader}>
+        <IonCol key={def.columnName} {...def.widths} className={def._calculatedTableHeaderHideClass +' '+styles.tableHeaderCol}>
           {name}
         </IonCol>
       )
@@ -25,7 +25,7 @@ const ColumnHeaders: React.FC<ColumnHeaderProps> = ({columnDefs}) => {
   }
   if(headerCols.length > 0) {
     return (
-      <IonRow key="headers">
+      <IonRow key="headers" className={styles.tableHeaderRow} >
         {headerCols}
       </IonRow>
     )

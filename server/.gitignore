@@ -4,6 +4,7 @@
 # symlinks from frontend project
 /app-symlinks/types
 /app-symlinks/services
+/app-symlinks/constants
 
 # dependencies
 /node_modules

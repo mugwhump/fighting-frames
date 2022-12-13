@@ -64,10 +64,16 @@
     color: colSuperText;
 }
 /* for the headers of every needsHeader column in a move */
-.standaloneHeader {
+.standaloneHeaderCol {
     font-size: 10pt;
 }
 /* for the single row of headers above the movelist */
-.tableHeader {
+.tableHeaderRow {
+    background-color: white;
+    z-index: 69;
+    position: sticky;
+    top: 0;
+}
+.tableHeaderCol {
     border: solid 1px black;
 }

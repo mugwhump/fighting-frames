@@ -256,7 +256,6 @@ export const EditCharacter: React.FC<EditCharProps> = ({gameId, columnDefs, univ
 
   // Get defs and data for the given move
   // For new move return column definitions with an added initial definition for movename, which includes currently existing moves as forbidden values
-  // If editing a previously added move, will have moveName data but no def. Modal doesn't display.
   const getModalDefsAndData = useCallback<(moveName: string)=> ColumnDefAndData[]> ((moveName) => {
     let defs: ColumnDefs = (moveName==="universalProps") ? universalPropDefs : columnDefs;
     let cols: Cols | undefined = (moveName==="universalProps") ? charDoc.universalProps : charDoc.moves[moveName];

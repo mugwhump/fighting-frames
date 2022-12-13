@@ -23,7 +23,7 @@ type CharacterSegmentsProps = {
 const CharacterSegments: React.FC<CharacterSegmentsProps> = ({ gameId, columnDefs, universalPropDefs }) => {
   const { character, segment } = useParams<{ character: string; segment: string }>(); 
   const state = useTrackedCharacterState ();
-  const baseUrl = util.getSegmentUri(gameId, character, SegmentUrl.Base);
+  const baseUrl = util.getSegmentUrl(gameId, character, SegmentUrl.Base);
   const history = useHistory();
   //const location: string = useLocation().pathname;
   //const currentSegment: SegmentUrl = segmentFromUrl(location);
@@ -49,7 +49,7 @@ const CharacterSegments: React.FC<CharacterSegmentsProps> = ({ gameId, columnDef
   //}
   function clickedSegment(e: MouseEvent<HTMLIonSegmentButtonElement>) {
     //let url = baseUrl + (e?.currentTarget?.value || '');
-    let url = baseUrl + (e?.currentTarget?.value || '');
+    let url = util.getSegmentUrl(gameId, character, segmentFromParam(e?.currentTarget?.value));
     history.push(url);
   }
 
@@ -59,19 +59,19 @@ const CharacterSegments: React.FC<CharacterSegmentsProps> = ({ gameId, columnDef
     <>
     <IonContent fullscreen>
       <Switch>
-        <Route path={util.getSegmentUri(gameId, character, SegmentUrl.Edit)} >
+        <Route path={util.getSegmentUrl(gameId, character, SegmentUrl.Edit)} >
           <EditCharacter gameId={gameId} columnDefs={columnDefs} universalPropDefs={universalPropDefs} />
         </Route>
-        <Route path={util.getSegmentUri(gameId, character, SegmentUrl.Changes)+'/:changeTitle'} >
+        <Route path={util.getSegmentUrl(gameId, character, SegmentUrl.Changes)+'/:changeTitle'} >
           <ChangeViewer columnDefs={columnDefs} universalPropDefs={universalPropDefs} />
         </Route>
-        <Route path={util.getSegmentUri(gameId, character, SegmentUrl.Changes)} >
+        <Route path={util.getSegmentUrl(gameId, character, SegmentUrl.Changes)} >
           <ChangeBrowser gameId={gameId} />
         </Route>
-        <Route path={util.getSegmentUri(gameId, character, SegmentUrl.History)} >
+        <Route path={util.getSegmentUrl(gameId, character, SegmentUrl.History)} >
           <div>History not yet implemented</div>
         </Route>
-        <Route path={util.getSegmentUri(gameId, character, SegmentUrl.Base)} >
+        <Route path={util.getSegmentUrl(gameId, character, SegmentUrl.Base)} >
           <Character columnDefs={columnDefs} universalPropDefs={universalPropDefs} /> 
         </Route>
       </Switch>

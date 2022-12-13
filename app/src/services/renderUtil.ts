@@ -1,4 +1,5 @@
 import type * as T from '../types/characterTypes'; //== 
+import { BPList } from '../types/characterTypes';
 import { getChangedCols, insertByNeighbor, addMissingMoves, applyMoveResolutions } from '../services/merging';
 import * as util from './util';
 import styles from '../theme/Character.module.css';
@@ -58,9 +59,14 @@ export function getDefsAndData(columnDefs: T.ColumnDefs, columns?: T.Cols, chang
   return result;
 }
 
+// True if bp1 >= bp2, like xl >= lg
+export function bpGTE(bp1: T.Breakpoint, bp2: T.Breakpoint) {
+  return BPList.indexOf(bp1) >= BPList.indexOf(bp2);
+}
 
 // Modifies defs to add _calculateHeaderHideBP and _calculatedTableHeaderHideClass when applicable
-export function calculateHideBreakpoints(defs: T.ColumnDefs) {
+// If previewingSpecificWidth=md for example, then instead of responsive .ion-hide-md-up class, will just add .ion-hide if width is md or higher
+export function calculateHideBreakpoints(defs: T.ColumnDefs, previewingSpecificWidth?: T.Breakpoint) {
   //xs [12] [24] [36]
   //sm [10] [20] [30]
   //md [08] [16] [24]
@@ -70,15 +76,18 @@ export function calculateHideBreakpoints(defs: T.ColumnDefs) {
   // [hide-lg-up],[hide-lg-up],[hide-xl-up] <- move col headers
   // requires higher breakpoints to have <= sizes
   // Ionic's hide class is inclusive for up, non-inclusive for down. So .ion-hide-md-down doesn't hide at md breakpoint.
-  let accumulatedSizes: Record<T.Breakpoint, number> = {xs: 0, sm: 0, md: 0, lg: 0, xl: 0};
+  let accumulatedSizes: Record<T.Breakpoint, number> =  {xs: 0, sm: 0, md: 0, lg: 0, xl: 0};
   let index = 0;
   let firstDef: T.ColumnDef | null = null;
   for(let [key, def] of util.keyVals(defs)) {
     if(!def || def.group !== "needsHeader" || !def.widths) continue;
+    delete def._calculatedMoveHeaderHideClass; 
+    delete def._calculatedTableHeaderHideClass;
+
+    //loop through breakpoints from small to large to find the first one where this column fits in the header row
     let bp: T.Breakpoint;
     let latestSize: number = 0;
     let firstFittingBreakpoint  : T.Breakpoint | null = null;
-    //loop through breakpoints from small to large to find the first one where this column fits in the header row
     for(bp in accumulatedSizes) {
       let sizeBp: T.SizeBreakpoint = `size-${bp}`;
       let thisSize: number = def.widths[sizeBp] ?? latestSize;
@@ -88,10 +97,24 @@ export function calculateHideBreakpoints(defs: T.ColumnDefs) {
       }
       latestSize = thisSize;
     }
+
     if(firstFittingBreakpoint && index > 0) {
-      console.log(`column ${def.columnName} fits at breakpoint ${firstFittingBreakpoint  } and above`);
+      //console.log(`column ${def.columnName} fits at breakpoint ${firstFittingBreakpoint  } and above`);
       def._calculatedMoveHeaderHideClass = firstFittingBreakpoint   === "xs" ? 'ion-hide' : `ion-hide-${firstFittingBreakpoint  }-up`; //ion-hide-xs-up is just ion-hide
       def._calculatedTableHeaderHideClass = `ion-hide-${firstFittingBreakpoint}-down`;
+
+      //if previewing at the size where this col fits, show move columns
+      if(previewingSpecificWidth) {
+        if(bpGTE(previewingSpecificWidth, firstFittingBreakpoint)) {
+          def._calculatedMoveHeaderHideClass = 'ion-hide'; 
+          def._calculatedTableHeaderHideClass = undefined;
+        }
+        else {
+          def._calculatedMoveHeaderHideClass = undefined; 
+          def._calculatedTableHeaderHideClass = 'ion-hide';
+        }
+      }
+
       // Only show header row when it will have at least 2 columns
       if(index === 1 && firstDef) {
         firstDef._calculatedMoveHeaderHideClass = def._calculatedMoveHeaderHideClass;

@@ -2,7 +2,7 @@
 import React, {} from 'react';
 //import { createOutline } from 'ionicons/icons';
 import * as T from '../types/characterTypes';
-import { colDataToPrintable } from '../services/util';
+import { colDataToPrintable } from '../services/columnUtil';
 //import styles from '../theme/Character.module.css';
 
 export type DataRendererProps = {

@@ -39,7 +39,7 @@ export const ChangeBrowser: React.FC<ChangeBrowserProps> = ({gameId}) => {
         const changeBasis = row.key[1];
         const needsRebase = changeBasis !== baseRev;
         const published = publishedChanges.includes(changeTitle);
-        const uri = util.getChangeUri(gameId, state.characterId, changeTitle);
+        const uri = util.getChangeUrl(gameId, state.characterId, changeTitle);
           return (
             <IonRouterLink key={changeTitle} routerLink={uri}>
               <IonRow >

@@ -30,11 +30,11 @@ export type ColumnData = MoveData | PropData;
   //readonly columnName: string; //matches a ColumnDef.columnName
   //readonly data: DataValueTypes
 //}
-export enum DataType { //these mostly determine the editing interface presented and if shown in a column (Str) vs on its own line (Txt)
+export enum DataType { 
   Int = "INTEGER",
   Num = "NUMBER", //floats are likely to be used for sizes/distances/speeds
   Str = "STRING",
-  Txt = "TEXT",
+  //Txt = "TEXT",
   Ord = "MOVE_ORDER",
   //Img = "IMAGE", //would probably be a url or base64 blob
   List = "LIST", //array of strings, allowed values can be constrained. For tags. Could use for height sequence (ie HLLL)
@@ -49,7 +49,16 @@ export enum DataType { //these mostly determine the editing interface presented 
 };
 
 export type Breakpoint =  "xs" | "sm" | "md" | "lg" | "xl";
+export const BPList: Readonly<Breakpoint[]> = ["xs", "sm", "md", "lg", "xl"];
 export type SizeBreakpoint =  `size-${Breakpoint}`;
+
+//columndef editor forces columns in groups to be put next to each other. Also where order determined. no-definition isn't choosable, it's assigned to columns missing a definition.
+//meta column defs aren't in design doc, they're added by the client. Is "meta" not specific enough?
+//could have special handling for display, changed display, conflict swiper, edit modal
+//e.g. displayName displayed inline (though kinda special), but banner would be elsewhere
+export type DefGroup = "meta" | "title" | "needsHeader" | "normal" | "defaultHideNeedsHeader" | "defaultHide" | "no-definition";
+export const groupList : Readonly<DefGroup[]> = ["title", "needsHeader", "normal", "defaultHideNeedsHeader", "defaultHide"]; //groups that can actually be assigned to by users
+export const groupListAll : Readonly<DefGroup[]> = ["meta", "title", "needsHeader", "normal", "defaultHideNeedsHeader", "defaultHide", "no-definition"];
 export type ColumnDef = {
   columnName: string;
   displayName?: string; //allows easier changing. Show columnName if absent.
@@ -64,8 +73,7 @@ export type ColumnDef = {
   widths?: {[key in SizeBreakpoint]?: number}; //can give key undefined value to share remaining space in row. If needsHeader, must define numeric widths. Warn if first cols don't add to 12.
   _calculatedTableHeaderHideClass ?: string;
   _calculatedMoveHeaderHideClass ?: string;
-  //columndef editor forces columns in groups to be put next to each other. Also where order determined. no-definition isn't choosable, it's assigned to columns missing a definition.
-  group: "title" | "needsHeader" | "normal" | "defaultHide" | "meta" | "no-definition";
+  group: DefGroup;
   cssRegex?: {regex: RegExp, css: string}; //TODO: can RegExp serialize? Prob gotta do it manually.
   // Things db admins can set as required (damage etc) vs universalProps *I* can set as required (character display name, move order)
   // If they're my requirements, hardcode that into the codebase
@@ -94,7 +102,7 @@ What if no-show item not ordered at end?
 Use ionic flex grid and breakpoints to construct header row that auto-hides things at certain breakpoints, and lets overflow columns occupy half-lines with their column name
 Only show floating header on small screens, big screens can always show per-col headers. NeedsHeader cols must know how far into the row they are, if previous widths + their width > max width, they'll be pushed to new row. Do calculation for every breakpoint to determine header hiding. Auto and undefined widths tho... needsHeader cols must specify size?
 //TODO: each group could be a row on mobile, or a column containing a row of columns on desktop. So title columns could stack on left. Complex... unless I always do that, and just set the inner column to full-width on mobile! But... really doesn't seem worth it just for title cols.
-COLUMN DEF EDITOR: copy MoveOrder modal, "categories" make groups, use indent controls for col width
+COLUMN DEF EDITOR: copy MoveOrder modal, "categories" make groups, use indent controls for col width? Doesn't work for multiple widths.
 */
 
 //internal utility type to help rendering, lets us show empty columns with no data, or data with no definition (to prompt for deletion)
@@ -133,10 +141,10 @@ export type DBListDoc = {
 }
 
 export type DesignDoc = {
-  displayName: string; //for the game. Probably unused since grabbed from DBListDocItem.name in top db
+  displayName: string; //for the game. Useful, but duplicated in DBListDocItem.name in top db...
   universalPropDefs: ColumnDefs,
   columnDefs: ColumnDefs,
-}
+} & {_id: string, _rev: string}
 
 export type CharDoc = {
   charName: string,

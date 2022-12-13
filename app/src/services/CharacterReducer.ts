@@ -45,8 +45,6 @@ export function selectMoveOrder(state: State): T.MoveOrder[] {
 
 export function getInitialState(characterId: string): State {
   return {
-    testVal: 0,
-    testVal2: 0,
     characterId: characterId,
     characterDisplayName: characterId,
     charDoc: getEmptyCharDoc(),
@@ -56,8 +54,6 @@ export function getInitialState(characterId: string): State {
   }
 }
 export interface State {
-  testVal: number;
-  testVal2: number;
   characterId: string; //charDoc._id is character/talim, this is just talim
   characterDisplayName: string; //only set alongside initialization status. This would be Talim.
   initialized: boolean; //whether both charDoc and edits are loaded
@@ -188,15 +184,6 @@ export const characterReducer: Reducer<State, EditAction> = (state, action) => {
   }
 
   switch(action.actionType) {
-    case 'testVal1': {
-      newState.testVal++;
-      break;
-    }
-    case 'testVal2': {
-      newState.testVal2++;
-      break;
-    }
-
     case 'deinitialize': {
       if(state.initialized) {
         console.log("Reinitializing, possibly due to character switch");

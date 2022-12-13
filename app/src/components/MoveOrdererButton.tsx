@@ -5,7 +5,7 @@ import { swapVerticalOutline, swapVerticalSharp, chevronForward, chevronBack, tr
 //delete these 2
 import React, { useState, useEffect, useRef } from 'react';
 import { MoveOrder, ColumnDef, ColumnData, DataType } from '../types/characterTypes';
-import { isMoveOrder } from '../services/util';
+import { isMoveOrder } from '../services/columnUtil';
 import { cloneDeep, isEqual } from 'lodash';
 import MoveOrdererModal from './MoveOrdererModal';
 

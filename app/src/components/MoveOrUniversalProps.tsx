@@ -48,6 +48,7 @@ const MoveOrUniversalProps: React.FC<MoveProps> = ({moveName, indentLevel=0, col
     <IonIcon md={createOutline} color="black" />
   : '';
 
+  // TODO: unused. Title row could be shifted to show hierarchy?
   let indentSpacers = [];
   for(let i=1; i <=indentLevel; i++) {
     let key="spacer-"+i;
@@ -56,16 +57,8 @@ const MoveOrUniversalProps: React.FC<MoveProps> = ({moveName, indentLevel=0, col
     }
     else {
       indentSpacers.push(<span key={key} style={{display: "inline-block",width: "var(--indent-spacer-width)"}}></span>);
-      //indentSpacers.push(<IonCol key={key}><div style={{width: "var(--indent-spacer-width)"}}></div></IonCol>);
     }
   }
-  //let moveNameSwiper = null;
-  //if(moveNameConflict) {
-    ////const defData: ColumnDefAndData = {columnName: "moveName", def: moveNameColumnDef, data: moveName, cssClasses: [styles.unresolved]};
-    //let moveNameDefData = defsAndData.find((i) => i.columnName === "moveName");
-    //if(!moveNameDefData) throw new Error("Conflict for moveName but not present in defsAndData");
-    //moveNameSwiper = <ConflictSwiper moveName={moveName} defData={moveNameDefData} conflict={moveNameConflict} />
-  //}
   
   let currentGroup: ColumnDef['group'] | null = null; //start as null
   let allGroups = [];
@@ -73,8 +66,10 @@ const MoveOrUniversalProps: React.FC<MoveProps> = ({moveName, indentLevel=0, col
   for(let i = 0; i < defsAndData.length; i++) {
     const defData: ColumnDefAndData = defsAndData[i];
     const thisGroup = defData?.def?.group || "no-definition";
-    if(currentGroup !== thisGroup) { //if first item of new group
-      if(currentGroup !== null) { //if finished with group and starting new one
+    //if first item of new group
+    if(currentGroup !== thisGroup) { 
+      //if finished with group and starting new one. 
+      if(currentGroup !== null && currentGroupArray.length > 0) { 
         allGroups.push(
           <IonCol key={currentGroup} size="12">
             <IonRow>{currentGroupArray}</IonRow>
@@ -85,9 +80,14 @@ const MoveOrUniversalProps: React.FC<MoveProps> = ({moveName, indentLevel=0, col
       currentGroup = thisGroup;
     }
     const con = moveConflictsToHighlight?.[defData.columnName];
-    currentGroupArray.push(
-      <DataJSX defData={defData} moveName={moveName} conflict={con} skipSwiper={!!moveNameConflict && defData.columnName !== "moveName"} key={defData.columnName} />
-    )
+    if(defData.def?.group === "meta" && !con){
+      //moveName and moveOrder only render if conflict
+    }
+    else { 
+      currentGroupArray.push(
+        <DataJSX defData={defData} moveName={moveName} conflict={con} skipSwiper={!!moveNameConflict && defData.columnName !== "moveName"} key={defData.columnName} />
+      );
+    }
   }
   allGroups.push(
     <IonCol key={currentGroup} size="12">
@@ -100,60 +100,6 @@ const MoveOrUniversalProps: React.FC<MoveProps> = ({moveName, indentLevel=0, col
       </IonRow>
   )
 
-  //return (
-    //<>
-      //<IonRow class="ion-justify-content-center" onClick={startEditing}>
-        //{defsAndData.map((defData: ColumnDefAndData) => {
-          ////if(currentGroup !== defData?.def?.group) {
-            ////if(currentGroup != null)
-          ////}
-          //const con = moveConflictsToHighlight?.[defData.columnName];
-          //return (
-            //<DataJSX defData={defData} moveName={moveName} conflict={con} skipSwiper={!!moveNameConflict && defData.columnName !== "moveName"} key={defData.columnName} />
-          //);
-        //})}
-      //</IonRow>
-
-    //</>
-  //);
-
-  //return (
-    //<>
-    //{isMove ?
-      //<IonRow onClick={startEditing}>
-        //{moveNameSwiper}
-        //<IonCol className={moveNameClassString}>{editIndicator} {indentSpacers} {nameToShow}</IonCol>
-        //{defsAndData.map((defData: ColumnDefAndData) => {
-          //const con = moveConflictsToHighlight?.[defData.columnName];
-          //return (
-            //<DataJSX defData={defData} isMove={true} moveName={moveName} conflict={con} skipSwiper={!!moveNameConflict} key={defData.columnName} />
-          //);
-        //})}
-      //</IonRow>
-      //:
-      //<>
-      //<IonRow onClick={startEditing}>{editIndicator} {nameToShow}</IonRow>
-        //{defsAndData.map((defData: ColumnDefAndData) => {
-          //if(defData.def?.dataType === DataType.Ord) {
-            //if(moveConflictsToHighlight?.moveOrder) {
-              //return <ConflictSwiper moveName={moveName} defData={defData} conflict={moveConflictsToHighlight.moveOrder} key="moveOrder" />
-            //}
-            ////TODO: swiping conflicts can change/unchange moveOrder, might be better not to display this while conflicts being resolved
-            ////but I can't know if conflicts are being resolved without another prop being passed...
-            //else if(changes?.moveOrder) {
-              //return <IonRow className={styles.modifyChange} key="moveOrder"><IonCol>Move Order has been modified</IonCol></IonRow> 
-            //}
-            //else return null;
-          //}
-          //return (
-            //<DataJSX defData={defData} isMove={false} moveName={moveName} conflict={moveConflictsToHighlight?.[defData.columnName]} key={defData.columnName} />
-          //);
-        //})}
-      //</>
-    //}
-
-    //</>
-  //);
 }
 
 
@@ -165,14 +111,14 @@ function DataJSX({defData, moveName, conflict, skipSwiper}: DataProps) {
   let conflictChooserOrData = (conflict && !skipSwiper) ? <ConflictSwiper defData={defData} moveName={moveName} conflict={conflict} /> : <DataRenderer defData={defData} />
   const sizeProps = defData?.def?.widths;
 
-  if(columnName === "moveName" && !conflict) {
-    return null;
-  }
-  else if(columnName === "moveOrder" && !conflict) {
-    //TODO: "moveOrder has been changed" notification?
-    return null;
-  }
-  else if(columnName === "displayName") {
+  //if(columnName === "moveName" && !conflict) {
+    //return null;
+  //}
+  //else if(columnName === "moveOrder" && !conflict) {
+    ////TODO: "moveOrder has been changed" notification?
+    //return null;
+  //}
+  if(columnName === "displayName") {
     if(!defData.data && !conflict) {
       conflictChooserOrData = <DataRenderer defData={{...defData, data: moveName}} />;
     }
@@ -186,11 +132,10 @@ function DataJSX({defData, moveName, conflict, skipSwiper}: DataProps) {
   }
   else {
 
-    //let header = (defData?.def?.group === "needsHeader") ? <div class="ion-hide" className={styles.standaloneHeader}>{defData?.def?.shortName || defData?.def?.displayName || columnName}</div>: null;
     return ( 
       <IonCol className={cssClasses} {...sizeProps}>
-        {(defData?.def?.group === "needsHeader") && 
-          <div className={styles.standaloneHeader + ' ' + (defData.def?._calculatedMoveHeaderHideClass  || '')}>{defData?.def?.shortName || defData?.def?.displayName || columnName}</div>
+        {(defData?.def?.group === "needsHeader" || defData?.def?.group === "defaultHideNeedsHeader") && 
+          <div className={styles.standaloneHeaderCol + ' ' + (defData.def?._calculatedMoveHeaderHideClass  || '')}>{defData?.def?.shortName || defData?.def?.displayName || columnName}</div>
         }
         {conflictChooserOrData} 
       </IonCol>

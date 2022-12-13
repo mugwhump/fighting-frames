@@ -1,7 +1,4 @@
-import { ColumnDef, ColumnDefs, DataType } from '../types/characterTypes'; 
-
-// These "built-in" columns have special handling. Defs are still stored in DB for consistency.
-// Automatically added to defs if not found
+import { groupListAll, ColumnDef, ColumnDefs, DataType } from '../types/characterTypes'; 
 
   // mobile:  xs=2/12 sm=3/12 md=4/12 lg=6/12 xl=row
   // desktop: xs=1/12 sm=2/12 md=3/12 lg=4/12 xl=6/12
@@ -15,9 +12,8 @@ export const predefinedWidths = {
   "full": {"size-xs": 12},
 } as const;
 
+
 // --------------------- UNIVERSAL PROP COLUMNS --------------------
-//Creating or deleting a move must generate a new ColumnChange for this 
-//ColumnDataEdit must be passed the list of allowed values... the ColumnChange upon add/delete should work?
 //EditCharacter must apply changes to this 
 //use with ion-reorder and ion-reorder-group
 export const moveOrderColumnDef: ColumnDef = {
@@ -30,19 +26,24 @@ export const moveOrderColumnDef: ColumnDef = {
   widths: predefinedWidths["full"],
 }
 
+//if these show in the character list, doc function would need to emit thumbnail urls or base64 data
 //const charBannerDef: ColumnDef = {
   //columnName: "charBanner",
   //displayName: "Character Banner Image",
   //dataType: DataType.Img,
   //required: false,
+  //group: "meta",
   //defaultShow: false,
 //}
-export const requiredPropDefs: Readonly<ColumnDefs> = {moveOrder: moveOrderColumnDef};
+const requiredPropDefs: Readonly<ColumnDefs> = {};
+const metaPropDefs: Readonly<ColumnDefs> = {moveOrder: moveOrderColumnDef};
 
 
 // --------------------- MOVE COLUMNS --------------------
 
 
+//Creating or deleting a move generates a new ColumnChange for this 
+//When adding new move, editor is passed a new definition with existing move names as forbiddenValues
 export const moveNameColumnDef: Readonly<ColumnDef> = {
   columnName: "moveName",
   displayName: "Move Name",
@@ -50,7 +51,7 @@ export const moveNameColumnDef: Readonly<ColumnDef> = {
   required: true,
   forbiddenValues: ["universalProps","moveName","moveOrder","displayName"],
   minSize: 1,
-  group: "title",
+  group: "meta",
   widths: predefinedWidths['full'],
 }
 // Suggested columns
@@ -139,4 +140,17 @@ export const wideTest3: Readonly<ColumnDef> = {
   widths: predefinedWidths['extra large'],
 }
 
-export const requiredColumnDefs: Readonly<ColumnDefs> = {moveName: moveNameColumnDef, displayName: displayNameColumnDef, };
+const requiredColumnDefs: Readonly<ColumnDefs> = {displayName: displayNameColumnDef, wideTest1, wideTest2, wideTest3};
+const metaColumnDefs: Readonly<ColumnDefs> = {moveName: moveNameColumnDef};
+
+export const specialDefs = {
+  meta: { //Defined purely internally in client, not present in database or editable. Have "meta" group and special handling for how they're displayed.
+    universalPropDefs: metaPropDefs, //inserted at end so moveOrder and banner changes/conflicts show at bottom
+    columnDefs: metaColumnDefs, //inserted at front so moveName conflict swiper shows at top
+  },
+  required: { //If not present in database, will be added by client, allowing a degree of editing.
+    universalPropDefs: requiredPropDefs,
+    columnDefs: requiredColumnDefs,
+  },
+}
+

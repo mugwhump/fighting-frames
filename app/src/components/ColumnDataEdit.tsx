@@ -2,7 +2,7 @@ import { IonInput, IonTextarea, IonItem, IonButton, IonLabel } from '@ionic/reac
 import React, { useState, useEffect } from 'react';
 import MoveOrdererButton from './MoveOrdererButton';
 import { ColumnDef, ColumnData, DataType, MoveOrder } from '../types/characterTypes';
-import { isMoveOrder, isList, strToColData } from '../services/util';
+import { isMoveOrder, isList, strToColData } from '../services/columnUtil';
 
 
 type ColumnDataEditProps  = {
@@ -54,7 +54,7 @@ const ColumnDataEdit: React.FC<ColumnDataEditProps> = ({columnName, colData, col
       //);
       break;
     }
-    case DataType.Txt: 
+    //case DataType.Txt: 
     case DataType.Str: {
       inputType = "text";
       //return (

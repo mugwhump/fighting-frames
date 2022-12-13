@@ -8,9 +8,11 @@ import './Menu.css';
 import { useView, usePouch } from 'use-pouchdb'
 import { useDocumentLocalRemoteSwitching } from '../services/pouch';
 //import { DBListDoc } from '../types/characterTypes';
+import { getCharacterUrl, getGameUrl } from '../services/util';
 import LoginButton from './LoginButton';
 import { withGameContext, useGameDispatch, Action as GameAction } from './GameProvider';
 import { useGameContext } from './GameProvider';
+import CompileConstants from '../constants/CompileConstants';
 
 type GameMenuProps = {
 }
@@ -22,6 +24,7 @@ const GameMenu: React.FC = () => {
   const location = useLocation(); //access current page url and update when it changes
   const gameContext = useGameContext();
   const gameId: string = gameContext.gameId; //TODO: Wrapper component
+  const gameDisplayName = gameContext.gameDisplayName;
   const gameDispatch = useGameDispatch();
   const [fetchedWithLocal, setFetchedWithLocal] = useState<boolean | null>(null);
   const { rows, loading, state, error } = useView("list/list-chars"); 
@@ -42,7 +45,7 @@ const GameMenu: React.FC = () => {
     menuContent = (
       <>
         {rows!.map((row, index) => {
-          let url: string = "/game/"+gameId+"/"+row.id;
+          let url: string = getCharacterUrl(gameId, row.key);
           return (
             <IonMenuToggle key={index} autoHide={false}>
               <IonItem className={location.pathname === url ? 'selected' : ''} routerLink={url} routerDirection="forward" lines="none" detail={false}>
@@ -64,9 +67,15 @@ const GameMenu: React.FC = () => {
 
           {menuContent}
           {(gameId !== null) && <LoginButton />}
-
-          <IonMenuToggle key={rows.length} autoHide={false}>
-            <IonItem routerLink={"/page/Inbox"} routerDirection="back" lines="none" detail={false}>
+          {/* Wrap each link with menu toggle to close the menu when clicked */}
+          <IonMenuToggle key="game-page" autoHide={false}>
+            <IonItem routerLink={getGameUrl(gameId)} routerDirection="back" lines="none" detail={false}>
+              <IonIcon slot="start" ios={bookmarkOutline} md={bookmarkSharp} />
+              <IonLabel>{gameDisplayName} Main Page</IonLabel>
+            </IonItem>
+          </IonMenuToggle>
+          <IonMenuToggle key="home" autoHide={false}>
+            <IonItem routerLink={CompileConstants.HOME_PATH} routerDirection="back" lines="none" detail={false}>
               <IonIcon slot="start" ios={bookmarkOutline} md={bookmarkSharp} />
               <IonLabel>Home</IonLabel>
             </IonItem>
@@ -79,15 +88,3 @@ const GameMenu: React.FC = () => {
 };
 
 export default GameMenu;
-/*
-          {appPages.map((appPage, index) => {
-            return (
-              <IonMenuToggle key={index} autoHide={false}>
-                <IonItem className={location.pathname === appPage.url ? 'selected' : ''} routerLink={appPage.url} routerDirection="none" lines="none" detail={false}>
-                  <IonIcon slot="start" ios={appPage.iosIcon} md={appPage.mdIcon} />
-                  <IonLabel>{appPage.title}</IonLabel>
-                </IonItem>
-              </IonMenuToggle>
-            );
-          })}
-          */

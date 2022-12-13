@@ -5,7 +5,7 @@ import { swapVerticalOutline, swapVerticalSharp, chevronForward, chevronBack, tr
 //delete these 2
 import React, { useState, useEffect, useRef } from 'react';
 import { MoveOrder, ColumnDef, ColumnData, DataType } from '../types/characterTypes';
-import { isMoveOrder } from '../services/util';
+import { isMoveOrder } from '../services/columnUtil';
 import { cloneDeep, isEqual } from 'lodash';
 
 
@@ -196,7 +196,7 @@ const MoveOrdererModal: React.FC<MoveOrdererProps> = ({moveOrder: originalMoveOr
     const reduceIndent = indent > 0 ? <IonButton key="decrease" onClick={()=>changeIndent(index, indent-1)}><IonIcon icon={chevronBack} /></IonButton> : null;
     let buttons = [reduceIndent, increaseIndent];
     let indents = [];
-    for(let i=0; i<=indent; i++) {
+    for(let i=0; i <= indent; i++) {
       let key="spacer-"+i;
       indents.push(<div key={key} style={{width: "var(--indent-spacer-width)"}}></div>);
     }

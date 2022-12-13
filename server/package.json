@@ -7,11 +7,15 @@
     "start": "node dist/server.js",
     "dev": "concurrently \"npx tsc --watch\" \"nodemon -q dist/server.js\""
   },
+  "//dependencies": {
+    "react-router": "This is only here because shared util.ts uses its generatePath function"
+  },
   "dependencies": {
     "@perfood/couch-auth": "^0.18.2",
     "@rama41222/node-logger": "^1.0.1",
     "@sensu/superlogin": "^1.2.6",
     "@types/lodash": "^4.14.186",
+    "@types/react-router": "^5.1.19",
     "body-parser": "^1.20.0",
     "cookie-parser": "~1.4.4",
     "cors": "^2.8.5",
@@ -19,7 +23,8 @@
     "docker-secret": "^1.2.4",
     "express": "~4.16.1",
     "lodash": "^4.17.21",
-    "nano": "^10.0.0"
+    "nano": "^10.0.0",
+    "react-router": "^5.1.2"
   },
   "devDependencies": {
     "@types/cookie-parser": "^1.4.3",

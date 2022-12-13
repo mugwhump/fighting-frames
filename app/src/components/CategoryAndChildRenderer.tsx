@@ -1,5 +1,6 @@
 import React from 'react';
 import MoveOrUniversalProps, { MoveProps } from './MoveOrUniversalProps';
+import { IonItemDivider, } from '@ionic/react';
 
 //returns filtered name, whether it's a category, and # of indentation levels
 //export function extractName (name: string): [string, boolean, number] {
@@ -29,7 +30,7 @@ export const CategoryAndChildRenderer: React.FC<CatMoveProps> = ({name, isCatego
   return (
     <>
     { isCategory ?
-      <div>--------{name}----------</div>
+      <IonItemDivider color="medium">{name}</IonItemDivider>
     :
       <>{children}</>
     }

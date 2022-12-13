@@ -4,6 +4,8 @@ import {DataType} from '../types/characterTypes'; //==
 import type { FieldError } from '../types/utilTypes'; //==
 import { getChangedCols } from '../services/merging';
 import { SegmentUrl } from '../types/utilTypes';
+import { generatePath } from "react-router";
+import { CompileConstants } from '../constants/CompileConstants';
 
 //export function keys<T extends object>(obj: T): Array<keyof T> { //was always insisting keys could be string | number, maybe since number keys get coerced to strings
 export function keys<T extends object>(obj: T): Array<string> {
@@ -26,14 +28,39 @@ export function shallowCompare(obj1: any, obj2: any): boolean {
   }
 }
 
-export function getSegmentUri(gameId: string, character: string, segment: SegmentUrl): string {
-  return "/game/"+gameId+"/character/"+character+"/"+segment;
+export function getGameUrl(gameId: string): string {
+  return generatePath(CompileConstants.GAME_MATCH, {gameId: gameId});
 }
-export function getChangeUri(gameId: string, character: string, changeTitle: string): string {
-  return getSegmentUri(gameId, character, SegmentUrl.Changes) + '/' + changeTitle;
+export function getCharacterUrl(gameId: string, character: string): string {
+  return generatePath(CompileConstants.CHARACTER_MATCH, {gameId: gameId, character: character});
+}
+export function getSegmentUrl(gameId: string, character: string, segment: SegmentUrl): string {
+  if(segment === SegmentUrl.Base) return getCharacterUrl(gameId, character); //generatePath doesn't let segment be empty
+  return generatePath(CompileConstants.SEGMENT_MATCH, {gameId: gameId, character: character, segment: segment});
+}
+export function getChangeUrl(gameId: string, character: string, changeTitle: string): string {
+  return getSegmentUrl(gameId, character, SegmentUrl.Changes) + '/' + changeTitle;
+}
+export function getConfigurationUrl(gameId: string): string {
+  return generatePath(CompileConstants.CONFIGURATION_MATCH, {gameId: gameId});
+}
+export function getAddCharacterUrl(gameId: string): string {
+  return generatePath(CompileConstants.ADD_CHARACTER_MATCH, {gameId: gameId});
+}
+export function getDeleteCharacterUrl(gameId: string): string {
+  return generatePath(CompileConstants.DELETE_CHARACTER_MATCH, {gameId: gameId});
+}
+export function getAuthorizedUsersUrl(gameId: string): string {
+  return generatePath(CompileConstants.AUTHORIZED_USERS_MATCH, {gameId: gameId});
+}
+export function getCharDocId(character: string): string {
+  return 'character/'+character;
 }
 export function getChangeId(character: string, changeTitle: string): string {
   return `character/${character}/changes/${changeTitle}`;
+}
+export function getDocEditId(gameId: string, character: string): string {
+  return getSegmentUrl(gameId, character, SegmentUrl.Edit);
 }
 
 // Gets current time in alphabetically sortable ISO UTC format YYYY-MM-DDTHH:mm:ss.sssZ
@@ -193,6 +220,7 @@ export function unresolvedConflictInMove(moveConflicts: Readonly<T.Conflicts>): 
   return false;
 }
 
+/*
 //returns string converted to columnData, with "empty" or unconvertable data as undefined
 export function strToColData(str: string | undefined, type: T.DataType): T.ColumnData | undefined {
   if(!str || str.length === 0) return undefined;
@@ -204,8 +232,7 @@ export function strToColData(str: string | undefined, type: T.DataType): T.Colum
       return Number.parseFloat(str);
     }
     case DataType.Str:
-    case DataType.NumStr:
-    case DataType.Txt: {
+    case DataType.NumStr: {
       return str;
     }
     case DataType.Ord: {
@@ -241,7 +268,7 @@ export function checkInvalid(data: T.ColumnData | undefined, def: T.ColumnDef): 
   const colName = def.columnName;
   const dataType: DataType = def.dataType;
 
-  //TODO: check that this function receives undefined instead of empty strings or arrays
+  //TODO: check that this function actually receives undefined instead of empty strings or arrays
   // If column not required, undefined data passes all other checks
   if(data === undefined) {
     if(def.required) {
@@ -317,13 +344,13 @@ export function checkInvalid(data: T.ColumnData | undefined, def: T.ColumnDef): 
 
 
 export function isString(data: T.ColumnData, dataType: T.DataType): data is string {
-  return dataType === DataType.Str || dataType === DataType.Txt || dataType === DataType.NumStr;
+  return dataType === DataType.Str || dataType === DataType.NumStr;
 }
 export function isStringColumn(data: T.ColumnData, columnName: string): data is string {
   return columnName === "moveName";
 }
 export function isBasicString(data: T.ColumnData, dataType: T.DataType): data is string {
-  return dataType === DataType.Str || dataType === DataType.Txt;
+  return dataType === DataType.Str;
 }
 export function isNumber(data: T.ColumnData, dataType: T.DataType): data is number {
   return dataType === DataType.Num || dataType === DataType.Int;
@@ -338,3 +365,4 @@ export function isList(data: T.ColumnData, dataType: T.DataType): data is string
   return dataType === DataType.List;
 }
 
+*/
