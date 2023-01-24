@@ -1,0 +1,16 @@
+@value colors: './Character.module.css';
+@value colAdded, colDeleted from colors;
+
+
+.add::part(native) {
+    background-color: colAdded;
+}
+.delete::part(native) {
+    background-color: colDeleted;
+}
+.defPreview {
+    color: purple;
+}
+/*ion-item.defPreview::part(native)  {*/
+  /*background-color: transparent;*/
+/*}*/

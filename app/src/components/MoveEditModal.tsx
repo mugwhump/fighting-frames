@@ -1,11 +1,10 @@
-import { IonModal, IonItem, IonInput, IonItemGroup, IonItemDivider, IonButton, IonLabel, IonIcon, IonText } from '@ionic/react';
-import { warningOutline, warningSharp } from 'ionicons/icons';
+import { IonModal, IonContent, IonItem, IonInput, IonItemGroup, IonItemDivider, IonButton, IonLabel, IonNote, IonIcon, IonText } from '@ionic/react';
 import React, { useState, useRef, useEffect, useMemo, useCallback } from 'react';
-import ColumnDataEdit from './ColumnDataEdit';
+import ColumnDataEditWrapper from './ColumnDataEditWrapper';
 import type { Changes, AddMoveChanges , ColumnDef, ColumnDefs, Cols, ColumnData, ColumnDefAndData, DataType, ColumnChange, Add, Modify, Delete } from '../types/characterTypes'; //== 
 import type { FieldError } from '../types/utilTypes'; //==
 import { keys } from '../services/util';
-import { isString, isStringColumn, isMoveOrder, checkInvalid } from '../services/columnUtil';
+import { isMoveOrder, checkInvalid } from '../services/columnUtil';
 import { createChange, getInvertedMoveChanges } from '../services/merging';
 import { cloneDeep, isEqual } from 'lodash';
 import { useCharacterDispatch } from '../services/CharacterReducer';
@@ -147,7 +146,7 @@ const MoveEditModal: React.FC<MoveEditModalProps > = ({moveName, getDefsAndData,
   // Deleted moves only show option to un-delete
   if(clonedChanges.moveName?.type === "delete") {
     return (
-      <>
+      <IonContent>
       <IonItem key="header">
         <IonLabel>Restore move?</IonLabel>
       </IonItem>
@@ -156,12 +155,12 @@ const MoveEditModal: React.FC<MoveEditModalProps > = ({moveName, getDefsAndData,
         <IonButton onClick={() => resetChanges()}>Restore move</IonButton>
         <IonButton onClick={() => characterDispatch({actionType:'closeMoveEditModal'})}>Cancel</IonButton>
       </IonItem>
-      </>
+      </IonContent>
     );
   }
 
   return (
-    <>
+    <IonContent>
       <IonItem key="header">
         <IonLabel>Editing {displayName}</IonLabel>
       </IonItem>
@@ -171,7 +170,7 @@ const MoveEditModal: React.FC<MoveEditModalProps > = ({moveName, getDefsAndData,
           const err = fieldErrors[colName];
           if(!addingNewMove && colName === "moveName") return null;
           else return (
-            <MoveColumnInput key={colName} defData={defData} editSingleColumn={editSingleColumn} fieldError={err}/>
+            <ColumnDataEditWrapper key={colName} defData={defData} editSingleColumn={editSingleColumn} fieldError={err}/>
           );
         })}
       </IonItemGroup>
@@ -181,40 +180,8 @@ const MoveEditModal: React.FC<MoveEditModalProps > = ({moveName, getDefsAndData,
         {!addingNewMove && clonedChanges?.moveName?.type !== "add" && <IonButton disabled={!hasChanges} onClick={() => resetChanges()}>Undo All Changes</IonButton>}
         <IonButton onClick={() => characterDispatch({actionType:'closeMoveEditModal'})}>Cancel</IonButton>
       </IonItem>
-    </>
+    </IonContent>
   )
-}
-
-type MoveColumnInputProps = {
-  defData: Readonly<ColumnDefAndData>; 
-  editSingleColumn: (columnName: string, newData?: ColumnData) => void; 
-  fieldError: FieldError | undefined;
-}
-
-const MoveColumnInput: React.FC<MoveColumnInputProps> = ({defData, editSingleColumn, fieldError}) => {
-  //let jsx: JSX.Element[] = [];
-  //for(const defData of defsAndData) {
-  const colName = defData.columnName;
-  const colDisplayName = defData.def?.displayName ?? colName; //used for display
-  const labelPosition = (colName === "moveOrder") ? undefined : "floating";
-  const errorMSG = fieldError ? <IonText color="danger"><IonIcon ios={warningOutline} md={warningSharp} />   {fieldError.message}</IonText> : null;
-
-  if(!defData.def) {
-    //TODO: add component for stub data with no definition, display it and prompt for deletion
-    console.warn("Unable to find definition for column "+defData.columnName);
-    return (
-      <span>No definition for {colName} data {defData.data}</span>
-    );
-  }
-  else {
-    //TODO: use the "Helper and Error text" as described in ion-item's documentation
-    return (
-        <IonItem> 
-          <IonLabel className={defData.cssClasses.join(" ")} position={labelPosition}> {colDisplayName} {errorMSG} </IonLabel>
-          <ColumnDataEdit columnName={colName} colData={defData.data} colDef={defData.def} editSingleColumn={editSingleColumn} />
-        </IonItem> 
-    );
-  }
 }
 
 export default MoveEditModal;

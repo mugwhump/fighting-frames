@@ -32,6 +32,8 @@
     "react-router": "^5.1.2",
     "react-router-dom": "^5.1.2",
     "react-scripts": "^4.0.3",
+    "react-select": "^5.7.0",
+    "react-sortable-hoc": "^2.0.0",
     "react-tracked": "^1.7.9",
     "superlogin-client": "^0.8.0",
     "typescript": "^4.5.5",

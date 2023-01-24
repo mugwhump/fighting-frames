@@ -13,7 +13,7 @@ import { CharacterContextProvider, MiddlewareContext, MiddlewareSetterContext, M
 import { useGameContext, useGameDispatch, Action as GameAction } from './GameProvider';
 import { calculateHideBreakpoints } from '../services/renderUtil';
 import * as util from '../services/util';
-import { insertDefsAndSortGroups  } from '../services/columnUtil';
+import { insertDefsSortGroupsCompileRegexes   } from '../services/columnUtil';
 import HeaderPage from '../components/HeaderPage';
 import DefEditor from '../components/DefEditor';
 import * as T from '../types/characterTypes';
@@ -78,11 +78,11 @@ const Game: React.FC<GameProps> = () => {
 
 
   const modifiedUniversalPropDefs = useMemo(() => {
-    return insertDefsAndSortGroups (doc?.universalPropDefs ?? {}, true, true);
+    return insertDefsSortGroupsCompileRegexes  (doc?.universalPropDefs ?? {}, true, true, true);
   }, [doc?.universalPropDefs]);
 
   const modifiedColumnDefs = useMemo(() => {
-    let newDefs = insertDefsAndSortGroups (doc?.columnDefs ?? {}, false, true);
+    let newDefs = insertDefsSortGroupsCompileRegexes  (doc?.columnDefs ?? {}, false, true, true);
     calculateHideBreakpoints(newDefs);
     return newDefs;
   }, [doc?.columnDefs]);

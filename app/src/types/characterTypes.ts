@@ -34,19 +34,61 @@ export enum DataType {
   Int = "INTEGER",
   Num = "NUMBER", //floats are likely to be used for sizes/distances/speeds
   Str = "STRING",
+  //String with allowedValues restriction functions as a select
   //Txt = "TEXT",
   Ord = "MOVE_ORDER",
   //Img = "IMAGE", //would probably be a url or base64 blob
-  List = "LIST", //array of strings, allowed values can be constrained. For tags. Could use for height sequence (ie HLLL)
-  //ORDER?? For conflicts, same items in different order may be seen as different. Forcibly sort? New type, or optional prop indicating list is ordered?
-  //Use tags, or give each tag a "boolean" field? Less work for admins to make list of allowed vals...
-  //Ionic Select component can do multi-selection (if using alert instead of popover/action sheet)
+  List = "LIST", //array of strings, allowed values can be constrained. For tags. No duplicates.
+  //ORDER?? For conflicts, same items in different order may be seen as different. react-select keeps them in order defined by allowedValues.
   //TODO: a string which is searched for keywords which are used as tags? When filtering for tag, just searches the string?
   //keywords could also be moveNames
-  //TagStr = "TAG_STRING",
+  TagStr = "TAG_STRING",
+  // Can parse a List of allowedValues from a TagStr, can parse a Num or Str out of a NumStr
   NumStr = "NUMERIC_STRING", //for things that are usually numeric/sortable, but can be strings like "KDN" or "STN" or "LAUNCH"
-  // Can also be strings like 18(10+4+4) eg for multihit, or 8[-2] for moves that change. Takes beginning until punctuation as number. Parses as float.
+  // Can also be strings like 18(10+4+4) eg for multihit, or 8[-2] for moves that change, or KDN[-2]. Takes beginning until punctuation as number or string. Parses as float.
 };
+
+export type ColumnDef = {
+  columnName: string;
+} & ColumnDefDisplayText & ColumnDefRestrictions & ColumnDefStyling;
+
+// Text shown to user describing this column
+export type ColumnDefDisplayText = {
+  displayName?: string; //allows easier changing. Show columnName if absent.
+  shortName?: string; //like IMP, GRD, DMG, etc. Fits xs column widths.
+  hintText?: string; //Explain field to users
+  allowedValuesHints?: {[allowedValue: string]: string};
+  prefix?: string; //display 12 as i12
+  suffix?: string; //display 6.5 as 6.5%
+}
+// Expresses the shape of the data and restrictions on it, has everything needed for validation.
+export type ColumnDefRestrictions = {
+  dataType: DataType;
+  required: boolean; // Can't submit without required columns.
+  // Allowed and forbidden values do nothing with numbers (except numeric strings)
+  //mostly for strings or tags. For Numeric Strings, says the allowed strings. ORDERED LIST where # means number. ['-','#','KND','STN'] says how to sort. Reject if parses to float (eg '1A')
+  allowedValues?: string[];
+  forbiddenValues?: string[]; //for moveNames
+  minSize?: number; //length of [numeric] strings, number of tags, value of number.
+  maxSize?: number;
+  allowedRegex?: RegExp; //TODO: can RegExp serialize?
+  //hasMoveReference?: boolean, //whether to parse TagStr for references to another move, ie for cancels+followups, could click to jump to that move
+  //listDupesALlowed?: boolean; //would be for when lists allow dupes of same value eg) attack heights H,H,L,M... but react-select doesn't support dupes! Need to use tag str I guess
+}
+// Info about how column is styled, inc size and group
+export type ColumnDefStyling = {
+  group: DefGroup;
+  //cols without width specified will share remaining space, minimum width same as "auto". "auto" fits to content... but could be awkward. 
+  // "size" prop by default specifies xs and up; more entries override larger breakpoints. Must define xs.
+  widths?: {[key in SizeBreakpoint]?: number}; //can give key undefined value to share remaining space in row. If needsHeader, must define numeric widths. Warn if first cols don't add to 12.
+  _calculatedTableHeaderHideClass ?: string;
+  _calculatedMoveHeaderHideClass ?: string;
+  // Performance hack, compile regexes when defs are loaded instead of every time column renders.
+  _compiledNumStrRegex?: RegExp;
+  _compiledTagStrRegex?: RegExp;
+  //TODO: compile after loading. If applyViaSplit, use string.split(regex) to apply to individual spans of text instead of the outer cell
+  cssRegex?: {regex: string, _compiled_regex?: RegExp, css: string, applyViaSplit?: boolean}[]; 
+}
 
 export type Breakpoint =  "xs" | "sm" | "md" | "lg" | "xl";
 export const BPList: Readonly<Breakpoint[]> = ["xs", "sm", "md", "lg", "xl"];
@@ -59,32 +101,7 @@ export type SizeBreakpoint =  `size-${Breakpoint}`;
 export type DefGroup = "meta" | "title" | "needsHeader" | "normal" | "defaultHideNeedsHeader" | "defaultHide" | "no-definition";
 export const groupList : Readonly<DefGroup[]> = ["title", "needsHeader", "normal", "defaultHideNeedsHeader", "defaultHide"]; //groups that can actually be assigned to by users
 export const groupListAll : Readonly<DefGroup[]> = ["meta", "title", "needsHeader", "normal", "defaultHideNeedsHeader", "defaultHide", "no-definition"];
-export type ColumnDef = {
-  columnName: string;
-  displayName?: string; //allows easier changing. Show columnName if absent.
-  shortName?: string; //like IMP, GRD, DMG, etc. Fits xs column widths.
-  hintText?: string; //Explain field to users
-  dataType: DataType;
-  prefix?: string; //display 12 as i12
-  suffix?: string; //display 6.5 as 6.5%
-  //width?: Breakpoints | "auto"; //cols without width specified will share remaining space, minimum width same as "auto". "auto" fits to content... but could be awkward. 
 
-  // "size" prop by default specifies xs and up; more entries override larger breakpoints. Must define xs.
-  widths?: {[key in SizeBreakpoint]?: number}; //can give key undefined value to share remaining space in row. If needsHeader, must define numeric widths. Warn if first cols don't add to 12.
-  _calculatedTableHeaderHideClass ?: string;
-  _calculatedMoveHeaderHideClass ?: string;
-  group: DefGroup;
-  cssRegex?: {regex: RegExp, css: string}; //TODO: can RegExp serialize? Prob gotta do it manually.
-  // Things db admins can set as required (damage etc) vs universalProps *I* can set as required (character display name, move order)
-  // If they're my requirements, hardcode that into the codebase
-  required: boolean; // Can't submit without required columns.
-  allowedValues?: string[];//mostly for strings or tags. For Numeric Strings, says the allowed strings. ORDERED LIST where # means number. ['-','#','KND','STN'] says how to sort.
-  forbiddenValues?: string[]; //for moveNames
-  minSize?: number; //length of strings, number of tags, value of number
-  maxSize?: number;
-  allowedRegex?: RegExp; //TODO: can RegExp serialize?
-  //hasMoveReference?: boolean, //whether to parse TagStr for references to another move, ie for cancels+followups, could click to jump to that move
-}
 export type ColumnDefs = {
   [columnName: string]: ColumnDef | undefined;
 }

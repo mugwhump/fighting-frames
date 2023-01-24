@@ -1,0 +1,29 @@
+
+.editorSelect {
+    padding: 10px 0px;
+    width: 100%;
+}
+
+.helperText {
+    color: gray;
+    font-style: italic;
+}
+
+.previewLabel {
+    background-color: #222222;
+    color: white;
+    padding: 8px 12px;
+    /*width: 20%;*/
+    display: inline-flex;
+    align-self: stretch;
+}
+.previewContent {
+    padding: 8px 12px;
+    display: inline-flex;
+    align-self: stretch;
+}
+.previewRow {
+    /*display: flex;*/
+    /*padding: 8px 12px;*/
+    border-bottom: 1px solid black;
+}

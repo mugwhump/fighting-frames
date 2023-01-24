@@ -15,9 +15,13 @@ export let CompileConstants = {
   AUTHORIZED_USERS_MATCH: "/game/:gameId/authorized-users",
   HOME_PATH: "/page/Inbox",
 
+  //Auth
   AUTH_TIMEOUT_SECONDS: 3600,
   DEFAULT_CREDENTIALS: {username: "public", password: "password"} as Credentials,
   DEFAULT_USER_ROLES: ["read"] as string[],
+
+  //UI
+  TEXT_AREA_CHARACTERS: 80, //string columns get a textarea input if maxSize is >= this value
 } as const;
 
 export default CompileConstants;

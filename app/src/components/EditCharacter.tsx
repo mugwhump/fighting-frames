@@ -61,6 +61,12 @@ export const EditCharacter: React.FC<EditCharProps> = ({gameId, columnDefs, univ
     );
   }, []);
 
+  useEffect(() => {
+    return () => {
+      console.log('EditCharacter unmounting')
+    }
+  },[])
+
   const tryUndoUniversalPropChangesCallback = useCallback((state: State, action, dispatch) => {
     const changeList = state.editChanges;
     const propChanges = changeList?.universalPropChanges;
@@ -270,12 +276,15 @@ export const EditCharacter: React.FC<EditCharProps> = ({gameId, columnDefs, univ
         }
       }
       moveNameDef.forbiddenValues = forbidden;
-      //defs = {moveName: moveNameDef, ...defs}; //ensure moveName at front 
       defs.moveName = moveNameDef;
     }
     return getDefsAndData(defs, cols, changes);
   }, [charDoc, changeList, universalPropDefs, columnDefs]);
 
+  /*
+     TODO: currently (as of Jan 23 2023 on v6.0.8), navigating away while the modal is open causes an error from the modal trying to call its onDidDismiss event.
+     This is being fixed in upcoming Ionic version, see https://github.com/ionic-team/ionic-framework/pull/26245 and https://github.com/ionic-team/ionic-framework/issues/25775
+  */
 
   return (
     <>

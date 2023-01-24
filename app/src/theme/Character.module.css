@@ -15,6 +15,7 @@
 @value colTheirs: #e38523;
 
 @value colSuperText: #555555;
+@value colTag: #BBBBBB;
 
 @value conflictBorderStyle: dashed;
 @value conflictBorderWidth: 2px;
@@ -77,3 +78,36 @@
 .tableHeaderCol {
     border: solid 1px black;
 }
+
+.numStrVal {
+    font-weight: bold;
+}
+.tagStrTag {
+    font-weight: bold;
+    padding: 0px 5px;
+    background-color: colTag;
+    border-radius: 5px;
+    border: 1px dotted #444444;
+}
+.dataVal {
+    white-space:pre;
+}
+.dataPrefix {
+}
+.dataSuffix {
+}
+
+.helperNote {
+    padding: 0;
+}
+.prefixNote {
+    margin: 0;
+    position: relative;
+    top: 9px;
+}
+.suffixNote {
+    margin: 0;
+    position: relative;
+    top: 9px;
+}
+
