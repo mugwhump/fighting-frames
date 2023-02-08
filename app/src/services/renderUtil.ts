@@ -65,7 +65,7 @@ export function bpGTE(bp1: T.Breakpoint, bp2: T.Breakpoint) {
 }
 
 // Modifies defs to add _calculateHeaderHideBP and _calculatedTableHeaderHideClass when applicable
-// If previewingSpecificWidth=md for example, then instead of responsive .ion-hide-md-up class, will just add .ion-hide if width is md or higher
+// If previewingSpecificWidth=md for example, then instead of responsive .ion-hide-md-up class, will just add .ion-hide if preview width is md or higher
 export function calculateHideBreakpoints(defs: T.ColumnDefs, previewingSpecificWidth?: T.Breakpoint) {
   //xs [12] [24] [36]
   //sm [10] [20] [30]
@@ -74,7 +74,7 @@ export function calculateHideBreakpoints(defs: T.ColumnDefs, previewingSpecificW
   //xl [04] [08] [12]
   // [hide-lg-down],[hide-lg-down],[hide-xl-down] <- header row
   // [hide-lg-up],[hide-lg-up],[hide-xl-up] <- move col headers
-  // requires higher breakpoints to have <= sizes
+  // requires higher breakpoints to have lower or equal sizes
   // Ionic's hide class is inclusive for up, non-inclusive for down. So .ion-hide-md-down doesn't hide at md breakpoint.
   let accumulatedSizes: Record<T.Breakpoint, number> =  {xs: 0, sm: 0, md: 0, lg: 0, xl: 0};
   let index = 0;
@@ -129,7 +129,6 @@ export function calculateHideBreakpoints(defs: T.ColumnDefs, previewingSpecificW
   }
   //console.log("Accumulated sizes: " + JSON.stringify(accumulatedSizes));
 }
-
 
 /**
 if editing or resolving rebase/merge, show preferred order (if conflict) with deleted or conflicting moves 

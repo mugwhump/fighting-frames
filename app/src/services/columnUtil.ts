@@ -3,29 +3,34 @@ import * as T from '../types/characterTypes';
 import * as util from '../services/util';
 import type { FieldError } from '../types/utilTypes'; //==
 import { specialDefs } from '../constants/internalColumns';
-import { cloneDeep } from 'lodash';
+import { cloneDeep, sortBy } from 'lodash';
 
-//Inserts required definitions defined in internalColumns, and meta definitions if desired.
+//Inserts mandatory definitions defined in internalColumns, and meta/builtin definitions if desired.
 //Also optionally compile regexes to do highlighting for NumStr and TagStr columns.
-export function insertDefsSortGroupsCompileRegexes(defs: Readonly<T.ColumnDefs>, isUniversalProps: boolean, insertMeta: boolean, compileRegexes: boolean) {
+export function insertDefsSortGroupsCompileRegexes(defs: Readonly<T.ColumnDefs>, isUniversalProps: boolean, insertBuiltin: boolean, compileRegexes: boolean) {
   const path = isUniversalProps ? "universalPropDefs" : "columnDefs";
   let newDefs = cloneDeep<T.ColumnDefs>(defs);
 
-  //meta at front
-  if(insertMeta) {
-    newDefs = {...specialDefs.meta[path], ...newDefs}; 
+  //builtin defs at front
+  if(insertBuiltin) {
+    newDefs = {...specialDefs.builtin[path], ...newDefs}; 
   }
-  //insert required defs if missing, but don't overwrite
-  for(const [key, def] of util.keyVals(specialDefs.required[path])) {
+  //insert mandatory defs if missing, but don't overwrite
+  console.log("Defs before mandatory added: " + util.keys(newDefs));
+  for(const [key, def] of util.keyVals(specialDefs.mandatory[path])) {
     if(!def) continue;
     if(!newDefs[key]) {
-      newDefs[key] = def;
+      newDefs[key] = specialDefs.mandatoryWithSuggested[path][key] ?? def;
+    }
+    else { //if admins have a definition for this column, just override the properties they can't change
+      newDefs[key] = {...newDefs[key], ...def};
     }
   }
+  console.log("Defs after mandatory added: " + util.keys(newDefs));
   let result: T.ColumnDefs = {};
   const order: Readonly<string[]> = util.keys(newDefs);
 
-  // Loop over groups to ensure they're all present and newDefs are properly ordered
+  // Loop over groups to ensure they're all present and newDefs are properly ordered, also compile regexes
   let nextItemIndex = 0;
   for(let group of T.groupListAll) {
     for(let key of order) {
@@ -50,6 +55,48 @@ export function insertDefsSortGroupsCompileRegexes(defs: Readonly<T.ColumnDefs>,
     }
   }
   return result;
+}
+
+export function repairOrder(order: Readonly<string[]>, defs: Readonly<T.ColumnDefs>): string[] {
+  let newOrder: string[] = sortBy(order, (key: string) => {
+    let keyDef = defs[key];
+    if(!keyDef) console.error(`Error repairing order, cannot find def for ${key}`);
+    return keyDef ? T.groupList.indexOf(keyDef.group) : 999;
+  });
+  return newOrder;
+}
+
+// Returns an ordered array of widths at each breakpoint, using widths from lower BPs if current BP has no width. 
+// If no width for size-xs, items will be undefined until a width is specified. But the def editor is not supposed to allow that.
+export function getColWidths(widths?: T.ColumnDef['widths']): (number | undefined)[] | undefined {
+  if(widths) {
+    if(!widths['size-xs']) {
+      //console.warn(`Widths are defined, but not for the xs breakpoint.`);
+    }
+    let result: (number | undefined)[] = [];
+    let lastWidth: number | undefined;
+    for(const bp of T.BPList) {
+      const width = widths[`size-${bp}`];
+      result.push(width || lastWidth);
+      if(width) {
+        lastWidth = width;
+      }
+    }
+    return result;
+  }
+  return undefined;
+}
+export function getWidthAtBP(bp: T.Breakpoint, widths: T.ColumnDef['widths']): number | undefined {
+  if(!widths) return undefined;
+  const prevWidth: (bp: T.Breakpoint) => T.Breakpoint | undefined = (bp: T.Breakpoint) => bp==='xl' ? 'lg' : bp==='lg' ? 'md' : bp==='md' ? 'sm' : bp==='sm' ? 'xs' : undefined;
+  //let width: number | undefined = widths[`size-${bp}`];
+  let currentBP: T.Breakpoint | undefined = bp;
+  while(currentBP) {
+    const width = widths[`size-${currentBP}`];
+    if(width) return width;
+    currentBP = prevWidth(currentBP);
+  }
+  return undefined;
 }
 
 
@@ -150,7 +197,8 @@ export function checkInvalid(data: T.ColumnData | undefined, def: T.ColumnDefRes
   const dataType: T.DataType = def.dataType;
 
   //check that this function actually receives undefined instead of empty strings or arrays
-  if(data === "" || data === null || (Array.isArray(data) && data.length===0)) {
+  //make exception for admins creating new columns that start with empty columnNames
+  if((data === "" && colName !== "columnName") || data === null || (Array.isArray(data) && data.length===0)) {
     console.error("checkInvalid received empty-ish data for "+def.columnName+" instead of undefined");
   }
 
@@ -167,7 +215,7 @@ export function checkInvalid(data: T.ColumnData | undefined, def: T.ColumnDefRes
   // Parse out NumericStrings which could effectively be a number or string value. If they have a number, stringValue will be the full string.
   let stringValue: null | string = (isString(data, dataType)) ? data : null;
   let numberValue: null | number = (isNumber(data, dataType)) ? data : null;
-  //TODO: listValue... don't think TagStr needs it for anything
+  //TODO: listValue... don't think TagStr needs it for anything. Make sure nothing starts/ends with whitespace, and that vals are unique, and they're in allowedVals (if multiselect)
 
   if(isNumericString(data, dataType)) {
     let numOrStr = parseNumStrVal(data, def);
@@ -176,7 +224,7 @@ export function checkInvalid(data: T.ColumnData | undefined, def: T.ColumnDefRes
     }
     else if(numOrStr === undefined) {
       const allowedMsg = def.allowedValues ? "or one of " + def.allowedValues.join(', ') : "";
-      return {columnName: colName, message: "Please enter number without beginning punctuation " + allowedMsg};
+      return {columnName: colName, message: "Must begin with number or one of " + allowedMsg};
     }
   }
   else if(isTagString(data, dataType)) {

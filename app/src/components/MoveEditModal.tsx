@@ -99,6 +99,7 @@ const MoveEditModal: React.FC<MoveEditModalProps > = ({moveName, getDefsAndData,
 
 
   function submit(): void {
+    //TODO: trim spaces for strings
     if(addingNewMove) {
       characterDispatch({actionType: 'addMove', moveChanges: clonedChanges as AddMoveChanges});
     }

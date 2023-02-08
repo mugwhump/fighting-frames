@@ -71,7 +71,8 @@ export type ColumnDefRestrictions = {
   forbiddenValues?: string[]; //for moveNames
   minSize?: number; //length of [numeric] strings, number of tags, value of number.
   maxSize?: number;
-  allowedRegex?: RegExp; //TODO: can RegExp serialize?
+  allowedRegex?: string;
+  _compiledAllowedRegex?: RegExp;
   //hasMoveReference?: boolean, //whether to parse TagStr for references to another move, ie for cancels+followups, could click to jump to that move
   //listDupesALlowed?: boolean; //would be for when lists allow dupes of same value eg) attack heights H,H,L,M... but react-select doesn't support dupes! Need to use tag str I guess
 }
@@ -81,12 +82,13 @@ export type ColumnDefStyling = {
   //cols without width specified will share remaining space, minimum width same as "auto". "auto" fits to content... but could be awkward. 
   // "size" prop by default specifies xs and up; more entries override larger breakpoints. Must define xs.
   widths?: {[key in SizeBreakpoint]?: number}; //can give key undefined value to share remaining space in row. If needsHeader, must define numeric widths. Warn if first cols don't add to 12.
+  dontRenderEmpty?: boolean; //if true, does not display this column when it has no data. Doesn't work in needsHeader group. Should this be a group? Must they be adjacent?
   _calculatedTableHeaderHideClass ?: string;
   _calculatedMoveHeaderHideClass ?: string;
   // Performance hack, compile regexes when defs are loaded instead of every time column renders.
   _compiledNumStrRegex?: RegExp;
   _compiledTagStrRegex?: RegExp;
-  //TODO: compile after loading. If applyViaSplit, use string.split(regex) to apply to individual spans of text instead of the outer cell
+  //compile after loading. If applyViaSplit, use string.split(regex) to apply to individual spans of text instead of the outer cell
   cssRegex?: {regex: string, _compiled_regex?: RegExp, css: string, applyViaSplit?: boolean}[]; 
 }
 

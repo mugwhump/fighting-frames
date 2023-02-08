@@ -1,27 +1,23 @@
-import { IonIcon, IonItem, IonItemGroup, IonGrid, IonRow, IonCol, IonButton, useIonAlert, IonContent, IonModal, IonSelect, IonSelectOption } from '@ionic/react';
-import React, { useEffect, useState, useMemo, useCallback } from 'react';
+import { IonIcon, IonItem, IonGrid, IonRow, IonCol, IonButton, IonLabel, useIonAlert, IonContent, IonModal, IonSelect, IonSelectOption } from '@ionic/react';
+import React, { useEffect, useState, useCallback } from 'react';
 import { swapVerticalOutline, swapVerticalSharp } from 'ionicons/icons';
-import { CharacterContextProvider, MiddlewareContext, MiddlewareSetterContext, Middleware } from '../services/CharacterReducer';
-import { useGameContext, useGameDispatch, Action as GameAction } from './GameProvider';
+import * as T from '../types/characterTypes';
+import { keys, keyVals } from '../services/util';
+import { insertDefsSortGroupsCompileRegexes, repairOrder } from '../services/columnUtil';
 import HeaderPage from './HeaderPage';
 import DefEditModal from './DefEditModal';
 import DefOrdererModal from './DefOrdererModal';
-import * as T from '../types/characterTypes';
-import { keys, keyVals } from '../services/util';
-import { isString, isMoveOrder, } from '../services/columnUtil';
-import { calculateHideBreakpoints } from '../services/renderUtil';
-import { insertDefsSortGroupsCompileRegexes   } from '../services/columnUtil';
-import { cloneDeep, isEqual, set, remove } from 'lodash';
-import ColumnHeaders from './ColumnHeaders';
-import CompileConstants from '../constants/CompileConstants';
+import DefAddModal from './DefAddModal';
+import DefEditCollection from './DefEditCollection';
+import HelpPopup from './HelpPopup';
+import { cloneDeep, isEqual, set, remove, sortBy } from 'lodash';
 import characterStyles from '../theme/Character.module.css';
 import styles from '../theme/DefEditor.module.css';
-import Select  from 'react-select'; //testing
 
 
 export type DesignDocChanges = Partial<T.DesignDoc> & {
   //if order is changed, it's shown here. Additions are added but deletions aren't removed.
-  //These are differences compared to the cloned doc, which has required defs added if missing, and defs sorted by group if they were out of place.
+  //These are differences compared to the cloned doc, which has mandatory defs added if missing, and defs sorted by group if they were out of place.
   changedOrders?: {
     universalPropDefs?: string[];
     columnDefs?: string[];
@@ -31,30 +27,33 @@ export type DesignDocChanges = Partial<T.DesignDoc> & {
     columnDefs?: string[];
   }
 };
-export type DefEditObj = {defName: string, isUniversalProp: boolean, propOrColPath: "universalPropDefs" | "columnDefs", wasAdded?: boolean, wasDeleted?: boolean};
+export type DefEditObj = {defName: string, isUniversalProp: boolean, propOrColPath: "universalPropDefs" | "columnDefs", wasAdded?: boolean, wasDeleted?: boolean, 
+  isSuggested?: boolean, isMandatory?: boolean};
 
 type DefEditorProps = {
-  designDoc: T.DesignDoc; //does NOT contain modified definitions
+  designDoc: T.DesignDoc; //does NOT contain modified definitions, they're straight from DB
 }
 const DefEditor: React.FC<DefEditorProps> = ({designDoc}) => {
   const [docChanges, setDocChanges] = useState<DesignDocChanges>({}); 
-  const [clonedDoc, setClonedDoc] = useState<T.DesignDoc>(cloneDesignDocStripMetaAddRequired);
+  const [clonedDoc, setClonedDoc] = useState<T.DesignDoc>(cloneDesignDocStripMetaAddMandatory);
   const [defToEdit, setDefToEdit] = useState<DefEditObj | null>(null); //null when not editing, defName is empty string when adding new def
   const [showReorderModal, setShowReorderModal] = useState<'props' | 'cols' | null>(null);
+  const [showAddDefModal, setShowAddDefModal] = useState<'props' | 'cols' | null>(null);
   const [presentAlert, dismissAlert] = useIonAlert(); 
-  const [previewBreakpoint, setPreviewBreakpoint] = useState<T.Breakpoint>('xs');
-  let defObjBeingEdited: T.ColumnDef | undefined = undefined; //undefined if not editing or adding new def
+  const [previewBreakpoint, setPreviewBreakpoint] = useState<T.Breakpoint | undefined>(undefined);
+  let defObjBeingEdited: T.ColumnDef | undefined = undefined; //undefined if not editing or if adding new def
   if(defToEdit && defToEdit.defName !== "") {
-    if(defToEdit.isUniversalProp) {
-      defObjBeingEdited = docChanges?.universalPropDefs?.[defToEdit.defName] || clonedDoc.universalPropDefs?.[defToEdit.defName];
-    }
-    else {
-      defObjBeingEdited = docChanges?.columnDefs?.[defToEdit.defName] || clonedDoc.columnDefs?.[defToEdit.defName];
-    }
+    defObjBeingEdited = docChanges?.[defToEdit.propOrColPath]?.[defToEdit.defName] || clonedDoc[defToEdit.propOrColPath]?.[defToEdit.defName];
+    //if(defToEdit.isUniversalProp) {
+      //defObjBeingEdited = docChanges?.universalPropDefs?.[defToEdit.defName] || clonedDoc.universalPropDefs?.[defToEdit.defName];
+    //}
+    //else {
+      //defObjBeingEdited = docChanges?.columnDefs?.[defToEdit.defName] || clonedDoc.columnDefs?.[defToEdit.defName];
+    //}
   }
 
 
-  function cloneDesignDocStripMetaAddRequired(): T.DesignDoc {
+  function cloneDesignDocStripMetaAddMandatory(): T.DesignDoc {
     let newDoc = cloneDeep<T.DesignDoc>(designDoc);
     //strip out definitions with "meta" group. There shouldn't be any of those in the DB document, though... probably.
     for(const [key, def] of keyVals(newDoc.universalPropDefs)) {
@@ -68,7 +67,7 @@ const DefEditor: React.FC<DefEditorProps> = ({designDoc}) => {
       }
     }
 
-    //Add required columns and sort by group
+    //Add mandatory columns and sort by group
     newDoc.universalPropDefs = insertDefsSortGroupsCompileRegexes(newDoc.universalPropDefs, true, false, false);
     newDoc.columnDefs = insertDefsSortGroupsCompileRegexes(newDoc.columnDefs, false, false, false);
     return newDoc;
@@ -126,6 +125,7 @@ const DefEditor: React.FC<DefEditorProps> = ({designDoc}) => {
   }, [designDoc, clonedDoc, docChanges, defToEdit]);
 
   function getUpdatedDoc(doc: T.DesignDoc, changes: DesignDocChanges): T.DesignDoc {
+    //apply changed defs, strip out deleted and apply new order 
     return doc;
   }
 
@@ -134,15 +134,27 @@ const DefEditor: React.FC<DefEditorProps> = ({designDoc}) => {
     console.log("Called updateDef with def " + JSON.stringify(def));
     if(!defToEdit) return "Error finding definition to edit";
     const path = defToEdit.propOrColPath;
-    let newChanges = {...docChanges};
+    let newChanges = cloneDeep<DesignDocChanges>(docChanges);
     set(newChanges, `${path}.${def.columnName}`, def); 
-    if(defToEdit.defName === "") {//new defs are added at end of order
-      //return error if trying to give def a name that's already in use TODO: test
-      if(keys({...clonedDoc[path], ...newChanges[path]}).includes(def.columnName)) {
-        return "Column name "+def.columnName+" is already in use.";
-      }
-      const orderArrayLength = newChanges?.changedOrders?.[path!]?.length ?? 0;
-      set(newChanges, `changedOrders.${path}[${orderArrayLength}]`, def.columnName);
+
+    //return error if trying to give new, non-suggested def a name that's already in use
+    if(defToEdit.defName === "" && keys({...clonedDoc[path], ...docChanges[path]}).includes(def.columnName)) {
+      return "Column ID "+def.columnName+" is already in use.";
+    }
+
+    //If def is just being added now, put new def in order at end of its group
+    if(defToEdit.wasAdded && !docChanges?.[path]?.[def.columnName]) {
+      let order: string[] = docChanges.changedOrders?.[path] || keys(clonedDoc[path]);
+      order.push(def.columnName);
+      let newOrder = repairOrder(order, {...clonedDoc[path], ...newChanges[path]});
+      set(newChanges, `changedOrders.${path}`, newOrder);
+      console.log(`Added column ${def.columnName} to order, new order is ${newChanges.changedOrders![path]}`);
+    }
+    else if(defToEdit.defName !== def.columnName) { //if changed columnName of existing column
+      //TODO: add new one w/ new key to changes, add... old one to deletions? And update order with new key where old one was??
+      //UI ensures can't change column that's been deleted
+      console.log("If edited, new docChanges would be" + JSON.stringify(newChanges));
+      return "Cannot change name of existing column " + defToEdit.defName + " to " + def.columnName;
     }
     setDocChanges(newChanges);
     return false;
@@ -152,7 +164,7 @@ const DefEditor: React.FC<DefEditorProps> = ({designDoc}) => {
   const deleteDefCallback = useCallback((defName: string) => {
     console.log("Called deleteDef for def " + defName);
     if(!defToEdit) return;
-    let newChanges: DesignDocChanges = {...docChanges}; //NOTE: intermediate object references aren't updated
+    let newChanges = cloneDeep<DesignDocChanges>(docChanges);
     //set(newChanges, `${defToEdit.propOrColPath}.${defName}`, undefined);
     const orderArrayLength = newChanges?.deletedDefs?.[defToEdit.propOrColPath!]?.length ?? 0;
     set(newChanges, `deletedDefs.${defToEdit.propOrColPath}[${orderArrayLength}]`, defName);
@@ -160,39 +172,58 @@ const DefEditor: React.FC<DefEditorProps> = ({designDoc}) => {
   }, [clonedDoc, defToEdit, docChanges]);
 
 
+  //Undoes changes to existing columns, deletes newly-added columns. Makes appropriate changes to order.
+  //If un-deleting an existing column, doesn't undo previous changes to it.
   const resetDefCallback = useCallback((defName: string) => {
     console.log("Called resetDef for def " + defName);
     if(!defToEdit || !defToEdit.propOrColPath) return;
-    let newChanges = {...docChanges};
+    const path = defToEdit.propOrColPath;
+    let newChanges = cloneDeep<DesignDocChanges>(docChanges);
 
-    if(defToEdit.isUniversalProp && newChanges.universalPropDefs) {
-      delete newChanges?.universalPropDefs?.[defName];
-      if(keys(newChanges?.universalPropDefs).length === 0) delete newChanges.universalPropDefs;
+    //If it was deleted, remove from deletions and DON'T reset other changes that might have been made
+    if(defToEdit.wasDeleted) {
+      remove(newChanges.deletedDefs?.[path] || [], ((x) => x === defName));
     }
-    else if(!defToEdit.isUniversalProp && newChanges.columnDefs) {
-      delete newChanges?.columnDefs?.[defName];
-      if(keys(newChanges?.columnDefs).length === 0) delete newChanges.columnDefs;
+    else {
+      //undo the def changes
+      if(defToEdit.isUniversalProp && newChanges.universalPropDefs) {
+        delete newChanges?.universalPropDefs?.[defName];
+        if(keys(newChanges?.universalPropDefs).length === 0) delete newChanges.universalPropDefs;
+      }
+      else if(!defToEdit.isUniversalProp && newChanges.columnDefs) {
+        delete newChanges?.columnDefs?.[defName];
+        if(keys(newChanges?.columnDefs).length === 0) delete newChanges.columnDefs;
+      }
+      //Undo any ordering changes
+      const changedOrder = newChanges.changedOrders?.[path];
+      if(changedOrder) {
+        //If it was added, remove from order
+        if(defToEdit.wasAdded) {
+          remove(changedOrder, ((x) => x === defName)); 
+          if(keys(changedOrder).length === 0) delete newChanges.changedOrders?.[path];
+        }
+        //if a reorder changed a non-added col's group, this resets its group, so must fix order. 
+        //TODO: maybe have resetting not reset its order/group by making new changed def w/ just group change?
+        else if(docChanges[path]?.[defName] && docChanges[path]?.[defName]?.group !== clonedDoc[path][defName]?.group) {
+          presentAlert(`Column ${defName} was moved to back to group ${clonedDoc[path][defName]?.group}, please check its order inside the group`);
+          let repairedOrder = repairOrder(changedOrder, {...clonedDoc[path], ...newChanges[path]});
+          set(newChanges, `changedOrders.${path}`, repairedOrder);
+        }
+      }
     }
-    //If it was new, remove from order
-    //TODO: empty parent objs not deleted
-    if(!clonedDoc[defToEdit.propOrColPath][defName] && newChanges.changedOrders?.[defToEdit.propOrColPath]) {
-      remove(newChanges.changedOrders[defToEdit.propOrColPath]!, ((x) => x === defName));
-    }
-    //If it was deleted, remove from deletions
-    remove(newChanges.deletedDefs?.[defToEdit.propOrColPath] || [], ((x) => x === defName));
 
     setDocChanges(newChanges);
   }, [clonedDoc, defToEdit, docChanges]);
 
-  const reorderCallback = useCallback((changes: DesignDocChanges) => {
+  const setDocChangesCallback = useCallback((changes: DesignDocChanges) => {
     setDocChanges(changes);
   }, [docChanges])
 
   function chooseBreakpoint(e: any) {
-    setPreviewBreakpoint(e.detail.value as T.Breakpoint);
+    setPreviewBreakpoint(e.detail.value !== "undefined" ? e.detail.value as T.Breakpoint : undefined);
   }
 
-  const itemClicked = useCallback((editObj: DefEditObj) => {
+  const setDefToEditCallback = useCallback((editObj: DefEditObj) => {
     setDefToEdit(editObj);
   }, [clonedDoc, docChanges]);
 
@@ -204,43 +235,91 @@ const DefEditor: React.FC<DefEditorProps> = ({designDoc}) => {
     setShowReorderModal(null);
   }, []);
 
+  const dismissAddDefCallback  = useCallback(() => {
+    setShowAddDefModal(null);
+  }, []);
+
   return (
     <>
-    <HeaderPage title={"Editing configuration for " + clonedDoc.displayName}>
+    <HeaderPage title={"Editing config for " + clonedDoc.displayName}>
       <IonContent fullscreen>
+
         <IonModal isOpen={defToEdit !== null} onDidDismiss={dismissEditorCallback} backdropDismiss={false} >
-          <DefEditModal defEditingInfo={defToEdit || {defName:"", isUniversalProp:false, propOrColPath:"columnDefs"}} colDef={defObjBeingEdited} updateDefCallback={updateOrAddDefCallback }
-            deleteDefCallback={deleteDefCallback} resetDefCallback={resetDefCallback} dismissModalCallback={dismissEditorCallback } />
+          {defToEdit &&
+            ((docChanges.deletedDefs?.[defToEdit.propOrColPath]?.includes(defToEdit.defName)) 
+            ?  <IonContent>
+                <IonItem key="header">
+                  <IonLabel>Restore deleted column?</IonLabel>
+                </IonItem>
+                <IonItem>The column {defToEdit?.defName} has been deleted. Would you like to restore it?</IonItem>
+                <IonItem key="footer">
+                  <IonButton onClick={() => {resetDefCallback(defToEdit!.defName); dismissEditorCallback()}}>Restore column</IonButton>
+                  <IonButton onClick={dismissEditorCallback}>Cancel</IonButton>
+                </IonItem>
+              </IonContent>
+            : <DefEditModal defEditingInfo={defToEdit || {defName:"", isUniversalProp:false, propOrColPath:"columnDefs"}} colDef={defObjBeingEdited} updateDefCallback={updateOrAddDefCallback }
+              deleteDefCallback={deleteDefCallback} resetDefCallback={resetDefCallback} dismissModalCallback={dismissEditorCallback } />
+            )}
         </IonModal>
+
         <IonModal isOpen={showReorderModal === 'props'} onDidDismiss={dismissReordererCallback}>
-          <DefOrdererModal doc={clonedDoc} docChanges={docChanges} isUniversalProps={true} changeDefOrder={reorderCallback} dismissModalCallback={dismissReordererCallback} />
+          <DefOrdererModal doc={clonedDoc} docChanges={docChanges} isUniversalProps={true} changeDefOrder={setDocChangesCallback} dismissModalCallback={dismissReordererCallback} />
         </IonModal>
         <IonModal isOpen={showReorderModal === 'cols'} onDidDismiss={dismissReordererCallback}>
-          <DefOrdererModal doc={clonedDoc} docChanges={docChanges} isUniversalProps={false} changeDefOrder={reorderCallback} dismissModalCallback={dismissReordererCallback} />
+          <DefOrdererModal doc={clonedDoc} docChanges={docChanges} isUniversalProps={false} changeDefOrder={setDocChangesCallback} dismissModalCallback={dismissReordererCallback} />
         </IonModal>
-        <IonSelect interface="action-sheet" placeholder="Screen width preview" onIonChange={chooseBreakpoint}
+
+        <IonModal isOpen={showAddDefModal === 'props'} onDidDismiss={dismissAddDefCallback}>
+          <DefAddModal doc={clonedDoc} docChanges={docChanges} isUniversalProps={true} setDefToEditCallback={setDefToEditCallback} dismissModalCallback={dismissAddDefCallback} />
+        </IonModal>
+        <IonModal isOpen={showAddDefModal === 'cols'} onDidDismiss={dismissAddDefCallback}>
+          <DefAddModal doc={clonedDoc} docChanges={docChanges} isUniversalProps={false} setDefToEditCallback={setDefToEditCallback} dismissModalCallback={dismissAddDefCallback} />
+        </IonModal>
+
+        <IonSelect interface="action-sheet" placeholder="Screen width preview: Select a size" onIonChange={chooseBreakpoint}
             interfaceOptions={{header: "Preview Screen Width", subHeader: "This lets you see how the columns will be arranged on devices of varying sizes"}}>
+          <IonSelectOption value="undefined">Responsive - resize your browser to observe changes</IonSelectOption>
           <IonSelectOption value="xs">XS</IonSelectOption>
           <IonSelectOption value="sm">SM - 576px</IonSelectOption>
           <IonSelectOption value="md">MD - 768px</IonSelectOption>
           <IonSelectOption value="lg">LG - 992px</IonSelectOption>
           <IonSelectOption value="xl">XL - 1200px</IonSelectOption>
         </IonSelect>
+
         <IonGrid>
-          <IonRow className='ion-align-items-center'><IonCol className='ion-float-left'>Universal Properties</IonCol>
-            <IonCol className='ion-float-right'><IonButton onClick={() => setShowReorderModal('props')}>Reorder
+
+        <div className={styles.columnDefCollection}>
+          <IonRow className='ion-justify-content-between ion-align-items-center'>
+            <IonCol sizeXs="12" sizeMd="auto">
+              <span className={styles.columnDefCollectionHeader}>Universal Properties</span>  
+              <HelpPopup>{"These are for data about the character that shows up once above their move list. Properties like name, age, total health, backdash frames, etc. These properties are more likely to be a whole row wide. Consider putting some of them in the 'Hide by default' group so they appear inside a closed accordion and don't take up space, since users will usually be more interested in the movelist."}</HelpPopup>
+            </IonCol>
+            <IonCol sizeXs="12" sizeMd="7">
+              <IonButton onClick={() => setShowAddDefModal('props')}>Add</IonButton>
+              <IonButton onClick={() => setShowReorderModal('props')}>Reorder / Change Group
               <IonIcon ios={swapVerticalOutline} md={swapVerticalSharp}></IonIcon>
             </IonButton></IonCol>
           </IonRow>
-          <DefCollection doc={clonedDoc} docChanges={docChanges} isUniversalProps={true} previewBreakpoint={previewBreakpoint} itemClicked={itemClicked} />
-          <IonRow className='ion-align-items-center'><IonCol className='ion-float-left'>Move Columns</IonCol>
-            <IonCol className='ion-float-right'><IonButton onClick={() => setShowReorderModal('cols')}>Reorder
-              <IonIcon ios={swapVerticalOutline} md={swapVerticalSharp}></IonIcon>
-            </IonButton></IonCol>
+          <DefEditCollection doc={clonedDoc} docChanges={docChanges} isUniversalProps={true} previewBreakpoint={previewBreakpoint} itemClicked={setDefToEditCallback} />
+        </div>
+
+        <div className={styles.columnDefCollection}>
+          <IonRow className='ion-justify-content-between ion-align-items-center'>
+            <IonCol sizeXs="12" sizeMd="auto">
+              <span className={styles.columnDefCollectionHeader}>Move Columns</span>  
+              <HelpPopup>{"These are for the characters' moves. Whereas a character only has one set of universal properties, these columns are repeated for each move in their movelist. Things like damage, input, startup frames, etc. For columns in the 'Needs Header' group, any that fit in the first row at a given breakpoint (determined by the widths you define) will have a floating header at the top of the screen. Put the most essential numeric columns here!"}</HelpPopup>
+            </IonCol>
+            <IonCol sizeXs="12" sizeMd="7">
+              <IonButton onClick={() => setShowAddDefModal('cols')}>Add</IonButton>
+              <IonButton onClick={() => setShowReorderModal('cols')}>Reorder / Change Group
+                <IonIcon ios={swapVerticalOutline} md={swapVerticalSharp}></IonIcon>
+              </IonButton></IonCol>
           </IonRow>
-          <DefCollection doc={clonedDoc} docChanges={docChanges} isUniversalProps={false} previewBreakpoint={previewBreakpoint} itemClicked={itemClicked} />
+          <DefEditCollection doc={clonedDoc} docChanges={docChanges} isUniversalProps={false} previewBreakpoint={previewBreakpoint} itemClicked={setDefToEditCallback} />
+        </div>
+
         </IonGrid>
-        <div>{JSON.stringify(clonedDoc)}</div>
+        {/*<div>{JSON.stringify(clonedDoc)}</div>*/}
       </IonContent>
     </HeaderPage>
     </>
@@ -248,90 +327,5 @@ const DefEditor: React.FC<DefEditorProps> = ({designDoc}) => {
 }
 
 
-type DefGroupsProps = {
-  doc: T.DesignDoc,
-  docChanges: DesignDocChanges,
-  isUniversalProps: boolean,
-  previewBreakpoint: T.Breakpoint,
-  itemClicked: (editObj: DefEditObj) => void,
-}
-const DefCollection: React.FC<DefGroupsProps> = ({doc, docChanges, isUniversalProps, itemClicked, previewBreakpoint}) => {
-  const path = isUniversalProps ? "universalPropDefs" : "columnDefs";
-  const order: string[] = docChanges.changedOrders?.[path] || keys(doc[path]);
-  const mergedDefs: T.ColumnDefs = {};
-  for(const key of order) {
-    let def = docChanges?.[path]?.[key] || doc[path][key];
-    mergedDefs[key] = def;
-  }
-  if(!isUniversalProps) {
-    calculateHideBreakpoints(mergedDefs, previewBreakpoint);
-  }
-
-  let currentGroup: T.ColumnDef['group'] | null = null; //start as null
-  let allGroups = [];
-  let currentGroupArray = [];
-
-  for(const key of order) {
-    const def = mergedDefs[key];
-    if(!def) throw new Error("Cannot find definition for "+key+" among available definitions: "+JSON.stringify(mergedDefs));
-    const thisGroup = def.group;
-    if(currentGroup !== thisGroup) { //if first item of new group
-      if(currentGroup !== null) { //if finished with group and starting new one
-        let headerRow = null;
-        //if new group is needsHeader, insert the headerColumns here. 
-        //Note that deleted columns are still here. But there shouldn't usually be deletions.
-        if(currentGroup === "needsHeader" && !isUniversalProps) {
-          headerRow = (
-            <ColumnHeaders columnDefs={mergedDefs} />
-          );
-        }
-        allGroups.push(
-          <IonCol key={currentGroup} size="12">
-            <IonRow>Column Group: {currentGroup}</IonRow>
-            {headerRow}
-            <IonRow>{currentGroupArray}</IonRow>
-          </IonCol>
-        );
-        currentGroupArray = [];
-      }
-      currentGroup = thisGroup;
-    }
-
-    let editObj: DefEditObj = {defName: key, isUniversalProp: isUniversalProps, propOrColPath: path, wasAdded: false, wasDeleted: false};
-    editObj.wasAdded = !doc[path];
-    editObj.wasDeleted = !!docChanges.deletedDefs?.[path]?.find((x) => x === key);
-    let classes = [styles.defPreview];
-    if(editObj.wasAdded) classes.push(styles.add);
-    if(editObj.wasDeleted) classes.push(styles.delete);
-
-    let width: string | undefined = undefined;
-    let showHeader: boolean = false;
-    //give column a single size based on whichever of its defined widths is closest to the one being previewed
-    let bps: T.Breakpoint[] = ['xs','sm','md','lg','xl'];
-    for(let bp of bps) {
-      if(def.widths?.[`size-${bp}`]) {
-        width = def.widths?.[`size-${bp}`] + '';
-      }
-      if(bp === previewBreakpoint) { //quit loop once we reach the breakpoint being previewed
-        break;
-      }
-    }
-    currentGroupArray.push(
-      <IonCol key={key} size={width} className={classes.join(' ')} onClick={() => itemClicked(editObj)}>
-        {(def.group === "needsHeader" || def.group === "defaultHideNeedsHeader") && 
-          <div className={characterStyles.standaloneHeaderCol + ' ' + (def._calculatedMoveHeaderHideClass  || '')}>{def.shortName || def.displayName || def.columnName}</div>
-        }
-        {key}
-      </IonCol>
-    )
-  }
-  allGroups.push( //push the final group
-    <IonCol key={currentGroup} size="12">
-      <IonRow>Column Group: {currentGroup}</IonRow>
-      <IonRow>{currentGroupArray}</IonRow>
-    </IonCol>
-  );
-  return <>{allGroups}</>
-}
 
 export default DefEditor;

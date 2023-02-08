@@ -19,7 +19,7 @@ export const HelpPopup: React.FC<HelpPopupProps> = ({children}) => {
   return (
     <>
       {/*<IonButton onClick={openPopover}><IonIcon ios={helpCircleOutline} md={helpCircleSharp} /></IonButton>*/}
-      <IonIcon size="large" onClick={openPopover} ios={helpCircleOutline} md={helpCircleSharp} />
+      <IonIcon style={{verticalAlign: 'middle'}} size="large" onClick={openPopover} ios={helpCircleOutline} md={helpCircleSharp} />
       <IonPopover ref={popover} isOpen={popoverOpen} onDidDismiss={() => setPopoverOpen(false)}>
         <IonContent class="ion-padding">{children}</IonContent>
       </IonPopover>

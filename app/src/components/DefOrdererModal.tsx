@@ -1,12 +1,16 @@
-import { useIonModal, useIonAlert, IonContent, IonList, IonItem, IonButton, IonIcon, IonLabel, IonItemSliding, IonItemOptions, IonItemOption, IonReorder, IonReorderGroup } from '@ionic/react';
+import { useIonModal, useIonAlert, IonContent, IonList, IonItem, IonButton, IonIcon, IonLabel, IonNote, IonItemSliding, IonItemOptions, IonItemOption, IonReorder, IonReorderGroup } from '@ionic/react';
 import { ItemReorderEventDetail } from '@ionic/core';
 import { swapVerticalOutline, swapVerticalSharp, chevronForward, chevronBack, trash } from 'ionicons/icons';
 //delete these 2
 import React, { useState, useEffect, useRef } from 'react';
 import { DefGroup, groupList , DesignDoc, ColumnDefs, ColumnDef, ColumnData, DataType } from '../types/characterTypes';
+import { groupDescriptions, predefinedWidths, specialDefs } from '../constants/internalColumns';
 import { DesignDocChanges } from './DefEditor';  
 import { keys } from '../services/util';
 import { cloneDeep, isEqual, set } from 'lodash';
+import { HelpPopup } from './HelpPopup';
+import characterStyles from '../theme/Character.module.css';
+import styles from '../theme/DefEditor.module.css';
 
 
 type DefOrdererProps  = {
@@ -25,6 +29,9 @@ const DefOrdererModal: React.FC<DefOrdererProps > = ({doc, docChanges, changeDef
   const [order, setOrder] = useState<string[]>(getInitialOrder); //includes groups, prefixed by 'group:'
   const [presentAlert, dismiss] = useIonAlert();
 
+  function wasDeleted(key: string): boolean {
+    return !!docChanges.deletedDefs?.[path]?.includes(key);
+  }
 
   function getInitialOrder(): string[] {
     const ord: Readonly<string[]> = docChanges.changedOrders?.[path] || keys(doc[path]);
@@ -53,15 +60,16 @@ const DefOrdererModal: React.FC<DefOrdererProps > = ({doc, docChanges, changeDef
 
   function doReorder(event: CustomEvent<ItemReorderEventDetail>) {
     console.log(JSON.stringify(event));
-    let {from: fromIndex, to: toIndex, complete} = {...event.detail};
+    const {from: fromIndex, to: toIndex, complete} = {...event.detail};
+    const itemKey = order[fromIndex];
     // Do not allow groups to be dragged, or for an item to be dragged to the top (making it groupless)
-    if(order[fromIndex].startsWith(`group:`) || toIndex === 0) {
+    if(itemKey.startsWith(`group:`) || toIndex === 0 || wasDeleted(itemKey)) {
       complete(false);
       return;
     }
-    //Will check if they tried to move displayName out of title group during submission
+    //Will check if they tried to move mandatory defs out of their group during submission. They can be reordered, just not to a different group.
 
-    movedItems.current.add(order[fromIndex]);
+    movedItems.current.add(itemKey);
     let newOrder = [...order];
     complete(newOrder);
     
@@ -80,18 +88,20 @@ const DefOrdererModal: React.FC<DefOrdererProps > = ({doc, docChanges, changeDef
       else if(movedItems.current.has(item)) {
         let newDef: ColumnDef = cloneDeep<ColumnDef>(docChanges[path]?.[item] ?? doc[path][item]!);
         if(newDef.group !== currentGroup) {
-          // Don't let displayName have its group changed
-          if(newDef.columnName === "displayName") {
-            presentAlert(
-              {
-                header: "Cannot change group",
-                message: "displayName is a special column that must stay in the title group",
-                buttons: [ { text: 'OK', role: 'cancel' }, ], 
-              }
-            );
+          // Don't let mandatory defs have their group changed
+          const mandatoryDefs = (specialDefs.mandatory[path]);
+          if(keys(mandatoryDefs).includes(newDef.columnName)) {
+            presentAlert( newDef.columnName + " is a special column that must stay in group " + newDef.group,);
             return;
           }
           newDef.group = currentGroup;
+          //needsHeader cols must have widths, give them extra small. Also can't have dontRenderEmpty
+          if(currentGroup === "needsHeader") {
+            if(!newDef.widths) {
+              newDef.widths = {...predefinedWidths['extra small']};
+            }
+            delete newDef.dontRenderEmpty;
+          }
           set(newChanges, `${path}.${item}`, newDef);
         }
       }
@@ -123,7 +133,7 @@ const DefOrdererModal: React.FC<DefOrdererProps > = ({doc, docChanges, changeDef
           }
           else {
             return (
-              <ColJSX key={item} name={item} />
+              <ColJSX key={item} name={item} wasDeleted={wasDeleted(item)} />
             );
           }
         })}
@@ -141,9 +151,12 @@ const DefOrdererModal: React.FC<DefOrdererProps > = ({doc, docChanges, changeDef
 }
 
 function GroupJSX({name}: {name:string}) {
+  const title = groupDescriptions[name as keyof typeof groupDescriptions]?.title ?? name;
+  const desc = groupDescriptions[name as keyof typeof groupDescriptions]?.desc ?? null;
   return (
-    <IonItem >
-      <IonLabel>--------{name}--------</IonLabel>
+    <IonItem color="secondary">
+      <IonLabel>Group: {title}</IonLabel>
+      <IonNote className={characterStyles.helperNote} slot="end">{desc && <HelpPopup>{desc}</HelpPopup>}</IonNote>
       <IonReorder slot="end">
         {/*<IonIcon ios={swapVerticalOutline} md={swapVerticalSharp}></IonIcon>*/}
       </IonReorder>
@@ -151,14 +164,15 @@ function GroupJSX({name}: {name:string}) {
   );
 }
 
-function ColJSX({name}: {name:string}) {
+//TODO: special coloring for mandatory defs, which can be moved, but not out of their group
+function ColJSX({name, wasDeleted}: {name:string, wasDeleted: boolean}) {
   return (
-      <IonReorder>
-    <IonItem >
-      <IonLabel>{name}</IonLabel>
-        <IonIcon slot="end" ios={swapVerticalOutline} md={swapVerticalSharp}></IonIcon>
-    </IonItem>
-      </IonReorder>
+    <IonReorder>
+      <IonItem color={wasDeleted ? 'danger' : ''}>
+        <IonLabel>{name + (wasDeleted ? ' (Deleted) ' : '')}</IonLabel>
+        {!wasDeleted && <IonIcon slot="end" ios={swapVerticalOutline} md={swapVerticalSharp}></IonIcon>}
+      </IonItem>
+    </IonReorder>
   );
 }
 

@@ -5,7 +5,6 @@ import { Route } from 'react-router-dom';
 import { useDocumentLocalRemoteSwitching } from '../services/pouch';
 import { useDoc } from 'use-pouchdb';
 import * as myPouch from '../services/pouch';
-import { specialDefs, moveNameColumnDef } from '../constants/internalColumns';
 import { Character } from '../components/Character';
 import CharacterSegments  from '../components/CharacterSegments';
 import { CharacterDocAccess } from '../components/CharacterDocAccess';

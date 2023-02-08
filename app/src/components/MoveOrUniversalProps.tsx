@@ -21,7 +21,7 @@ export type MoveProps = {
   columnDefs: ColumnDefs; //definitions for moves or universal props
   editMove: boolean;
   changes?: Readonly<Changes>; //if not provided, move hasn't been changed
-  moveConflictsToHighlight?: Conflicts; //also indicates that clicking this row opens conflict modal
+  moveConflictsToHighlight?: Conflicts; 
 }
 
 const MoveOrUniversalProps: React.FC<MoveProps> = ({moveName, indentLevel=0, columns, columnDefs, editMove, changes, moveConflictsToHighlight}) => {
@@ -60,6 +60,7 @@ const MoveOrUniversalProps: React.FC<MoveProps> = ({moveName, indentLevel=0, col
     }
   }
   
+  //TODO: rewrite this using lodash groupBy()
   let currentGroup: ColumnDef['group'] | null = null; //start as null
   let allGroups = [];
   let currentGroupArray = [];
@@ -82,6 +83,9 @@ const MoveOrUniversalProps: React.FC<MoveProps> = ({moveName, indentLevel=0, col
     const con = moveConflictsToHighlight?.[defData.columnName];
     if(defData.def?.group === "meta" && !con){
       //moveName and moveOrder only render if conflict
+    }
+    else if(defData.def?.dontRenderEmpty && defData.data === undefined && !con && !changes?.[defData.columnName]) {
+      //if dontRenderEmpty and no data or change or conflict, don't show it.
     }
     else { 
       currentGroupArray.push(

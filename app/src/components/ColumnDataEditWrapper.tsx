@@ -38,7 +38,7 @@ const ColumnDataEditWrapper: React.FC<ColumnDataEditWrapperProps> = ({defData, e
     //TODO: use the "Helper and Error text" as described in ion-item's documentation?
     return (
         <IonItem counter={hasCounter}> 
-          <IonLabel className={defData.cssClasses.join(" ")} position={labelPosition}> {colDisplayName} {errorMSG} </IonLabel>
+          <IonLabel className={defData.cssClasses.join(" ")+' '+styles.columnEditLabel} position={labelPosition}> {colDisplayName} {errorMSG} </IonLabel>
           <ColumnDataEdit columnName={colName} colData={defData.data} colDef={defData.def} editSingleColumn={editSingleColumn} />
           {prefix && <IonNote className={styles.prefixNote} slot="start">{prefix}</IonNote>}
           {suffix && <IonNote className={styles.suffixNote} slot="end">{suffix}</IonNote>}

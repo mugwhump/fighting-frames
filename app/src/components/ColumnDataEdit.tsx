@@ -68,13 +68,17 @@ const ColumnDataEdit: React.FC<ColumnDataEditProps> = ({columnName, colData, col
     return currentOptions;
   }
 
-  function dataChanged(value: string | string[]) {
+  function dataChanged(value: string | string[] | undefined) {
     console.log("Column data changed to " + value);
     let newData: ColumnData | undefined;
-    if(Array.isArray(value)) {
+    if(value === undefined) {
+      newData = undefined;
+    }
+    else if(Array.isArray(value)) {
       newData = value.length > 0 ? [...value] : undefined;
     }
     else {
+      //surrounding whitespace must be trimmed upon submission
       newData = strToColData(value, colDef.dataType);
     }
 
@@ -165,6 +169,7 @@ const ColumnDataEdit: React.FC<ColumnDataEditProps> = ({columnName, colData, col
         components={{Option: HelpTextOptionComponent}}
         isMulti={isMultiSelect}
         closeMenuOnSelect={!isMultiSelect}
+        isClearable={!colDef.required}
         hideSelectedOptions={false} //whether already-selected options display. Either way duplicates aren't allowed.
         onChange={(newVal, actionMeta) => {
           console.log(`actionMeta ${actionMeta.action}, newVal ${JSON.stringify(newVal)}`); //`
@@ -175,13 +180,16 @@ const ColumnDataEdit: React.FC<ColumnDataEditProps> = ({columnName, colData, col
             else {
               dataChanged(newVal.map((val) => val.value));
             }
-        } }
-        } />
+          }
+          else if(actionMeta.action === 'clear') {
+            dataChanged("");
+          }
+        }} 
+        />
     )
   }
 
   else if (isTextInputSelect) {
-    if(inputData === undefined) console.log('inputData undefined');
     return ( 
       <Select className={selectStyles.editorSelect} 
         options={availableOptions} 
@@ -251,7 +259,6 @@ const ColumnDataEdit: React.FC<ColumnDataEditProps> = ({columnName, colData, col
           let preMoveOpts = inputData && isList(inputData, colDef.dataType) ? inputData : [];
           const newValue = arrayMove(preMoveOpts, oldIndex, newIndex);
           dataChanged(newValue);
-          console.log( 'Values sorted:', newValue);
         }}
         distance={4}
         // small fix for https://github.com/clauderic/react-sortable-hoc/pull/352:
@@ -261,15 +268,17 @@ const ColumnDataEdit: React.FC<ColumnDataEditProps> = ({columnName, colData, col
         isMulti
         options={availableOptions}
         value={selectedOptions}
+        isValidNewOption={(inputValue: string, value: any, options: HelpTextOption[], accessors: any) => {
+          let trimmed = inputValue.trim();
+          if(trimmed.length === 0 || options.find((opt) => opt.value === trimmed)) {
+            return false;
+          }
+          return true;
+        }}
         onChange={(newVal, actionMeta) => {
           console.log(`creatable actionMeta ${actionMeta.action}, newVal ${JSON.stringify(newVal)}`); //`
           if(newVal !== null) {
-            //if(!isMultiValue(newVal)) {
-              //dataChanged(newVal.value);
-            //}
-            //else {
-              dataChanged(newVal.map((val) => val.value));
-            //}
+            dataChanged(newVal.map((val) => val.value.trim()));
           }
         } }
         components={{
@@ -285,7 +294,10 @@ const ColumnDataEdit: React.FC<ColumnDataEditProps> = ({columnName, colData, col
     return <span>List editing handled by selector</span>
   }
   else return (
-    <IonInput value={inputData} type={inputType} maxlength={maxLength} debounce={debounceTime} onIonChange={(e) => {dataChanged(e.detail.value!)}}></IonInput>
+    <IonInput value={inputData} type={inputType} maxlength={maxLength} debounce={debounceTime} onIonChange={(e) => {
+      console.log('newVal is '+e.detail.value);
+      dataChanged(e.detail.value!);
+    }}></IonInput>
   );
 }
 

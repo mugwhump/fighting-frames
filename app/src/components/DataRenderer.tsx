@@ -26,6 +26,7 @@ const DataRenderer: React.FC<DataRendererProps> = ({defData}) => {
   }
   else if(isTagString(defData.data, defData.def.dataType)) {
     const regex = defData.def?._compiledTagStrRegex || getTagStrColRegex(defData.def);
+    //TODO: could also use IonicSafeString to just insert tags into the string
     const html = defData.data.split(regex)
       .map((substr, index) => {
         return index % 2 !== 0

@@ -1,4 +1,4 @@
-import { groupList, ColumnDef, ColumnDefRestrictions, ColumnDefDisplayText, ColumnDefs, DataType } from '../types/characterTypes'; 
+import { groupList, ColumnDef, Breakpoint, ColumnDefRestrictions, ColumnDefDisplayText, ColumnDefs, ColumnData, DataType } from '../types/characterTypes'; 
 import { keys } from '../services/util';
 
   // mobile:  xs=2/12 sm=3/12 md=4/12 lg=6/12 xl=row
@@ -14,6 +14,13 @@ export const predefinedWidths = {
   "share": undefined,
 } as const;
 
+export const groupDescriptions = {
+  "title": {title: "Title", desc: "Columns in the first row with the move's name."},
+  "needsHeader": {title: "Needs Header", desc: "Columns that need a header saying what they are (uses the column's short name or display name). Often numeric values like frame data aren't self-explanatory. Must have defined widths. If more than one column fits in a row at a given breakpoint (ie their combined widths are < 12), then a floating header bar for these columns will stay at the top of the screen (at that breakpoint). Columns that don't fit have headers above each piece of data."},
+  "normal": {title: "Normal", desc: "Regular data that doesn't need a header."},
+  "defaultHideNeedsHeader": {title: "Needs Header + Hide", desc: "Columns for 'extra' data that needs a header but shouldn't be shown by default"},
+  "defaultHide": {title: "Hide by Default", desc: "Columns for 'extra' data that doesn't need a header and shouldn't be shown by default"},
+}
 
 // --------------------- UNIVERSAL PROP COLUMNS --------------------
 //EditCharacter must apply changes to this 
@@ -37,36 +44,50 @@ export const moveOrderColumnDef: ColumnDef = {
   //group: "meta",
   //defaultShow: false,
 //}
-const requiredPropDefs: Readonly<ColumnDefs> = {};
-const metaPropDefs: Readonly<ColumnDefs> = {moveOrder: moveOrderColumnDef};
+const builtinPropDefs: Readonly<ColumnDefs> = {moveOrder: moveOrderColumnDef};
+const mandatoryPropDefs : Readonly<ColumnDefs> = {};
+const mandatoryPropDefSuggested : Readonly<ColumnDefs> = {};
+const suggestedPropDefs: Readonly<ColumnDefs> = {};
 
 
 // --------------------- MOVE COLUMNS --------------------
 
 
+// Builtin column
 //Creating or deleting a move generates a new ColumnChange for this 
 //When adding new move, editor is passed a new definition with existing move names as forbiddenValues
 export const moveNameColumnDef: Readonly<ColumnDef> = {
   columnName: "moveName",
-  displayName: "Move Name",
+  displayName: "Move ID",
+  hintText: "A unique identifier for this move, used internally. Cannot be changed.",
   dataType: DataType.Str,
   required: true,
   forbiddenValues: ["universalProps","moveName","moveOrder","displayName"],
   minSize: 1,
+  maxSize: 30,
   group: "meta",
   widths: predefinedWidths['full'],
 }
-// Suggested columns
-export const displayNameColumnDef: Readonly<ColumnDef> = {
+// Mandatory columns
+export const displayNameColumnDefFixed: Readonly<ColumnDef> = { //these properties can't be overriden
   columnName: "displayName",
   displayName: "Display Name",
   dataType: DataType.Str,
   required: false,
+  dontRenderEmpty: false,
+  allowedValues: undefined, //don't want admins accidentally turning this into a drop-down select
   forbiddenValues: ["universalProps","moveName","moveOrder","displayName"],
   group: "title",
+}
+export const displayNameColumnDefSuggested: Readonly<ColumnDef> = { //these can be overriden
+  ...displayNameColumnDefFixed, 
+  hintText: 'Name of move as displayed to users. Unlike Move ID, can be changed.',
   widths: predefinedWidths['medium'],
 }
-export const damageColumnDef: Readonly<ColumnDef> = {
+
+// Suggested columns
+// Make sure to use defined widths for anything in needsHeader column
+export const damage: Readonly<ColumnDef> = {
   columnName: "damage",
   displayName: "Damage",
   shortName: "DMG",
@@ -75,7 +96,7 @@ export const damageColumnDef: Readonly<ColumnDef> = {
   group: "needsHeader",
   widths: predefinedWidths['extra small'],
 }
-export const startupFramesColumnDef: Readonly<ColumnDef> = {
+export const startup: Readonly<ColumnDef> = {
   columnName: "startup",
   displayName: "Startup",
   shortName: "IMP",
@@ -85,7 +106,7 @@ export const startupFramesColumnDef: Readonly<ColumnDef> = {
   group: "needsHeader",
   widths: predefinedWidths['extra small'],
 }
-export const guardFramesColumnDef: Readonly<ColumnDef> = {
+export const onBlock: Readonly<ColumnDef> = {
   columnName: "onBlock",
   displayName: "On Block",
   shortName: "GRD",
@@ -94,7 +115,7 @@ export const guardFramesColumnDef: Readonly<ColumnDef> = {
   group: "needsHeader",
   widths: predefinedWidths['extra small'],
 }
-export const hitFramesColumnDef: Readonly<ColumnDef> = {
+export const onHit: Readonly<ColumnDef> = {
   columnName: "onHit",
   displayName: "On Hit",
   shortName: "HIT",
@@ -104,7 +125,7 @@ export const hitFramesColumnDef: Readonly<ColumnDef> = {
   group: "needsHeader",
   widths: predefinedWidths['extra small'],
 }
-export const totalFramesColumnDef: Readonly<ColumnDef> = {
+export const totalFrames: Readonly<ColumnDef> = {
   columnName: "totalFrames",
   displayName: "Total Frames",
   shortName: "GRD",
@@ -114,7 +135,7 @@ export const totalFramesColumnDef: Readonly<ColumnDef> = {
   widths: predefinedWidths['extra small'],
 }
 //active frames, recovery frames, move inputs
-export const wideTest1: Readonly<ColumnDef> = {
+export const wide1: Readonly<ColumnDef> = {
   columnName: "wide1",
   displayName: "wide-1",
   shortName: "WID1",
@@ -123,10 +144,10 @@ export const wideTest1: Readonly<ColumnDef> = {
   dataType: DataType.Str,
   required: false,
   group: "needsHeader",
-  widths: predefinedWidths['share'],
+  widths: predefinedWidths['small'],
   forbiddenValues: ['melon'],
 }
-export const wideTest2: Readonly<ColumnDef> = {
+export const wide2: Readonly<ColumnDef> = {
   columnName: "wide2",
   displayName: "wide-2",
   shortName: "WID2",
@@ -134,10 +155,11 @@ export const wideTest2: Readonly<ColumnDef> = {
   suffix: "wo",
   dataType: DataType.Str,
   required: false,
-  group: "needsHeader",
-  widths: predefinedWidths['share'],
+  dontRenderEmpty: true,
+  group: "defaultHide",
+  widths: predefinedWidths['full'],
 }
-export const wideTest3: Readonly<ColumnDef> = {
+export const wide3: Readonly<ColumnDef> = {
   columnName: "wide3",
   displayName: "wide-3 foobar tagstr",
   shortName: "WID3",
@@ -149,140 +171,29 @@ export const wideTest3: Readonly<ColumnDef> = {
   allowedValues: ['foo','bar'],
 }
 
-const requiredColumnDefs: Readonly<ColumnDefs> = {displayName: displayNameColumnDef, wideTest1, wideTest2, wideTest3};
-const metaColumnDefs: Readonly<ColumnDefs> = {moveName: moveNameColumnDef};
+const builtinColumnDefs: Readonly<ColumnDefs> = {moveName: moveNameColumnDef};
+const mandatoryColumnDefs: Readonly<ColumnDefs> = {displayName: displayNameColumnDefFixed, wide1, wide2};
+const mandatoryColumnDefSuggested: Readonly<ColumnDefs> = {displayName: displayNameColumnDefSuggested};
+const suggestedColumnDefs: Readonly<ColumnDefs> = {damage, startup, onBlock, onHit};
 
 export const specialDefs = {
-  meta: { //Defined purely internally in client, not present in database or editable. Have "meta" group and special handling for how they're displayed.
-    universalPropDefs: metaPropDefs, //inserted at end so moveOrder and banner changes/conflicts show at bottom
-    columnDefs: metaColumnDefs, //inserted at front so moveName conflict swiper shows at top
+  builtin: { //Defined purely internally in client, not present in database or editable. Have "meta" group and special handling for how they're displayed.
+    universalPropDefs: builtinPropDefs, //inserted at end so moveOrder and banner changes/conflicts show at bottom
+    columnDefs: builtinColumnDefs, //inserted at front so moveName conflict swiper shows at top
   },
-  required: { //If not present in database, will be added by client, allowing a degree of editing.
-    universalPropDefs: requiredPropDefs,
-    columnDefs: requiredColumnDefs,
+  mandatory: { //If present in database, the properties in these will overwrite those defined by admins, allowing limited editing
+    universalPropDefs: mandatoryPropDefs,
+    columnDefs: mandatoryColumnDefs,
   },
+  mandatoryWithSuggested: { //If not present in database at all, will be added by client. Subset of mandatory columns; everything here must have a matching mandatory column.
+    universalPropDefs: mandatoryPropDefSuggested,
+    columnDefs: mandatoryColumnDefSuggested,
+  },
+  suggested: { //Templates for common definitions offered when admins add new columns
+    universalPropDefs: suggestedPropDefs,
+    columnDefs: suggestedColumnDefs,
+  }
 }
 
 
-const forbiddenNames: string[] = keys(metaPropDefs).concat(keys(metaColumnDefs)).concat(keys(requiredPropDefs)).concat(keys(requiredColumnDefs));
-// These are meta-definitions that describe each field of a column's definition, used by admins when editing/creating columns
-// There are other restrictions on some of these that are coded into the editor
-// TODO: any difference between props and move columns?
-export let metaDefs: {[Property in keyof ColumnDef]: ColumnDefRestrictions & ColumnDefDisplayText} = {
-//export let metaDefs = {
-  columnName: {
-    displayName: "Column ID",
-    hintText: "A unique identifier for this column, used internally. Cannot be changed.",
-    dataType: DataType.Str,
-    required: true,
-    forbiddenValues: forbiddenNames,
-    maxSize: 25,
-  },
-  displayName: {
-    displayName: "Column Name",
-    hintText: "The name of this column as shown to users.",
-    dataType: DataType.Str,
-    required: false,
-    forbiddenValues: forbiddenNames,
-    maxSize: 25,
-  },
-  shortName: {
-    displayName: "Short column name",
-    hintText: "Shortened name of this column when space is limited. Example: 'DMG' for 'Damage'",
-    dataType: DataType.Str,
-    required: false,
-    forbiddenValues: forbiddenNames,
-    maxSize: 3,
-  },
-  hintText: {
-    displayName: "Hint Text",
-    hintText: "Extra text about the column that users can view, just like this very text.",
-    dataType: DataType.Str,
-    required: false,
-    maxSize: 200,
-  },
-  prefix: {
-    displayName: "Prefix",
-    hintText: "A prefix shown before the column's data. Example: a column for startup frames with a prefix of 'i' and data of 12 would display as 'i12'. Can add trailing spaces to separate.",
-    dataType: DataType.NumStr,
-    allowedValues: ['i','%','KDN'], //TODO: TESTING
-    allowedValuesHints: {'i': 'like big butts', '%': 'foo', 'KDN': 'And I get up again'},
-    required: false,
-    maxSize: 5,
-  },
-  suffix: {
-    displayName: "Suffix",
-    hintText: "A suffix shown after the column's data. Example: a column for character height with a suffix of 'ft' and data of 6 would display as '6ft'. Can add leading spaces to separate.",
-    dataType: DataType.Str,
-    required: false,
-    maxSize: 5,
-  },
-  group: { //NOTE: this is changed via reordering
-    dataType: DataType.Str,
-    required: true,
-    allowedValues: [...groupList],
-  },
-  widths: { //TODO: this one needs special handling
-    displayName: "Column Widths",
-    hintText: `How wide the column will appear at various screen sizes, in twelfths. 
-      All columns in the same group will be placed in one row, or multiple rows if the sum of the columns' widths exceed 12.
-      Define larger widths at smaller screen sizes. On phones (the xs breakpoint), columns should get a larger portion of the row, or a full row.
-      On PC (the xl breakpoint), multiple columns can fit in one row.
-      Leave undefined to share space equally among other columns of the same row that don't have defined widths.`,
-    suffix: "/12",
-    dataType: DataType.List,
-    required: false,
-    minSize: 1,
-    maxSize: 5,
-  },
-  dataType: {
-    displayName: "Data Type",
-    hintText: "What type of data this column contains.", //TODO: explain here
-    dataType: DataType.Str,
-    required: true,
-    allowedValues: Object.values(DataType).filter((val) => val !== "MOVE_ORDER"),
-    allowedValuesHints: {'NUMBER': 'Decimal number', 'INTEGER': 'Whole number', 
-      'STRING': 'Letters, numbers, and symbols. Specifying allowed values makes users select one value from a drop-down, which can be used for true/false values.', 
-      'LIST': 'Multiple strings. Specifying allowed values means the list must be made of one or more items from a drop-down menu. Useful for tags.',
-      'NUMERIC_STRING': 'A value that starts with a number (or one of any allowed strings you may specify), which can be followed by other characters. Users could enter 7(-2) and it will be parsed as 7 for filtering and sorting purposes. Add "KDN" to your allowed values and users can write "KDN" or KDN(-2).',
-    }
-  },
-  required: {
-    displayName: "Required?",
-    hintText: "Indicates whether this column needs a value before the move can be submitted.",
-    dataType: DataType.Str,
-    required: true,
-    allowedValues: ['required', 'optional'], //TODO: convert this to boolean before storing
-  },
-  allowedValues: { //ensure no overlap with forbiddenValues
-    displayName: "Allowed Values",
-    hintText: `For String or List columns, users may only select from these values. For Numeric String columns, use this to specify the string values that are allowed. 
-        For example, a column for a move's frame advantage on hit would usually contain a number, but a move that knocks opponents down might say 'KDN' instead. The order of these entries determines how they are sorted when users sort by this column. Use '#' to represent the sort order of numeric values (users won't be able to select '#', it's just for sorting).`,
-    dataType: DataType.List,
-    required: false,
-    //allowedValues: ['test1', 'test2', 'test3'],
-    //TODO: admins putting '#' in allowedValues of NumStr cols is for sorting order, not an option for users. Perhaps put # in forbiddenValues of NumStr...?
-    minSize: 1,
-    maxSize: 100,
-  },
-  forbiddenValues: {
-    displayName: "Forbidden Values",
-    hintText: "Values users cannot enter",
-    dataType: DataType.List,
-    required: false,
-    minSize: 1,
-    maxSize: 100,
-  },
-  maxSize: { //also ensure minSize < maxSize
-    displayName: "Max size/length",
-    hintText: "For numbers, the maximum value. For strings or numeric strings, the maximum # of characters. For lists, the maximum # of items.",
-    dataType: DataType.Int,
-    required: false,
-  },
-  minSize: {
-    displayName: "Minimum size/length",
-    hintText: "For numbers, the minimum value. For strings or numeric strings, the minimum # of characters. For lists, the minimum # of items.",
-    dataType: DataType.Int,
-    required: false,
-  },
-};
+export const forbiddenNames: string[] = keys(builtinPropDefs).concat(keys(builtinColumnDefs)).concat(keys(mandatoryPropDefs)).concat(keys(mandatoryColumnDefs));

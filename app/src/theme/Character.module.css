@@ -78,7 +78,7 @@
 .tableHeaderCol {
     border: solid 1px black;
 }
-
+/* Data Rendering */
 .numStrVal {
     font-weight: bold;
 }
@@ -97,6 +97,10 @@
 .dataSuffix {
 }
 
+/* Editing */
+.columnEditLabel {
+    white-space: normal !important; /*Default no-wrap hides long error messages*/
+}
 .helperNote {
     padding: 0;
 }

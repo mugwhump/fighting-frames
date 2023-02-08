@@ -1,16 +1,45 @@
 @value colors: './Character.module.css';
 @value colAdded, colDeleted from colors;
 
+@value colDefinition: #afcdd7;
+@value colColumnGroup: #afcdd76b;
 
-.add::part(native) {
+.columnDefItem {
+    color: purple;
+    border-radius: 9px;
+    background-color: colDefinition;
+}
+/*.add::part(native) {*/
+.add {
     background-color: colAdded;
 }
-.delete::part(native) {
+/*.delete::part(native) {*/
+.delete {
     background-color: colDeleted;
 }
-.defPreview {
-    color: purple;
+.mandatory {
+    background-color: #cccccc;
+    color: black;
+    font-weight: bold;
 }
+.columnGroup {
+    background-color: colColumnGroup;
+}
+.columnGroupTitleRow { /* lets text be vertically aligned with help icon */
+    display: inline-block;
+}
+.columnDefCollectionHeader {
+    vertical-align: 'middle';
+    font-size: 20px;
+    font-weight: bold;
+}
+.columnDefCollection {
+    border: 1px dotted black;
+    background-color: #f0f0f0;
+}
+/*.allowedValueHintInput::part(content expanded) textarea {*/
+    /*min-height: 100px; [>The textarea is a bit too short, but can't actually target it without modifying child components. Probably fine, still clickable.<]*/
+/*}*/
 /*ion-item.defPreview::part(native)  {*/
   /*background-color: transparent;*/
 /*}*/
