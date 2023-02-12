@@ -1,4 +1,4 @@
-import { useIonModal, useIonAlert, IonContent, IonList, IonItem, IonButton, IonIcon, IonLabel, IonNote, IonItemSliding, IonItemOptions, IonItemOption, IonReorder, IonReorderGroup } from '@ionic/react';
+import { useIonModal, useIonAlert, IonContent, IonList, IonItem, IonHeader, IonToolbar, IonTitle, IonFooter, IonButton, IonIcon, IonLabel, IonNote, IonItemSliding, IonItemOptions, IonItemOption, IonReorder, IonReorderGroup, IonRow } from '@ionic/react';
 import { ItemReorderEventDetail } from '@ionic/core';
 import { swapVerticalOutline, swapVerticalSharp, chevronForward, chevronBack, trash } from 'ionicons/icons';
 //delete these 2
@@ -122,6 +122,7 @@ const DefOrdererModal: React.FC<DefOrdererProps > = ({doc, docChanges, changeDef
 
 
   return (
+    <>
     <IonContent>
       <IonReorderGroup disabled={false} onIonItemReorder={doReorder}>
         {order.map((item, index) => {
@@ -139,13 +140,17 @@ const DefOrdererModal: React.FC<DefOrdererProps > = ({doc, docChanges, changeDef
         })}
       </IonReorderGroup>
 
-
-      <IonItem key="footer">
-        <input type="submit" style={{display: "none"}}/> {/* enables enter key submission. TODO: test */}
-        <IonButton disabled={movedItems.current.size === 0} onClick={submit}>Submit</IonButton>
-        <IonButton onClick={dismissModalCallback}>Cancel</IonButton>
-      </IonItem>
     </IonContent> 
+
+    <IonFooter>
+      <IonToolbar>
+        <IonRow class="ion-justify-content-center">
+          <IonButton disabled={movedItems.current.size === 0} onClick={submit}>Submit</IonButton>
+          <IonButton onClick={dismissModalCallback}>Cancel</IonButton>
+        </IonRow>
+      </IonToolbar>
+    </IonFooter>
+    </>
   );
 
 }

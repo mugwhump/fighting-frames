@@ -211,9 +211,9 @@ const DefEditor: React.FC<DefEditorProps> = ({designDoc}) => {
         }
       }
     }
-
     setDocChanges(newChanges);
   }, [clonedDoc, defToEdit, docChanges]);
+
 
   const setDocChangesCallback = useCallback((changes: DesignDocChanges) => {
     setDocChanges(changes);

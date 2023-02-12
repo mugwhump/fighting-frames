@@ -14,6 +14,8 @@
 @value colYours: #de37e1;
 @value colTheirs: #e38523;
 
+@value colMoveBG: #dddddd;
+
 @value colSuperText: #555555;
 @value colTag: #BBBBBB;
 
@@ -77,6 +79,16 @@
 }
 .tableHeaderCol {
     border: solid 1px black;
+}
+/* Universal Props */
+.universalProps {
+}
+/* Move rows */
+.move {
+    margin: 10px 0px;
+    background-color: colMoveBG;
+}
+.moveGroup {
 }
 /* Data Rendering */
 .numStrVal {

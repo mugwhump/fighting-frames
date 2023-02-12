@@ -1,4 +1,4 @@
-import { useIonModal, useIonAlert, IonContent, IonList, IonItem, IonItemDivider, IonButton, IonIcon, IonLabel, IonNote, IonSelect, IonSelectOption } from '@ionic/react';
+import { useIonModal, useIonAlert, IonContent, IonRow, IonList, IonItem, IonHeader, IonToolbar, IonTitle, IonFooter, IonItemDivider, IonButton, IonIcon, IonLabel, IonNote, IonSelect, IonSelectOption } from '@ionic/react';
 import { ItemReorderEventDetail } from '@ionic/core';
 import { swapVerticalOutline, swapVerticalSharp, chevronForward, chevronBack, trash } from 'ionicons/icons';
 //delete these 2
@@ -34,19 +34,21 @@ const DefAddModal: React.FC<DefAddProps > = ({doc, docChanges, isUniversalProps,
   }
 
   return (
+    <>
+    <IonHeader>
+      <IonToolbar>
+        <IonTitle>Add {isUniversalProps ? "Universal Property" : "Move Column"}</IonTitle>
+      </IonToolbar>
+    </IonHeader>
+
     <IonContent>
-
-      <IonItem key="header">
-        <IonLabel><h1>Add {isUniversalProps ? "Universal Property" : "Move Column"}</h1></IonLabel>
-      </IonItem>
-
       <IonList>
         <IonItem button detail key="new" onClick={() => clickedDef("")}>
           <IonLabel>Add New Empty Column</IonLabel>
         </IonItem>
 
         <IonItemDivider>
-          <IonLabel><h1>Suggested Columns</h1></IonLabel>
+          <h1>Suggested Columns</h1>
         </IonItemDivider>
         {
           keys(suggestions).map((colName) => {
@@ -62,11 +64,16 @@ const DefAddModal: React.FC<DefAddProps > = ({doc, docChanges, isUniversalProps,
         }
       </IonList>
 
-      <IonItem key="footer">
-        <IonButton onClick={dismissModalCallback}>Cancel</IonButton>
-      </IonItem>
-
     </IonContent> 
+
+    {/*<IonItem key="footer">*/}
+    <IonFooter class="ion-no-border">
+      <IonRow class="ion-justify-content-center">
+        <IonButton onClick={dismissModalCallback}>Cancel</IonButton>
+      </IonRow>
+    </IonFooter>
+    {/*</IonItem>*/}
+    </>
   );
 
 }

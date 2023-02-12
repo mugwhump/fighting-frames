@@ -31,7 +31,7 @@ const MoveOrUniversalProps: React.FC<MoveProps> = ({moveName, indentLevel=0, col
   const characterDispatch = useCharacterDispatch();
   const displayName = defsAndData.find((dataDef) => dataDef.columnName === "displayName")?.data as string;
   const nameToShow: string = isMove ? (displayName || moveName) : "Universal Properties";
-  const moveNameClassString = defsAndData.find((dataDef) => dataDef.columnName === "moveName")?.cssClasses?.join(" "); //TODO: add manually instead of via getDefsAndData?
+  const moveNameClassString = (isMove ? styles.move : styles.universalProps) + ' ' + defsAndData.find((dataDef) => dataDef.columnName === "moveName")?.cssClasses?.join(" "); //should add manually instead of via getDefsAndData?
   const moveNameConflict = moveConflictsToHighlight?.moveName;
 
   useEffect(() => {
@@ -69,8 +69,10 @@ const MoveOrUniversalProps: React.FC<MoveProps> = ({moveName, indentLevel=0, col
     const thisGroup = defData?.def?.group || "no-definition";
     //if first item of new group
     if(currentGroup !== thisGroup) { 
+      //keep header/non-header cols on same row
+      const shouldSwitchRows = !(currentGroup === "needsHeader" && thisGroup === "normal") && !(currentGroup === "defaultHideNeedsHeader" && thisGroup === "defaultHide");
       //if finished with group and starting new one. 
-      if(currentGroup !== null && currentGroupArray.length > 0) { 
+      if(currentGroup !== null && currentGroupArray.length > 0 && shouldSwitchRows) { 
         allGroups.push(
           <IonCol key={currentGroup} size="12">
             <IonRow>{currentGroupArray}</IonRow>
@@ -93,11 +95,14 @@ const MoveOrUniversalProps: React.FC<MoveProps> = ({moveName, indentLevel=0, col
       );
     }
   }
-  allGroups.push(
-    <IonCol key={currentGroup} size="12">
-      <IonRow>{currentGroupArray}</IonRow>
-    </IonCol>
-  );
+
+  if(currentGroupArray.length > 0) { 
+    allGroups.push(
+      <IonCol key={currentGroup} size="12">
+        <IonRow>{currentGroupArray}</IonRow>
+      </IonCol>
+    );
+  }
   return(
       <IonRow class="ion-justify-content-center" onClick={startEditing} key={moveName} className={moveNameClassString}>
         {allGroups}

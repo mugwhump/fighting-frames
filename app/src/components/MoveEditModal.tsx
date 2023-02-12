@@ -1,4 +1,4 @@
-import { IonModal, IonContent, IonItem, IonInput, IonItemGroup, IonItemDivider, IonButton, IonLabel, IonNote, IonIcon, IonText } from '@ionic/react';
+import { IonModal, IonContent, IonItem, IonHeader, IonToolbar, IonTitle, IonFooter, IonRow, IonInput, IonItemGroup, IonItemDivider, IonButton, IonLabel, IonNote, IonIcon, IonText } from '@ionic/react';
 import React, { useState, useRef, useEffect, useMemo, useCallback } from 'react';
 import ColumnDataEditWrapper from './ColumnDataEditWrapper';
 import type { Changes, AddMoveChanges , ColumnDef, ColumnDefs, Cols, ColumnData, ColumnDefAndData, DataType, ColumnChange, Add, Modify, Delete } from '../types/characterTypes'; //== 
@@ -161,10 +161,14 @@ const MoveEditModal: React.FC<MoveEditModalProps > = ({moveName, getDefsAndData,
   }
 
   return (
+    <>
+    <IonHeader>
+      <IonToolbar>
+        <IonTitle>Editing {displayName}</IonTitle>
+      </IonToolbar>
+    </IonHeader>
+
     <IonContent>
-      <IonItem key="header">
-        <IonLabel>Editing {displayName}</IonLabel>
-      </IonItem>
       <IonItemGroup className={styles.highlightChanges} onKeyPress={(event: any) => {if(keys(fieldErrors).length === 0 && event.key === "Enter") submit()}}>
         {defsAndData.map((defData) => {
           const colName = defData.columnName;
@@ -175,13 +179,19 @@ const MoveEditModal: React.FC<MoveEditModalProps > = ({moveName, getDefsAndData,
           );
         })}
       </IonItemGroup>
-      <IonItem key="footer">
-        <IonButton type="submit" disabled={keys(fieldErrors).length>0} onClick={() => submit()}>Submit</IonButton>
-        {!addingNewMove && (moveName !== "universalProps") && <IonButton onClick={() => deleteMove()}>Delete</IonButton>}
-        {!addingNewMove && clonedChanges?.moveName?.type !== "add" && <IonButton disabled={!hasChanges} onClick={() => resetChanges()}>Undo All Changes</IonButton>}
-        <IonButton onClick={() => characterDispatch({actionType:'closeMoveEditModal'})}>Cancel</IonButton>
-      </IonItem>
     </IonContent>
+
+    <IonFooter>
+      <IonToolbar>
+        <IonRow class="ion-justify-content-center">
+          <IonButton type="submit" disabled={keys(fieldErrors).length>0} onClick={() => submit()}>Submit</IonButton>
+          {!addingNewMove && (moveName !== "universalProps") && <IonButton onClick={() => deleteMove()}>Delete</IonButton>}
+          {!addingNewMove && clonedChanges?.moveName?.type !== "add" && <IonButton disabled={!hasChanges} onClick={() => resetChanges()}>Undo All Changes</IonButton>}
+          <IonButton onClick={() => characterDispatch({actionType:'closeMoveEditModal'})}>Cancel</IonButton>
+        </IonRow>
+      </IonToolbar>
+    </IonFooter>
+    </>
   )
 }
 

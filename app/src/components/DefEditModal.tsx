@@ -1,4 +1,4 @@
-import { useIonAlert, IonContent, IonItem, IonItemGroup, IonRow, IonAccordionGroup, IonNote, IonicSafeString, IonAccordion, IonButton, IonLabel, IonText } from '@ionic/react';
+import { useIonAlert, IonContent, IonItem, IonHeader, IonToolbar, IonTitle, IonFooter, IonItemGroup, IonRow, IonAccordionGroup, IonNote, IonicSafeString, IonAccordion, IonButton, IonLabel, IonText } from '@ionic/react';
 //import { warningOutline, warningSharp } from 'ionicons/icons';
 import React, { useState, useEffect, useMemo, useCallback } from 'react';
 import ColumnDataEditWrapper from './ColumnDataEditWrapper';
@@ -259,10 +259,18 @@ const DefEditModal: React.FC<DefEditModalProps > = ({defEditingInfo, updateDefCa
 
 
   return (
+    <>
+    <IonHeader>
+      <IonToolbar>
+        <IonTitle>Editing{defEditingInfo.isMandatory ? " Mandatory" : ''} Column {clonedDef.displayName || clonedDef.columnName}</IonTitle>
+      </IonToolbar>
+    </IonHeader>
+
     <IonContent>
-      <IonItem key="header" class="ion-text-wrap">
-        <IonLabel>Editing{defEditingInfo.isMandatory ? " Mandatory" : ''} Column {clonedDef.displayName || clonedDef.columnName}</IonLabel>
-      </IonItem>
+      {/*<IonItem key="header" class="ion-text-wrap">*/}
+        {/*<IonLabel>Editing{defEditingInfo.isMandatory ? " Mandatory" : ''} Column {clonedDef.displayName || clonedDef.columnName}</IonLabel>*/}
+      {/*</IonItem>*/}
+
       {/*<IonItemGroup onKeyPress={(event: any) => {if(event.key === "Enter") updateColumnDef()}}> the drop-down selects make it annoying for Enter to submit here */}
       <IonItemGroup>
         <DefFieldInput defProperty="columnName" data={clonedDef.columnName} editSingleProperty={editSingleProperty} fieldError={fieldErrors.columnName} warning={warnings.columnName} isPropertyFixed={isPropertyFixed} />
@@ -319,14 +327,23 @@ const DefEditModal: React.FC<DefEditModalProps > = ({defEditingInfo, updateDefCa
           //Also one for multi-line text? Being able to add line breaks is big, must communicate what causes it.
         }
       </IonItemGroup>
+
+      <br />
       <DefEditPreview def={clonedDef} />
-      <IonRow key="footer">
-        <IonButton size="default" type="submit" onClick={updateColumnDef}>Submit</IonButton>
-        {!defEditingInfo.wasAdded && <IonButton size="default" disabled={!canDelete} onClick={deleteColumnDef}>Delete Column</IonButton> }
-        <IonButton size="default" disabled={colDef === undefined} onClick={resetColumnDef}>{defEditingInfo.wasAdded ? "Remove Column": "Undo All Changes"}</IonButton>
-        <IonButton size="default" onClick={dismissModalCallback}>Cancel</IonButton>
-      </IonRow>
+
     </IonContent>
+
+    <IonFooter>
+      <IonToolbar>
+        <IonRow class="ion-justify-content-center">
+          <IonButton size="default" type="submit" onClick={updateColumnDef}>Submit</IonButton>
+          {!defEditingInfo.wasAdded && <IonButton size="default" disabled={!canDelete} onClick={deleteColumnDef}>Delete Column</IonButton> }
+          <IonButton size="default" disabled={colDef === undefined} onClick={resetColumnDef}>{defEditingInfo.wasAdded ? "Remove Column": "Undo All Changes"}</IonButton>
+          <IonButton size="default" onClick={dismissModalCallback}>Cancel</IonButton>
+        </IonRow>
+      </IonToolbar>
+    </IonFooter>
+    </>
   )
 }
 

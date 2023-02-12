@@ -16,7 +16,7 @@ export const predefinedWidths = {
 
 export const groupDescriptions = {
   "title": {title: "Title", desc: "Columns in the first row with the move's name."},
-  "needsHeader": {title: "Needs Header", desc: "Columns that need a header saying what they are (uses the column's short name or display name). Often numeric values like frame data aren't self-explanatory. Must have defined widths. If more than one column fits in a row at a given breakpoint (ie their combined widths are < 12), then a floating header bar for these columns will stay at the top of the screen (at that breakpoint). Columns that don't fit have headers above each piece of data."},
+  "needsHeader": {title: "Needs Header", desc: "Columns that need a header saying what they are (uses the column's short name or display name). Often numeric values like frame data aren't self-explanatory. Must have defined widths. If more than one column fits in a row at a given breakpoint (ie their combined widths are <= 12), then a floating header bar for these columns will stay at the top of the screen (at that breakpoint). Columns that don't fit have headers above each piece of data."},
   "normal": {title: "Normal", desc: "Regular data that doesn't need a header."},
   "defaultHideNeedsHeader": {title: "Needs Header + Hide", desc: "Columns for 'extra' data that needs a header but shouldn't be shown by default"},
   "defaultHide": {title: "Hide by Default", desc: "Columns for 'extra' data that doesn't need a header and shouldn't be shown by default"},
@@ -143,7 +143,7 @@ export const wide1: Readonly<ColumnDef> = {
   hintText: "You need to leave",
   dataType: DataType.Str,
   required: false,
-  group: "needsHeader",
+  group: "normal",
   widths: predefinedWidths['small'],
   forbiddenValues: ['melon'],
 }
