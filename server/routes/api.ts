@@ -12,9 +12,10 @@ import * as Nano from 'nano';
 //import * as T from '@app/types/characterTypes';
 //import * as util from '@app/services/util';
 //import * as merging from '@app/services/merging';
-import type * as T from '../app-symlinks/types/characterTypes'; //= //not included in runtime buildo
-import * as util from '../app-symlinks/services/util';
-import * as merging from '../app-symlinks/services/merging';
+import type * as T from '../shared/types/characterTypes'; //= //not included in runtime buildo
+import * as util from '../shared/services/util';
+import * as metaDefs from '../shared/constants/metaDefs';
+import * as merging from '../shared/services/merging';
 
 const router = express.Router();
 const admin = secrets.couch_admin;
@@ -31,9 +32,9 @@ function sleep(ms: number) {
 //}
 
 /* GET api listing. */
-router.get('/', function(req, res, next) {
-  res.send('COUCHDB_URL = '+process.env.COUCHDB_URL+', secrets = '+admin+', '+password);
-});
+//router.get('/', function(req, res, next) {
+  //res.send('COUCHDB_URL = '+process.env.COUCHDB_URL+', secrets = '+admin+', '+password);
+//});
 /*
 router.get('/test', function(req, res, next) {
   couchAuth.passport.authenticate('local', function(err, user, info) {
@@ -96,6 +97,38 @@ function sendError(res: Response, message: string, code: number = 500) {
   logger.warn(`${code} error: ${message}`);
   return res.status(code).json({message: message, status: code});
 }
+
+router.post('/game/:gameId/config/publish', couchAuth.requireAuth, couchAuth.requireRole("user") as any,
+           async (req: Request<{gameId:string}>, res) => {
+  try {
+    logger.warn(`startin da tingy`);
+    const user: CouchAuthTypes.SlRequestUser = req.user!;
+    const db = adminNano.use(req.params.gameId);
+    const sec = await db.get("_security") as Security.SecObj;
+    const isGameAdmin = Security.userIsGameAdminOrHigher(user, sec);
+    if(!isGameAdmin) return sendError(res, "Game Admin permissions required to change game config", 403); 
+
+    const newDesignDoc: T.DesignDoc = req.body;
+    if(newDesignDoc._id !== '_design/columns') {
+      return sendError(res, `Incorrect _id ${newDesignDoc._id}`, 400);
+    }
+    //TODO: repair mandatory columns
+
+    //TODO: check errors
+    const error = metaDefs.getColumnDocErrorMessage(newDesignDoc);
+    if(error) {
+      logger.warn('boo');
+      return sendError(res, error, 400);
+    }
+
+    //TODO: remove useless columns
+    const putResult = await db.insert(newDesignDoc); 
+    return sendSuccess(res, JSON.stringify(newDesignDoc));
+  }
+  catch(err) {
+    return sendError(res, JSON.stringify(err));
+  }
+});
 
 // Couchauth middleware verifies user is who they say they are. If not, rejects with 401.
 router.post('/game/:gameId/character/:characterId/changes/:changeTitle/publish', couchAuth.requireAuth, couchAuth.requireRole("user") as any,

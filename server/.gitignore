@@ -2,9 +2,7 @@
 /log
 
 # symlinks from frontend project
-/app-symlinks/types
-/app-symlinks/services
-/app-symlinks/constants
+/shared
 
 # dependencies
 /node_modules
