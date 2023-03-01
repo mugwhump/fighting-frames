@@ -12,7 +12,9 @@ RUN npm install
 # If you are building your code for production
 # RUN npm ci --only=production
 
-# Bundle app source
+# Bundle app source, ignores stuff in .dockerignore
+# Doesn't copy mounted directories. Need contents of dist and... modules? No, that's covered via npm install above.
+# When publishing change to server codebase, it's the image that's built and deployed
 COPY . .
 
 EXPOSE 3000

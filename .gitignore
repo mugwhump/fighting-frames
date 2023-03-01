@@ -7,7 +7,5 @@ secrets/mail_from_address_test.txt
 secrets/mail_api_key_test.txt
 app/my-typings/
 app/src/schema
-app/couchdb/test
-app/schema/test*
-app/schema/Test*
+couchdb/test
 .jshintrc

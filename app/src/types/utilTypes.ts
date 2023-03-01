@@ -20,6 +20,10 @@ export class StringSet extends Set<string> {
   }
 }
 
+export type Credentials = {
+  username: string,
+  password: string 
+}
 
 export type FieldError = {
   columnName: string;

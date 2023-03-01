@@ -3,7 +3,7 @@ import path from 'path';
 import cookieParser from 'cookie-parser';
 //const logger = require('morgan'); //this one sucks
 
-import bodyParser from 'body-parser';
+//import bodyParser from 'body-parser'; //bundled now
 import cors from 'cors';
 
 import indexRouter from './routes/index';
@@ -15,12 +15,11 @@ import logger from './util/logger';
 const app: Express = express();
 
 //app.use(logger('dev'));
-app.use(express.json());
-app.use(express.urlencoded({ extended: false }));
+app.use(express.json()); //access json docs in application/json requests via req.body
+app.use(express.urlencoded({ extended: false })); //access url query params as object props via req.body. If extended, objects+arrays can be encoded
 app.use(cookieParser());
 app.use(express.static(path.join(__dirname, 'public')));
 
-app.use(bodyParser.json());
 app.use(cors());
 
 app.use('/', indexRouter);

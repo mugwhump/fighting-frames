@@ -4,7 +4,7 @@ import * as myPouch from '../services/pouch';
 import { useDoc, usePouch } from 'use-pouchdb';
 import CompileConstants from '../constants/CompileConstants';
 import { useGameContext, useGameDispatch, Action as GameAction } from './GameProvider';
-import { Credentials } from './LocalProvider';
+import { Credentials } from '../types/utilTypes';
 import LoginModal from './LoginModal';
 
 

@@ -1,10 +1,13 @@
-import { IonIcon, IonItem, IonGrid, IonRow, IonCol, IonButton, IonLabel, useIonAlert, IonContent, IonModal, IonSelect, IonSelectOption } from '@ionic/react';
+import { IonIcon, IonItem, IonGrid, IonRow, IonCol, IonButton, IonLabel, useIonAlert, IonContent, IonModal, IonSelect, IonSelectOption, IonicSafeString } from '@ionic/react';
 import React, { useEffect, useState, useCallback } from 'react';
-import { swapVerticalOutline, swapVerticalSharp } from 'ionicons/icons';
+import { swapVerticalOutline, swapVerticalSharp, warningOutline, warningSharp } from 'ionicons/icons';
 import * as T from '../types/characterTypes';
 import { keys, keyVals } from '../services/util';
+import { getIonicSanitizedString } from '../services/renderUtil';
 import { insertDefsSortGroupsCompileRegexes, repairOrder } from '../services/columnUtil';
+import { makeApiCall, userHasPerms, PermissionLevel } from '../services/pouch';
 import HeaderPage from './HeaderPage';
+import NeedPermissions from './NeedPermissions';
 import DefEditModal from './DefEditModal';
 import DefOrdererModal from './DefOrdererModal';
 import DefAddModal from './DefAddModal';
@@ -31,9 +34,10 @@ export type DefEditObj = {defName: string, isUniversalProp: boolean, propOrColPa
   isSuggested?: boolean, isMandatory?: boolean};
 
 type DefEditorProps = {
+  gameId: string;
   designDoc: T.DesignDoc; //does NOT contain modified definitions, they're straight from DB
 }
-const DefEditor: React.FC<DefEditorProps> = ({designDoc}) => {
+const DefEditor: React.FC<DefEditorProps> = ({gameId, designDoc}) => {
   const [docChanges, setDocChanges] = useState<DesignDocChanges>({}); 
   const [clonedDoc, setClonedDoc] = useState<T.DesignDoc>(cloneDesignDocStripMetaAddMandatory);
   const [defToEdit, setDefToEdit] = useState<DefEditObj | null>(null); //null when not editing, defName is empty string when adding new def
@@ -44,12 +48,6 @@ const DefEditor: React.FC<DefEditorProps> = ({designDoc}) => {
   let defObjBeingEdited: T.ColumnDef | undefined = undefined; //undefined if not editing or if adding new def
   if(defToEdit && defToEdit.defName !== "") {
     defObjBeingEdited = docChanges?.[defToEdit.propOrColPath]?.[defToEdit.defName] || clonedDoc[defToEdit.propOrColPath]?.[defToEdit.defName];
-    //if(defToEdit.isUniversalProp) {
-      //defObjBeingEdited = docChanges?.universalPropDefs?.[defToEdit.defName] || clonedDoc.universalPropDefs?.[defToEdit.defName];
-    //}
-    //else {
-      //defObjBeingEdited = docChanges?.columnDefs?.[defToEdit.defName] || clonedDoc.columnDefs?.[defToEdit.defName];
-    //}
   }
 
 
@@ -124,9 +122,50 @@ const DefEditor: React.FC<DefEditorProps> = ({designDoc}) => {
     }
   }, [designDoc, clonedDoc, docChanges, defToEdit]);
 
-  function getUpdatedDoc(doc: T.DesignDoc, changes: DesignDocChanges): T.DesignDoc {
-    //apply changed defs, strip out deleted and apply new order 
-    return doc;
+  function uploadDoc() {
+    let newDesignDoc: T.DesignDoc = getUpdatedDoc(clonedDoc, docChanges);
+
+    //newDesignDoc.universalPropDefs.Bio!.shortName = 'TOO LOOOOONG';
+    makeApiCall(`game/${gameId}/config/publish`, 'POST', newDesignDoc).then((res) => {
+      console.log(res.message ?? "Success!");
+      presentAlert("Successfully updated config!");
+      //TODO: refresh for updated ddoc, handle conflict
+      setDocChanges({});
+    }).catch((err) => {
+      console.error(err.message);
+      if(err.status === 409) {
+        //TODO: update conflict, trigger a fetch.
+      }
+      presentAlert( {
+        header: "Error",
+        message: getIonicSanitizedString(err.message),
+      })
+      //presentAlert(getIonicSanitizedString("Error updating config: " +err.message));
+    });
+  }
+
+  function getUpdatedDoc(doc: Readonly<T.DesignDoc>, changes: Readonly<DesignDocChanges>): T.DesignDoc {
+    let result = {...doc};
+    let newUniversalPropDefs: Record<string, T.ColumnDef> = {};
+    let newColumnDefs: Record<string, T.ColumnDef> = {};
+
+    //iterate through in new order, add new def if not in deleted
+    for(const propKey of changes.changedOrders?.universalPropDefs ?? keys(doc.universalPropDefs)) {
+      const def = changes.universalPropDefs?.[propKey] ?? doc.universalPropDefs[propKey];
+      if(def && !changes.deletedDefs?.universalPropDefs?.includes(propKey)) {
+        newUniversalPropDefs[propKey] = def;
+      }
+    }
+    result.universalPropDefs = newUniversalPropDefs;
+
+    for(const columnKey of changes.changedOrders?.columnDefs ?? keys(doc.columnDefs)) {
+      const def = changes.columnDefs?.[columnKey] ?? doc.columnDefs[columnKey];
+      if(def && !changes.deletedDefs?.columnDefs?.includes(columnKey)) {
+        newColumnDefs[columnKey] = def;
+      }
+    }
+    result.columnDefs = newColumnDefs;
+    return result;
   }
 
   //returns string if error, false otherwise
@@ -275,6 +314,14 @@ const DefEditor: React.FC<DefEditorProps> = ({designDoc}) => {
         <IonModal isOpen={showAddDefModal === 'cols'} onDidDismiss={dismissAddDefCallback}>
           <DefAddModal doc={clonedDoc} docChanges={docChanges} isUniversalProps={false} setDefToEditCallback={setDefToEditCallback} dismissModalCallback={dismissAddDefCallback} />
         </IonModal>
+
+        <NeedPermissions permissions="GameAdmin" ifYes={(
+          <IonButton onClick={uploadDoc} type="submit" expand="full" disabled={keys(docChanges).length === 0} >Upload New Config</IonButton>
+        )}
+        ifNo={(
+          <IonItem color="danger"><IonIcon slot="start" ios={warningOutline} md={warningSharp} /><span>Only game admins can change configuration. You can look at the configuration, but <b>cannot upload any changes</b>.</span><IonButton onClick={uploadDoc} type="submit" expand="full" disabled={keys(docChanges).length === 0}>Test upload without permission</IonButton></IonItem>
+        )}
+        />
 
         <IonSelect interface="action-sheet" placeholder="Screen width preview: Select a size" onIonChange={chooseBreakpoint}
             interfaceOptions={{header: "Preview Screen Width", subHeader: "This lets you see how the columns will be arranged on devices of varying sizes"}}>

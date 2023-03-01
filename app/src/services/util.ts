@@ -6,6 +6,7 @@ import { getChangedCols } from '../services/merging';
 import { SegmentUrl } from '../types/utilTypes';
 import { generatePath } from "react-router";
 import { CompileConstants } from '../constants/CompileConstants';
+import sanitizeHtml from 'sanitize-html';
 
 //export function keys<T extends object>(obj: T): Array<keyof T> { //was always insisting keys could be string | number, maybe since number keys get coerced to strings
 export function keys<T extends object>(obj: T): Array<string> {
@@ -71,6 +72,16 @@ export function getDateString(): string {
 // Needed because "2-" > "100-" > "1-"
 export function getRevNumber(_rev: string): number {
   return Number.parseInt(_rev.split('-')[0]);
+}
+
+//trims spaces and escapes all tags/attributes. TODO: test how it escapes every instance of <, >, and &
+export function cleanUserString(dirty: string): string {
+  //disallowedTagsMode: discard turns "<a>foo</a>" into "foo". recursiveEscape turns it into "&lt;a&gt;foo&lt;/a&gt;"
+  return sanitizeHtml(dirty.trim(), {allowedTags: [], allowedAttributes: {}, disallowedTagsMode: "discard"});
+}
+export function sanitizeWithAllowedTags(dirty: string, allowedTags: string[] = ['br', 'b', 'i']): string {
+  const res = sanitizeHtml(dirty, {allowedTags: allowedTags, allowedAttributes: {}, disallowedTagsMode: "discard"});
+  return res;
 }
 
 
@@ -220,149 +231,3 @@ export function unresolvedConflictInMove(moveConflicts: Readonly<T.Conflicts>): 
   return false;
 }
 
-/*
-//returns string converted to columnData, with "empty" or unconvertable data as undefined
-export function strToColData(str: string | undefined, type: T.DataType): T.ColumnData | undefined {
-  if(!str || str.length === 0) return undefined;
-  switch(type) {
-    case DataType.Int: {
-      return Number.parseInt(str);
-    }
-    case DataType.Num: {
-      return Number.parseFloat(str);
-    }
-    case DataType.Str:
-    case DataType.NumStr: {
-      return str;
-    }
-    case DataType.Ord: {
-      let maybeOrder = JSON.parse(str) as T.MoveOrder[];
-      if(!Array.isArray(maybeOrder)) console.warn("Unable to parse into MoveOrder[]:"+str);
-      return maybeOrder.length > 0 ? maybeOrder : undefined;
-    }
-    case DataType.List: {
-      let maybeList = JSON.parse(str) as string[];
-      if(!Array.isArray(maybeList)) console.warn("Unable to parse into string[]:"+str);
-      return maybeList.length > 0 ? maybeList : undefined;
-    }
-  }
-  return assertUnreachable(type);
-}
-export function assertUnreachable(x: never): never {
-    throw new Error("Return this at end of switch statement with value being switched on to type check exhaustiveness");
-}
-
-export function colDataToPrintable(defData: T.ColumnDefAndData): string | number {
-  let data = defData.data;
-  let type = defData.def?.dataType;
-  if(type) {
-    if(data === undefined) return '-';
-    else if(isNumber(data, type)) return data;
-    else if(isString(data, type)) return data;
-  }
-  return JSON.stringify(data);
-}
-
-
-export function checkInvalid(data: T.ColumnData | undefined, def: T.ColumnDef): false | FieldError {
-  const colName = def.columnName;
-  const dataType: DataType = def.dataType;
-
-  //TODO: check that this function actually receives undefined instead of empty strings or arrays
-  // If column not required, undefined data passes all other checks
-  if(data === undefined) {
-    if(def.required) {
-      return {columnName: colName, message: "Required column"};
-    }
-    else {
-      return false;
-    }
-  }
-
-  // Parse out NumericStrings which could effectively be a number or string value
-  let stringValue: null | string = (isBasicString(data, dataType)) ? data : null;
-  let numberValue: null | number = (isNumber(data, dataType)) ? data : null;
-  if(isNumericString(data, dataType)) {
-    //Parses "0.17" or ".17[8]" as .17
-    let num = Number.parseFloat(data);
-    if(!isNaN(num)) {
-      numberValue = num;
-    }
-    else {
-      stringValue = data;
-      if(!def.allowedValues) { //if there are allowed values, they'll be checked below
-        return {columnName: colName, message: "Please enter number without beginning punctuation"};
-      }
-    }
-  }
-
-  if(def.allowedValues) {
-    if(stringValue !== null) {
-      if(!def.allowedValues.includes(stringValue)) {
-        const numsAllowed = (dataType === DataType.NumStr) ? "Numbers or " : "";
-        return {columnName: colName, message: "Allowed values: " + numsAllowed + JSON.stringify(def.allowedValues)};
-      }
-    }
-  }
-
-  if(def.forbiddenValues) {
-    if(stringValue !== null) {
-      if(def.forbiddenValues.includes(stringValue)) {
-        return {columnName: colName, message: "Forbidden value"};
-      }
-    }
-  }
-
-  if(def.minSize) {
-    if(stringValue !== null) {
-      if(stringValue.length < def.minSize) {
-        return {columnName: colName, message: "Minimum length:"+def.minSize};
-      }
-    }
-    else if(numberValue !== null) {
-      if(numberValue < def.minSize) {
-        return {columnName: colName, message: "Minimum value:"+def.minSize};
-      }
-    }
-  }
-
-  if(def.maxSize) {
-    if(stringValue !== null) {
-      if(stringValue.length > def.maxSize) {
-        return {columnName: colName, message: "Maximum length:"+def.maxSize};
-      }
-    }
-    else if(numberValue !== null) {
-      if(numberValue > def.maxSize) {
-        return {columnName: colName, message: "Maximum value:"+def.maxSize};
-      }
-    }
-  }
-
-  return false;
-}
-
-
-export function isString(data: T.ColumnData, dataType: T.DataType): data is string {
-  return dataType === DataType.Str || dataType === DataType.NumStr;
-}
-export function isStringColumn(data: T.ColumnData, columnName: string): data is string {
-  return columnName === "moveName";
-}
-export function isBasicString(data: T.ColumnData, dataType: T.DataType): data is string {
-  return dataType === DataType.Str;
-}
-export function isNumber(data: T.ColumnData, dataType: T.DataType): data is number {
-  return dataType === DataType.Num || dataType === DataType.Int;
-}
-export function isNumericString(data: T.ColumnData, dataType: T.DataType): data is string {
-  return dataType === DataType.NumStr;
-}
-export function isMoveOrder(data: T.ColumnData, dataType: T.DataType): data is T.MoveOrder[] {
-  return dataType === DataType.Ord;
-}
-export function isList(data: T.ColumnData, dataType: T.DataType): data is string[] {
-  return dataType === DataType.List;
-}
-
-*/

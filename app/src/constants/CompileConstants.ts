@@ -1,4 +1,4 @@
-import { Credentials } from '../components/LocalProvider';
+import { Credentials } from '../types/utilTypes';
 
 export let CompileConstants = {
   DEFAULT_PREFER_LOCAL: false,

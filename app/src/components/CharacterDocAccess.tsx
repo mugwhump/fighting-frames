@@ -150,6 +150,7 @@ export const CharacterDocAccess: React.FC<CharProviderProps> = ({children, gameI
       console.log("Response: "+JSON.stringify(data));
       presentToast("Change successfully published!", 3000);
       let url = util.getSegmentUrl(gameId, state.characterId, SegmentUrl.Base); 
+      //TODO: getting error about "Node to be removed is not a child of this node," can I access history here?
       history.push(url);
     }).catch((err) => {
       console.error("Error publishing change: "+ err.message);

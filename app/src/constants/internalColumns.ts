@@ -1,5 +1,5 @@
 import { groupList, ColumnDef, Breakpoint, ColumnDefRestrictions, ColumnDefDisplayText, ColumnDefs, ColumnData, DataType } from '../types/characterTypes'; 
-import { keys } from '../services/util';
+import { keys } from '../services/util'; //hewwo
 
   // mobile:  xs=2/12 sm=3/12 md=4/12 lg=6/12 xl=row
   // desktop: xs=1/12 sm=2/12 md=3/12 lg=4/12 xl=6/12
@@ -195,5 +195,9 @@ export const specialDefs = {
   }
 }
 
+export const forbiddenNames: string[] = keys(builtinPropDefs).concat(keys(builtinColumnDefs)).concat(keys(mandatoryPropDefs)).concat(keys(mandatoryColumnDefs)).concat(['columnName']);
 
-export const forbiddenNames: string[] = keys(builtinPropDefs).concat(keys(builtinColumnDefs)).concat(keys(mandatoryPropDefs)).concat(keys(mandatoryColumnDefs));
+export function isMandatory(columnName: string, isUniversalProps: boolean): boolean {
+  const path = isUniversalProps ? "universalPropDefs" : "columnDefs";
+  return columnName in specialDefs.mandatory[path];
+}

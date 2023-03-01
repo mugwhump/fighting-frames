@@ -1,9 +1,15 @@
+import { IonicSafeString } from '@ionic/react';
 import type * as T from '../types/characterTypes'; //== 
 import { BPList } from '../types/characterTypes';
 import { getChangedCols, insertByNeighbor, addMissingMoves, applyMoveResolutions } from '../services/merging';
 import * as util from './util';
 import styles from '../theme/Character.module.css';
+import sanitizeHtml from 'sanitize-html';
 
+
+export function getIonicSanitizedString(dirty: string, allowedTags: string[] = ['br', 'b', 'i']): IonicSafeString {
+  return new IonicSafeString(util.sanitizeWithAllowedTags(dirty, allowedTags));
+}
   // Returns definition/data pairs ordered by provided defs. Data with no definition goes at end with display set to false.
   // If columns and changes both empty (like for new move), returns just definitions, or conflicts' resolved changes
   // Applies css classes always, parent CSS determines if classes matter or not
@@ -77,10 +83,22 @@ export function calculateHideBreakpoints(defs: T.ColumnDefs, previewingSpecificW
   // requires higher breakpoints to have lower or equal sizes
   // Ionic's hide class is inclusive for up, non-inclusive for down. So .ion-hide-md-down doesn't hide at md breakpoint.
   let accumulatedSizes: Record<T.Breakpoint, number> =  {xs: 0, sm: 0, md: 0, lg: 0, xl: 0};
+  let rowIsFull = false; 
   let index = 0;
   let firstDef: T.ColumnDef | null = null;
   for(let [key, def] of util.keyVals(defs)) {
-    if(!def || def.group !== "needsHeader" || !def.widths) continue;
+    //if(!def || def.group !== "needsHeader" || !def.widths) continue;
+    if(!def || (def.group !== "needsHeader" && def.group !== "normal")) continue;
+
+    //if you hit a column with no widths, or that doesn't render when empty, or the header's already full, can stop
+    if(!def.widths || def.dontRenderEmpty || accumulatedSizes.xl >= 12) {
+      rowIsFull = true;
+    }
+    if(rowIsFull) {
+      def._calculatedTableHeaderHideClass = 'ion-hide';
+    }
+    if(!def.widths || rowIsFull) continue;
+
     delete def._calculatedMoveHeaderHideClass; 
     delete def._calculatedTableHeaderHideClass;
 

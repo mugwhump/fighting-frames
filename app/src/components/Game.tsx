@@ -136,7 +136,7 @@ const Game: React.FC<GameProps> = () => {
           </HeaderPage>
         </Route>
         <Route path={CompileConstants.CONFIGURATION_MATCH} >
-          <DefEditor designDoc={doc} />
+          <DefEditor gameId={gameId} designDoc={doc} />
         </Route>
         <Route path={CompileConstants.ADD_CHARACTER_MATCH} >
           <div>Under Construction</div>

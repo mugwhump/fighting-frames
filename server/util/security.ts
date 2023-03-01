@@ -1,5 +1,6 @@
 import * as CouchAuthTypes from '@perfood/couch-auth/lib/types/typings';
 
+//TODO: this actually is duplicated from frontend, remove
 export type SecObj = {
   admins?: {
     names?: string[],

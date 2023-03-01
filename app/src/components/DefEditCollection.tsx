@@ -4,7 +4,7 @@ import * as T from '../types/characterTypes';
 import { keys, keyVals } from '../services/util';
 import { getWidthAtBP } from '../services/columnUtil';
 import { calculateHideBreakpoints, } from '../services/renderUtil';
-import { groupDescriptions, specialDefs } from '../constants/internalColumns';
+import { groupDescriptions, specialDefs, isMandatory } from '../constants/internalColumns';
 import { cloneDeep, groupBy, set } from 'lodash';
 import ColumnHeaders from './ColumnHeaders';
 import { DesignDocChanges, DefEditObj } from './DefEditor';
@@ -43,24 +43,40 @@ const DefEditCollection: React.FC<DefEditCollection> = ({doc, docChanges, isUniv
     //TODO: display warning if in needsHeader group and first cols don't sum to 12
   }
 
+  const rowInfo = {
+    title: {title: 'Title', desc: `Topmost section. Contains name of ${isUniversalProps ? 'character' : 'move'}`},
+    headerOrNormal: {title: 'Header / Normal', desc: `Section containing normal columns that may need a header. ${!isUniversalProps && 'A floating header row will appear if more than one column with defined widths fits on the first row.'} All columns in "Needs Header" group will get a header above them`},
+    hiddenHeaderOrNormal: {title: 'Hidden by default', desc: `Section for columns that are hidden by default; users must click to expand. All columns in "Needs Header" group will get a header above them`},
+    deleted: {title: 'Deleted Columns (Click to restore)', desc: null},
+    'no-group': {title: 'Error: these columns are missing a definition or a group', desc: null}
+  };
+  
+  //let defsGroupedByRow: {[row: string]: T.ColumnDef[]} = groupBy(mergedDefs, (def) => {
+  let defsGroupedByRow = groupBy<T.ColumnDefs>(mergedDefs, (def) => {
+    if(!def) return 'no-group';
+    if(def.group === 'title') return 'title';
+    if(def.group === 'needsHeader' || def.group === 'normal') return 'headerOrNormal';
+    if(def.group === 'defaultHideNeedsHeader' || def.group === 'defaultHide') return 'hiddenHeaderOrNormal';
+    if(docChanges?.deletedDefs?.[path]?.includes(def.columnName)) return 'deleted';
+    return 'no-group';
+  });
+
   let allGroups = [];
-  
-  let groupedDefs = groupBy(mergedDefs, (def) => (def && docChanges?.deletedDefs?.[path]?.includes(def.columnName)) ? 'deleted' : def?.group ?? 'no-group');
-  if(deletedDefsArray.length > 0) set(groupedDefs, 'deleted', deletedDefsArray); //put deleted at the end
-  const mandatoryKeys: Readonly<string[]> | undefined = keys(specialDefs.mandatory[path]); 
-  
-  for(const [groupKey, defs] of keyVals(groupedDefs)) {
+  if(deletedDefsArray.length > 0) set(defsGroupedByRow, 'deleted', deletedDefsArray); //put deleted at the end
+  //const mandatoryKeys: Readonly<string[]> | undefined = keys(specialDefs.mandatory[path]); 
+ 
+  for(const [rowKey, defs] of keyVals(defsGroupedByRow)) {
     if(!defs) continue;
 
     let groupItems = defs.map((def) => {
       if(!def) return null;
 
       // Mandatory defs are not considered to have been added
-      const isMandatory: boolean = mandatoryKeys.includes(def.columnName); 
+      //const isMandatory: boolean = mandatoryKeys.includes(def.columnName); 
       let editObj: DefEditObj = {defName: def.columnName, isUniversalProp: isUniversalProps, propOrColPath: path, 
-        wasAdded: !doc[path][def.columnName] && !isMandatory, wasDeleted: groupKey === 'deleted', isMandatory: isMandatory};
+        wasAdded: !doc[path][def.columnName] && !isMandatory, wasDeleted: rowKey === 'deleted', isMandatory: isMandatory(def.columnName, isUniversalProps)};
       let sizeProps: {size: string | undefined} | T.ColumnDefStyling['widths'] | undefined =  
-        groupKey === "deleted" ? {size: '12'} : //deleted defs get full row
+        rowKey === "deleted" ? {size: '12'} : //deleted defs get full row
           previewBreakpoint 
             ? {size: getWidthAtBP(previewBreakpoint, def.widths)?.toString()} 
             : def.widths;
@@ -79,16 +95,17 @@ const DefEditCollection: React.FC<DefEditCollection> = ({doc, docChanges, isUniv
       </IonCol> )
     });
 
-    let headerRow = (groupKey === "needsHeader" && !isUniversalProps) 
+    //TODO: deal with combined groups here
+    let headerRow = (rowKey === "headerOrNormal" && !isUniversalProps) 
       ? <ColumnHeaders columnDefs={mergedDefs} previewingSpecificWidth={previewBreakpoint} /> 
       : null;
-    const title = groupDescriptions[groupKey as keyof typeof groupDescriptions]?.title ?? groupKey;
-    const desc = groupDescriptions[groupKey as keyof typeof groupDescriptions]?.desc ?? null;
+    const title = rowInfo[rowKey as keyof typeof rowInfo].title;
+    const desc = rowInfo[rowKey as keyof typeof rowInfo].desc;
     allGroups.push(
-      <IonCol key={groupKey} size="12">
+      <IonCol key={rowKey} size="12">
         <div className={styles.columnGroup}>
           <IonRow className={styles.columnGroupTitleRow}>
-            <span>{groupKey === "deleted" ? "Deleted columns (click to restore)" : "Column Group: "+title}</span>
+            <span>{title}</span>
             {desc && <HelpPopup>{desc}</HelpPopup>}
           </IonRow>
           {headerRow}
@@ -99,58 +116,6 @@ const DefEditCollection: React.FC<DefEditCollection> = ({doc, docChanges, isUniv
   }
 
   return <>{allGroups}</>;
-/*
-  for(const key of keys(mergedDefs)) {
-    const def = mergedDefs[key];
-    if(!def) throw new Error("Cannot find definition for "+key+" among available definitions: "+JSON.stringify(mergedDefs));
-    const thisGroup = def.group;
-    if(currentGroup !== thisGroup) { //if first item of new group
-      if(currentGroup !== null) { //if finished with group and starting new one
-        let headerRow = null;
-        //if new group is needsHeader, insert the headerColumns here. 
-        if(currentGroup === "needsHeader" && !isUniversalProps) {
-          headerRow = (
-            <ColumnHeaders columnDefs={mergedDefs} previewingSpecificWidth={previewBreakpoint} />
-          );
-        }
-        allGroups.push(
-          <IonCol key={currentGroup} size="12">
-            <IonRow>Column Group: {currentGroup}</IonRow>
-            {headerRow}
-            <IonRow>{currentGroupArray}</IonRow>
-          </IonCol>
-        );
-        currentGroupArray = [];
-      }
-      currentGroup = thisGroup;
-    }
-
-    let editObj: DefEditObj = {defName: key, isUniversalProp: isUniversalProps, propOrColPath: path, wasAdded: false, wasDeleted: false};
-    editObj.wasAdded = !doc[path];
-    //editObj.wasDeleted = !!docChanges.deletedDefs?.[path]?.find((x) => x === key);
-    let classes = [styles.defWidthPreview];
-    if(editObj.wasAdded) classes.push(styles.add);
-    //if(editObj.wasDeleted) classes.push(styles.delete);
-
-    let sizeProps: {size: string | undefined} | T.ColumnDefStyling['widths'] | undefined = previewBreakpoint ? {size: getWidthAtBP(previewBreakpoint, def.widths)?.toString()} : def.widths;
-
-    currentGroupArray.push( //must put bp in key so ionic recalculates style when sizes change
-      <IonCol key={key + previewBreakpoint} {...sizeProps} className={classes.join(' ')} onClick={() => itemClicked(editObj)}>
-        {(def.group === "needsHeader" || def.group === "defaultHideNeedsHeader") && 
-          <div className={characterStyles.standaloneHeaderCol + ' ' + (def._calculatedMoveHeaderHideClass  || '')}>{def.shortName || def.displayName || def.columnName}</div>
-        }
-        {key}
-      </IonCol>
-    )
-  }
-  allGroups.push( //push the final group TODO: what if the final group is needsHeader? This is kinda whack...
-    <IonCol key={currentGroup} size="12">
-      <IonRow>Column Group: {currentGroup}</IonRow>
-      <IonRow>{currentGroupArray}</IonRow>
-    </IonCol>
-  );
-  return <>{allGroups}</>
-  */
 }
 
 export default DefEditCollection;

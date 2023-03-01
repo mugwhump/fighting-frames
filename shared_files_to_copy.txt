@@ -1,0 +1,11 @@
+# List of files that must be copied from app/src to server/shared with rsync.
+constants/CompileConstants.ts
+constants/internalColumns.ts
+constants/metaDefs.ts
+
+services/columnUtil.ts
+services/merging.ts
+services/util.ts
+
+types/characterTypes.ts
+types/utilTypes.ts

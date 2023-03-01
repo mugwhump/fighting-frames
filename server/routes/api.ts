@@ -14,8 +14,11 @@ import * as Nano from 'nano';
 //import * as merging from '@app/services/merging';
 import type * as T from '../shared/types/characterTypes'; //= //not included in runtime buildo
 import * as util from '../shared/services/util';
+import * as colUtil from '../shared/services/columnUtil';
 import * as metaDefs from '../shared/constants/metaDefs';
 import * as merging from '../shared/services/merging';
+
+const DesignDocValidator = require('../schema/DesignDoc-validator').default;
 
 const router = express.Router();
 const admin = secrets.couch_admin;
@@ -26,67 +29,6 @@ const testUser = 'joesmith2';
 function sleep(ms: number) {
     return new Promise(resolve => setTimeout(resolve, ms));
 }
-//function getSlBearerCreds(authString: string): [string, string] {
-  //let res = authString.replace("Bearer ", "").split(":");
-  //return [res[0], res[1]];
-//}
-
-/* GET api listing. */
-//router.get('/', function(req, res, next) {
-  //res.send('COUCHDB_URL = '+process.env.COUCHDB_URL+', secrets = '+admin+', '+password);
-//});
-/*
-router.get('/test', function(req, res, next) {
-  couchAuth.passport.authenticate('local', function(err, user, info) {
-    //logger.info('req = '+util.inspect(req));
-    if(err) {
-      logger.info('oh no');
-      return next(err);
-    }
-    if(!user) {
-      // Authentication failed
-      logger.info('oh no no no, '+JSON.stringify(err)+JSON.stringify(user)+JSON.stringify(info));
-      return res.status(401).json(info);
-    }
-    // Success
-    req.logIn(user, {session: false}, function(err) {
-      if (err) {
-        logger.info('oh no no no no no, failed to login with ');
-        return next(err);
-      }
-    });
-    return next();
-  })(req, res, next); //NOPE this req object doesn't contain any creds
-  }, function(req, res, next) {
-    // user.authenticate, but in codebase, /login first calls passport.authenticate. So not sure how to use the session made by createSession
-    couchAuth.createSession(testUser, 'local', req).then((resp) => { 
-      logger.info('resp = '+JSON.stringify(resp));
-      //sleep(2000).then(() => {
-      couchAuth.confirmSession(resp.token, 'bigsecret').then((confirmResp) => { //this does seem to just confirm the session, not a step to "activate" it
-        logger.info('confirmResp = '+JSON.stringify(confirmResp));
-        sessionNano = require('nano')({
-          url:'http://'+process.env.COUCHDB_URL,
-          headers: {
-            //'Authorization': 'Bearer ' + resp.token + ':' + resp.password
-            //'Content-Type': 'application/json',
-            'Authorization': 'Basic ' + btoa(unescape(encodeURIComponent(resp.token + ':' + resp.password)))
-          }
-        });
-        let sc6 = sessionNano.use('sc6');
-        sc6.get('character/talim').then((talim) => {
-          res.send('talim = '+util.inspect(talim));
-        }).catch((err) => {
-          res.send('Cannae get character with '+ resp.token + ':'+resp.password+', '+err.message);
-        });
-      }).catch((err) => {
-        res.send('error confirming session, '+JSON.stringify(err));
-      });
-    }).catch((err) => {
-      res.send('you made a booboo, '+err.message);
-    });
-  }
-);
-*/
 
 
 function sendSuccess(res: Response, message: string, code: number = 200) {
@@ -101,7 +43,7 @@ function sendError(res: Response, message: string, code: number = 500) {
 router.post('/game/:gameId/config/publish', couchAuth.requireAuth, couchAuth.requireRole("user") as any,
            async (req: Request<{gameId:string}>, res) => {
   try {
-    logger.warn(`startin da tingy`);
+    logger.warn(`startin da tangy`);
     const user: CouchAuthTypes.SlRequestUser = req.user!;
     const db = adminNano.use(req.params.gameId);
     const sec = await db.get("_security") as Security.SecObj;
@@ -112,17 +54,31 @@ router.post('/game/:gameId/config/publish', couchAuth.requireAuth, couchAuth.req
     if(newDesignDoc._id !== '_design/columns') {
       return sendError(res, `Incorrect _id ${newDesignDoc._id}`, 400);
     }
-    //TODO: repair mandatory columns
+    //repair mandatory columns, ensure group sorting
+    colUtil.insertDefsSortGroupsCompileRegexes(newDesignDoc.universalPropDefs, true, false, false);
+    colUtil.insertDefsSortGroupsCompileRegexes(newDesignDoc.columnDefs, false, false, false);
 
     //TODO: check errors
-    const error = metaDefs.getColumnDocErrorMessage(newDesignDoc);
+    let typeValidationResult = DesignDocValidator(newDesignDoc);
+    if(typeValidationResult) {
+      logger.info('Type validation successful');
+    }
+    else {
+      logger.warn('Validation result: '+JSON.stringify(typeValidationResult));
+      return sendError(res, "Type validation failed", 400);
+    }
+    const error = metaDefs.getDesignDocErrorMessage(newDesignDoc);
     if(error) {
-      logger.warn('boo');
       return sendError(res, error, 400);
     }
 
     //TODO: remove useless columns
-    const putResult = await db.insert(newDesignDoc); 
+    try {
+      const putResult = await db.insert(newDesignDoc); 
+    }
+    catch(err: any) {
+      return sendError(res, err.reason ?? JSON.stringify(err), err.statusCode);
+    }
     return sendSuccess(res, JSON.stringify(newDesignDoc));
   }
   catch(err) {
@@ -270,5 +226,67 @@ router.get('/login', function(req, res, next) {
     res.send('you made a booboo, '+err.message);
   });
 });
+
+//function getSlBearerCreds(authString: string): [string, string] {
+  //let res = authString.replace("Bearer ", "").split(":");
+  //return [res[0], res[1]];
+//}
+
+/* GET api listing. */
+//router.get('/', function(req, res, next) {
+  //res.send('COUCHDB_URL = '+process.env.COUCHDB_URL+', secrets = '+admin+', '+password);
+//});
+/*
+router.get('/test', function(req, res, next) {
+  couchAuth.passport.authenticate('local', function(err, user, info) {
+    //logger.info('req = '+util.inspect(req));
+    if(err) {
+      logger.info('oh no');
+      return next(err);
+    }
+    if(!user) {
+      // Authentication failed
+      logger.info('oh no no no, '+JSON.stringify(err)+JSON.stringify(user)+JSON.stringify(info));
+      return res.status(401).json(info);
+    }
+    // Success
+    req.logIn(user, {session: false}, function(err) {
+      if (err) {
+        logger.info('oh no no no no no, failed to login with ');
+        return next(err);
+      }
+    });
+    return next();
+  })(req, res, next); //NOPE this req object doesn't contain any creds
+  }, function(req, res, next) {
+    // user.authenticate, but in codebase, /login first calls passport.authenticate. So not sure how to use the session made by createSession
+    couchAuth.createSession(testUser, 'local', req).then((resp) => { 
+      logger.info('resp = '+JSON.stringify(resp));
+      //sleep(2000).then(() => {
+      couchAuth.confirmSession(resp.token, 'bigsecret').then((confirmResp) => { //this does seem to just confirm the session, not a step to "activate" it
+        logger.info('confirmResp = '+JSON.stringify(confirmResp));
+        sessionNano = require('nano')({
+          url:'http://'+process.env.COUCHDB_URL,
+          headers: {
+            //'Authorization': 'Bearer ' + resp.token + ':' + resp.password
+            //'Content-Type': 'application/json',
+            'Authorization': 'Basic ' + btoa(unescape(encodeURIComponent(resp.token + ':' + resp.password)))
+          }
+        });
+        let sc6 = sessionNano.use('sc6');
+        sc6.get('character/talim').then((talim) => {
+          res.send('talim = '+util.inspect(talim));
+        }).catch((err) => {
+          res.send('Cannae get character with '+ resp.token + ':'+resp.password+', '+err.message);
+        });
+      }).catch((err) => {
+        res.send('error confirming session, '+JSON.stringify(err));
+      });
+    }).catch((err) => {
+      res.send('you made a booboo, '+err.message);
+    });
+  }
+);
+*/
 
 export default router;

@@ -3,13 +3,9 @@ import { useLocation, useHistory } from 'react-router';
 import { GameProvider } from './GameProvider';
 import PouchDB from 'pouchdb';
 import CompileConstants from '../constants/CompileConstants';
-import { StringSet } from '../types/utilTypes';
+import { StringSet, Credentials } from '../types/utilTypes';
 import { usePouch } from 'use-pouchdb';
 
-export type Credentials = {
-  username: string,
-  password: string 
-}
 export type db = string;
 //export type CredentialStore = Record<db, Credentials>; // With superlogin users should only need one set of credentials
 export type Preferences = {

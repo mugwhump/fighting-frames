@@ -20,10 +20,6 @@ const NeedPermissions: React.FC<NeedPermissionsProps> = ({children, permissions,
   if((!ifYes || !ifNo) && ifYes !== ifNo) throw new Error("Must provide both ifYes and ifNo to NeedPermission if using either");
   if(!!children && !!ifYes) throw new Error("Either use children with NeedPermission or the ifYes+ifNo props, not both");
 
-  //useEffect(() => {
-    //console.log("NeedPermissions's loginInfo changed: "+JSON.stringify(loginInfo));
-  //}, [loginInfo])
-
   if(ifYes === undefined) {
     if(hasPerms) {
       return (

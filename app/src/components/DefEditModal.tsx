@@ -12,7 +12,7 @@ import characterStyles from '../theme/Character.module.css';
 import { createChange, getInvertedMoveChanges } from '../services/merging';
 import { cloneDeep, isEqual } from 'lodash';
 import { forbiddenNames, predefinedWidths, specialDefs } from '../constants/internalColumns';
-import { metaDefs, extraMetaDefs, ExtraMetaDefKey, DefPropertyFieldErrors, MetaDefKey, getExtraMetaDef, getMetaDef, getPropertyAsColumnData, getErrorsForColumnDef, getDefPropError, getExtraDefPropError } from '../constants/metaDefs';
+import { metaDefs, extraMetaDefs, ExtraMetaDefKey, DefPropertyFieldErrors, MetaDefKey, getExtraMetaDef, getMetaDef, getPropertyAsColumnData, getErrorsForColumnDef, getDefPropError, getExtraDefPropError, getUselessProperties } from '../constants/metaDefs';
 import { DefEditObj } from './DefEditor';
 import DefEditPreview from './DefEditPreview';
 import { HelpPopup } from './HelpPopup';
@@ -40,7 +40,7 @@ const DefEditModal: React.FC<DefEditModalProps > = ({defEditingInfo, updateDefCa
   const [clonedDef, setClonedDef] = useState<T.ColumnDef>(getStartingDef);
   const addingNewBlankDef = defEditingInfo.defName === ""; //TODO: no way to identify suggested defs that are just being added now rather than earlier in session...
   const canDelete = (!defEditingInfo.wasDeleted && !defEditingInfo.wasAdded && !defEditingInfo.isMandatory);
-  const [fieldErrors, setFieldErrors] = useState<DefPropertyFieldErrors>(() => getErrorsForColumnDef(clonedDef));
+  const [fieldErrors, setFieldErrors] = useState<DefPropertyFieldErrors>(() => getErrorsForColumnDef(clonedDef, defEditingInfo.isMandatory));
   const warnings = useMemo<DefPropertyFieldErrors>(getWarnings, [clonedDef, colDef]);
   const [presentAlert, dismissAlert] = useIonAlert(); 
 
@@ -72,41 +72,7 @@ const DefEditModal: React.FC<DefEditModalProps > = ({defEditingInfo, updateDefCa
       result.dataType = {columnName: 'dataType', message: `Changing an existing column from type ${clonedDef.dataType} to ${colDef.dataType} may cause complications if users have already entered data, which can't be automatically converted. Instead of changing this column's dataType, try deleting this column and creating a new one.`};
     }
     //Useless prop warnings take priority
-    return {...result, ...getUselessProperties()};
-  }
-
-  //Warn users about useless properties and delete them upon submission. 
-  //TODO: can run server-side? Then don't need to do this column upon submission, server will do it. Would have to do it after server's error-check to ensure consistency.
-  function getUselessProperties(): DefPropertyFieldErrors {
-    //let result: {[Property in keyof Partial<T.ColumnDef>]: {columnName: Property, message: string} } = {};
-    let result: DefPropertyFieldErrors = {};
-
-    if(clonedDef.allowedValues !== undefined) {
-      //forbidden values does nothing when allowed values are present
-      if(clonedDef.forbiddenValues !== undefined) {
-        result.forbiddenValues = {columnName: 'forbiddenValues', message: 'Forbidden values have no effect when allowed values are defined'};
-      }
-      //min/max size useless w/ single select
-      if(clonedDef.dataType === T.DataType.Str) {
-        if(clonedDef.maxSize !== undefined) {
-          result.maxSize = {columnName: 'maxSize', message: 'Max size has no effect with String data with allowed values defined'}
-        }
-        if(clonedDef.minSize !== undefined) {
-          result.minSize = {columnName: 'minSize', message: 'Min size has no effect with String data with allowed values defined'}
-        }
-      }
-    }
-    //allowedValues and forbidden values useless w/ number types
-    if(colUtil.dataTypeIsNumber(clonedDef.dataType)) {
-      if(clonedDef.allowedValues !== undefined) {
-        result.allowedValues = {columnName: 'allowedValues', message: 'Allowed values have no effect with number-type data (excluding numeric strings)'};
-      }
-      if(clonedDef.forbiddenValues !== undefined) {
-        result.forbiddenValues = {columnName: 'forbiddenValues', message: 'Forbidden values have no effect with number-type data (excluding numeric strings)'};
-      }
-    }
-    //TODO: strip out allowedValuesHints if no allowedValues. 
-    return result;
+    return {...result, ...getUselessProperties(clonedDef)};
   }
 
 
@@ -114,7 +80,6 @@ const DefEditModal: React.FC<DefEditModalProps > = ({defEditingInfo, updateDefCa
     let errorString: string | false = false;
     let errorKeys: string[] = keys(fieldErrors);
     if(errorKeys.length === 0) {
-      //TODO: clear useless properties, inc any hints for allowedValues that aren't there. Unless doing it server-side.
       //TODO: trim string vals
       errorString = updateDefCallback(clonedDef); //returns error string if columnName in use or the editor component encountered an issue
       if(!errorString) { //only dismiss if no error
@@ -151,19 +116,10 @@ const DefEditModal: React.FC<DefEditModalProps > = ({defEditingInfo, updateDefCa
     if(newData === undefined) {
       delete newDef[defProperty];
     }
-    //error check
-    //const err: FieldError | false = getDefPropError(newDef, defProperty);
-    //if(err) {
-      //console.log(`Error in property ${defProperty}, ${err.message}`);
-      //setFieldErrors({...fieldErrors, [defProperty]: err});
-    //}
-    //else if(fieldErrors[defProperty]){
-      //const newErrors = {...fieldErrors};
-      //delete newErrors[defProperty];
-      //setFieldErrors(newErrors);
-    //}
     //TODO: if changing an allowedVal, update hints key? Tricky but doable? Can ignore reorderings.
-    setFieldErrors(getErrorsForColumnDef(newDef, !forbiddenNames.includes(defEditingInfo.defName)));
+    //Skip forbidden val check for columnName if starting name was forbidden (ie if editing mandatory cols) 
+    //setFieldErrors(getErrorsForColumnDef(newDef, !forbiddenNames.includes(defEditingInfo.defName)));
+    setFieldErrors(getErrorsForColumnDef(newDef, defEditingInfo.isMandatory));
     setClonedDef(newDef);
   }
 
@@ -190,8 +146,6 @@ const DefEditModal: React.FC<DefEditModalProps > = ({defEditingInfo, updateDefCa
     }
     else if(defProperty.startsWith('size-')) {
       let key: T.SizeBreakpoint = defProperty as T.SizeBreakpoint;
-      //let bp = defProperty.split('width-')[1] as T.Breakpoint;
-      //const key: T.SizeBreakpoint = `size-${bp}`; //`
       if(newData === "" || newData === undefined) {
         delete newDef.widths?.[key];
         if(newDef.widths && Object.keys(newDef.widths).length === 0) delete newDef.widths;
@@ -201,17 +155,6 @@ const DefEditModal: React.FC<DefEditModalProps > = ({defEditingInfo, updateDefCa
       }
     }
     setClonedDef(newDef);
-    //TODO: error check
-    //const err: FieldError | false = getExtraDefPropError(newDef, defProperty);
-    //if(err) {
-      //console.log(`Error in extra property ${defProperty}, ${err.message}`);
-      //setFieldErrors({...fieldErrors, [defProperty]: err});
-    //}
-    //else if(fieldErrors[defProperty]){
-      //const newErrors = {...fieldErrors};
-      //delete newErrors[defProperty];
-      //setFieldErrors(newErrors);
-    //}
     setFieldErrors(getErrorsForColumnDef(newDef));
   }
 

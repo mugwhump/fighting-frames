@@ -1,0 +1,268 @@
+{
+    "$schema": "http://json-schema.org/draft-07/schema#",
+    "allOf": [
+        {
+            "properties": {
+                "columnDefs": {
+                    "additionalProperties": {
+                        "$ref": "#/definitions/ColumnDef"
+                    },
+                    "type": "object"
+                },
+                "displayName": {
+                    "type": "string"
+                },
+                "universalPropDefs": {
+                    "additionalProperties": {
+                        "$ref": "#/definitions/ColumnDef"
+                    },
+                    "type": "object"
+                }
+            },
+            "required": [
+                "columnDefs",
+                "displayName",
+                "universalPropDefs"
+            ],
+            "type": "object"
+        },
+        {
+            "properties": {
+                "_id": {
+                    "type": "string"
+                },
+                "_rev": {
+                    "type": "string"
+                }
+            },
+            "required": [
+                "_id",
+                "_rev"
+            ],
+            "type": "object"
+        }
+    ],
+    "definitions": {
+        "ColumnDef": {
+            "allOf": [
+                {
+                    "properties": {
+                        "columnName": {
+                            "type": "string"
+                        }
+                    },
+                    "required": [
+                        "columnName"
+                    ],
+                    "type": "object"
+                },
+                {
+                    "properties": {
+                        "allowedValuesHints": {
+                            "additionalProperties": {
+                                "type": "string"
+                            },
+                            "type": "object"
+                        },
+                        "displayName": {
+                            "type": "string"
+                        },
+                        "hintText": {
+                            "type": "string"
+                        },
+                        "prefix": {
+                            "type": "string"
+                        },
+                        "shortName": {
+                            "type": "string"
+                        },
+                        "suffix": {
+                            "type": "string"
+                        }
+                    },
+                    "type": "object"
+                },
+                {
+                    "properties": {
+                        "_compiledAllowedRegex": {
+                            "$ref": "#/definitions/RegExp"
+                        },
+                        "allowedRegex": {
+                            "type": "string"
+                        },
+                        "allowedValues": {
+                            "items": {
+                                "type": "string"
+                            },
+                            "type": "array"
+                        },
+                        "dataType": {
+                            "$ref": "#/definitions/DataType"
+                        },
+                        "forbiddenValues": {
+                            "items": {
+                                "type": "string"
+                            },
+                            "type": "array"
+                        },
+                        "maxSize": {
+                            "type": "number"
+                        },
+                        "minSize": {
+                            "type": "number"
+                        },
+                        "required": {
+                            "type": "boolean"
+                        }
+                    },
+                    "required": [
+                        "dataType",
+                        "required"
+                    ],
+                    "type": "object"
+                },
+                {
+                    "properties": {
+                        "_calculatedMoveHeaderHideClass": {
+                            "type": "string"
+                        },
+                        "_calculatedTableHeaderHideClass": {
+                            "type": "string"
+                        },
+                        "_compiledNumStrRegex": {
+                            "$ref": "#/definitions/RegExp"
+                        },
+                        "_compiledTagStrRegex": {
+                            "$ref": "#/definitions/RegExp"
+                        },
+                        "cssRegex": {
+                            "items": {
+                                "properties": {
+                                    "_compiled_regex": {
+                                        "$ref": "#/definitions/RegExp"
+                                    },
+                                    "applyViaSplit": {
+                                        "type": "boolean"
+                                    },
+                                    "css": {
+                                        "type": "string"
+                                    },
+                                    "regex": {
+                                        "type": "string"
+                                    }
+                                },
+                                "required": [
+                                    "css",
+                                    "regex"
+                                ],
+                                "type": "object"
+                            },
+                            "type": "array"
+                        },
+                        "dontRenderEmpty": {
+                            "type": "boolean"
+                        },
+                        "group": {
+                            "$ref": "#/definitions/DefGroup"
+                        },
+                        "widths": {
+                            "$ref": "#/definitions/{\"size-xs\"?:number|undefined;\"size-sm\"?:number|undefined;\"size-md\"?:number|undefined;\"size-lg\"?:number|undefined;\"size-xl\"?:number|undefined;}"
+                        }
+                    },
+                    "required": [
+                        "group"
+                    ],
+                    "type": "object"
+                }
+            ]
+        },
+        "DataType": {
+            "enum": [
+                "INTEGER",
+                "LIST",
+                "MOVE_ORDER",
+                "NUMBER",
+                "NUMERIC_STRING",
+                "STRING",
+                "TAG_STRING"
+            ],
+            "type": "string"
+        },
+        "DefGroup": {
+            "enum": [
+                "defaultHide",
+                "defaultHideNeedsHeader",
+                "meta",
+                "needsHeader",
+                "no-definition",
+                "normal",
+                "title"
+            ],
+            "type": "string"
+        },
+        "RegExp": {
+            "properties": {
+                "dotAll": {
+                    "type": "boolean"
+                },
+                "flags": {
+                    "type": "string"
+                },
+                "global": {
+                    "type": "boolean"
+                },
+                "ignoreCase": {
+                    "type": "boolean"
+                },
+                "lastIndex": {
+                    "type": "number"
+                },
+                "multiline": {
+                    "type": "boolean"
+                },
+                "source": {
+                    "type": "string"
+                },
+                "sticky": {
+                    "type": "boolean"
+                },
+                "unicode": {
+                    "type": "boolean"
+                }
+            },
+            "required": [
+                "dotAll",
+                "flags",
+                "global",
+                "ignoreCase",
+                "lastIndex",
+                "multiline",
+                "source",
+                "sticky",
+                "unicode"
+            ],
+            "type": "object"
+        },
+        "{\"size-xs\"?:number|undefined;\"size-sm\"?:number|undefined;\"size-md\"?:number|undefined;\"size-lg\"?:number|undefined;\"size-xl\"?:number|undefined;}": {
+            "properties": {
+                "size-lg": {
+                    "type": "number"
+                },
+                "size-md": {
+                    "type": "number"
+                },
+                "size-sm": {
+                    "type": "number"
+                },
+                "size-xl": {
+                    "type": "number"
+                },
+                "size-xs": {
+                    "type": "number"
+                }
+            },
+            "type": "object"
+        }
+    }
+}
+

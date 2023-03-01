@@ -33,6 +33,8 @@ services:
         # docker stack deploy my-stack --compose-file docker-compose.yml --with-registry-auth
         # ^^^ for swarm mode
         # image: private.registry.mine/my-stack/my-service:${MY_SERVICE_VERSION:-latest}
+
+        # Build context, this will be the base path for dockerfile. Can specify both context and file itself w/ context: and dockerfile:
         build: server/
         environment: # can also use a .env file
             COUCHDB_URL: 'couchdb:5984' #access with 'http://user:pass@couchdb:5984'
@@ -45,21 +47,25 @@ services:
         ports:
             - "3000:3000"
         volumes:
-            - ./server:/usr/src/app
-            #- type: bind #long form syntax
-              #source: ./app/src/TESTBANAN.txt
-              #target: /usr/src/app/shared/TESTBANAN.txt
-            #- ./app/src/TESTBANAN.txt:/usr/src/app/shared/TESTBANAN.txt:ro #short form syntax
-            # This is hacky, but monorepos are a PITA with CRA. 
+            - ./server:/usr/src/app #completely replaces whatever the image has in /usr/src/app
+            # It's more than slightly insane to use symlinks in WSL, mounts inside container, and file copying for built image...
             # Could try moving build context to parent dir and excluding app files from copy so symlinks work inside container.
-            - ./app/src/constants/CompileConstants.ts:/usr/src/app/shared/constants/CompileConstants.ts:ro
-            - ./app/src/constants/internalColumns.ts:/usr/src/app/shared/constants/internalColumns.ts:ro
-            - ./app/src/constants/metaDefs.ts:/usr/src/app/shared/constants/metaDefs.ts:ro
-            - ./app/src/services/columnUtil.ts:/usr/src/app/shared/services/columnUtil.ts:ro
-            - ./app/src/services/merging.ts:/usr/src/app/shared/services/merging.ts:ro
-            - ./app/src/services/util.ts:/usr/src/app/shared/services/util.ts:ro
-            - ./app/src/types/characterTypes.ts:/usr/src/app/shared/types/characterTypes.ts:ro
-            - ./app/src/types/utilTypes.ts:/usr/src/app/shared/types/utilTypes.ts:ro
+            # For production, turn bind mind volumes into normal ones? External volumes for swarm deploy?
+            # No, code changes are supposed to mean rebuilding and redeploying image, and mounts can't be accessed during builds.
+            #
+            # This is hacky, but monorepos are a PITA with CRA. 
+            # Keep in mind that some editors (like default vim) change file's inode when saving, causing host file to desync from mounted file.
+            #- ./app/src/constants/CompileConstants.ts:/usr/src/app/shared/constants/CompileConstants.ts:ro
+            #- ./app/src/constants/internalColumns.ts:/usr/src/app/shared/constants/internalColumns.ts:ro
+            #- ./app/src/constants/metaDefs.ts:/usr/src/app/shared/constants/metaDefs.ts:ro
+            #- ./app/src/services/columnUtil.ts:/usr/src/app/shared/services/columnUtil.ts:ro
+            #- ./app/src/services/merging.ts:/usr/src/app/shared/services/merging.ts:ro
+            #- ./app/src/services/util.ts:/usr/src/app/shared/services/util.ts:ro
+            #- ./app/src/types/characterTypes.ts:/usr/src/app/shared/types/characterTypes.ts:ro
+            #- ./app/src/types/utilTypes.ts:/usr/src/app/shared/types/utilTypes.ts:ro
+            #- type: bind #long form syntax
+              #source: ${PWD}/app/src/TEST.txt
+              #target: /usr/src/app/shared/constants/TEST.txt
         secrets:
             - couch_admin
             - couch_password

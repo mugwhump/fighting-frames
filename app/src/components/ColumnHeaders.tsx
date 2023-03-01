@@ -16,11 +16,11 @@ const ColumnHeaders: React.FC<ColumnHeaderProps> = ({columnDefs, previewingSpeci
   for(let [key, def] of keyVals(columnDefs)) {
     if(!def) continue;
     const name = def?.shortName || def?.displayName || def.columnName;
-    if(def.group === "needsHeader" && def._calculatedTableHeaderHideClass !== 'ion-hide') { //don't bother rendering if always hidden
+    if((def.group === "needsHeader" || def.group === "normal") && def._calculatedTableHeaderHideClass !== 'ion-hide') { //don't bother rendering if always hidden
       //header will show when column's header hides and vice-versa
       let sizes: {size: string | undefined} | T.ColumnDefStyling['widths'] = previewingSpecificWidth ? {size: getWidthAtBP(previewingSpecificWidth, def.widths)?.toString()} : {...def.widths};
       headerCols.push(
-        <IonCol key={def.columnName} {...sizes} className={def._calculatedTableHeaderHideClass +' '+styles.tableHeaderCol}>
+        <IonCol key={def.columnName} {...sizes} className={(def._calculatedTableHeaderHideClass ?? '') +' '+styles.tableHeaderCol}>
           {name}
         </IonCol>
       )
@@ -28,7 +28,7 @@ const ColumnHeaders: React.FC<ColumnHeaderProps> = ({columnDefs, previewingSpeci
   }
   if(headerCols.length > 0) {
     return (
-      <IonRow key={"headers"} className={styles.tableHeaderRow} >
+      <IonRow key={"headers"+previewingSpecificWidth} className={styles.tableHeaderRow} >
         {headerCols}
       </IonRow>
     )

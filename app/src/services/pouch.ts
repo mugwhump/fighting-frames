@@ -10,6 +10,7 @@ import CompileConstants from '../constants/CompileConstants';
 // also currently have admin:password
 export const remoteWithBasicCreds: string = `http://${CompileConstants.DEFAULT_CREDENTIALS.username}:${CompileConstants.DEFAULT_CREDENTIALS.password}@localhost:5984/`;
 export const remoteWithTestAdminCreds: string = 'http://admin:password@localhost:5984/';
+//TODO: turn all of these into environment variables, they need to change in production.
 export const remote: string = 'http://localhost:5984/';
 export const apiUrl: string = 'http://localhost:3000/api/';
 PouchDB.plugin(PouchAuth);
@@ -54,13 +55,15 @@ export function makeRequest(url: string, username: string, password: string, met
 }
 
 // For api calls using superlogin session bearer auth
-//TODO: consider using the new Awaited type for return vals
-export function makeApiCall(uri: string, method: "GET" | "PUT" | "POST", body?: Object) {
+// Rejected promises have form {message: string, status: number}. 
+// Api calls that return text instead of json will be converted to the above format.
+export function makeApiCall(uri: string, method: "GET" | "PUT" | "POST", body?: Object): Promise<Record<string, any>> {
   if(uri.indexOf("http") !== -1) throw new Error("Only include the part of the address after website.com/api/");
   if(uri.indexOf("/") === 0) throw new Error("Do not start address with a /, it's already included. Given uri: "+uri);
 
   let session = superlogin.getSession();
-  if(!session) return Promise.reject("No superlogin session found");
+  //if(!session) return Promise.reject("No superlogin session found");
+  if(!session) return Promise.reject({message: "No superlogin session found", status: 401});
 
   //return makeRequest(apiUrl + uri, session.token, session.password, method, body);
   const response = fetch(apiUrl + uri, {
@@ -77,12 +80,35 @@ export function makeApiCall(uri: string, method: "GET" | "PUT" | "POST", body?: 
   //return response. Full response can't be accessed by caller. Can go makeApiCall.then((data) => {bla}).catch((err) => {err.message})
   //Returned errors and fetch's network errors (TypeErrors) are caught the same, both have message.
   return response.then((res) => {
-    return res.json().then((data) => {
-      if(res.ok) {
-        return Promise.resolve(data);
+    let json: Object | undefined;
+    return res.text().then((textData) => {
+      try { //parsing text always works, so use that as a baseline
+        json = JSON.parse(textData);
       }
-      return Promise.reject(data);
-    });
+      catch(jsonParseFailed) { 
+        json = {message: textData, status: res.status};
+        if(textData === "Unauthorized" && res.status === 401) { //if couchAuth can't validate user is who they say they are, returns "Unauthorized" text.
+          json = {message: "Unauthorized. Please log in again.", status: res.status};
+        }
+      }
+      if(json && res.ok) {
+        return Promise.resolve(json);
+      }
+      return Promise.reject(json || {message: 'Error parsing response from call to '+uri, status: res.status});
+    }).catch((err) => {
+      return Promise.reject({message: err.message || err, status: res.status});
+    })
+    //.finally(() =>{
+      //return Promise.reject({message: `banan`, status: res.status})
+    //});
+    //return res.json().then((data) => {
+      //if(res.ok) {
+        //return Promise.resolve(data);
+      //}
+      //return Promise.reject(data);
+    //}).catch((oops) => {
+      //return Promise.reject({message: oops.message, status: res.status});
+    //});
   });
 }
 
@@ -273,10 +299,10 @@ export function userHasPerms(loginInfo: LoginInfo, permissions: PermissionLevel)
     case "GameAdmin": {
       return userIsGameAdminOrHigher(loginInfo);
     }
-    case "Writer": {
+    case "ServerManager": {
       return userIsServerManagerOrHigher(loginInfo);
     }
-    case "Writer": {
+    case "ServerAdmin": {
       return userIsServerAdmin(loginInfo);
     }
   }

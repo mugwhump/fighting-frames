@@ -1,6 +1,7 @@
 import { IonModal, IonTitle, IonItem, IonText, IonToolbar, IonButton, IonLabel, IonInput, useIonModal } from '@ionic/react';
 import React, { useState, useEffect } from 'react';
-import { useLocalDispatch, Credentials, Action } from './LocalProvider';
+import { useLocalDispatch, Action } from './LocalProvider';
+import { Credentials } from '../types/utilTypes';
 import Registration from './Registration';
 import PouchDB from 'pouchdb';
 import PouchAuth from 'pouchdb-authentication';

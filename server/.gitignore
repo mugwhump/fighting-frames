@@ -4,6 +4,10 @@
 # symlinks from frontend project
 /shared
 
+# test schema
+schema/test*
+schema/Test*
+
 # dependencies
 /node_modules
 /.pnp

@@ -1,0 +1,338 @@
+{
+    "$schema": "http://json-schema.org/draft-07/schema#",
+    "definitions": {
+        "Add<MoveData>": {
+            "properties": {
+                "new": {
+                    "$ref": "#/definitions/MoveData"
+                },
+                "type": {
+                    "enum": [
+                        "add"
+                    ],
+                    "type": "string"
+                }
+            },
+            "required": [
+                "new",
+                "type"
+            ],
+            "type": "object"
+        },
+        "Add<PropData>": {
+            "properties": {
+                "new": {
+                    "$ref": "#/definitions/PropData"
+                },
+                "type": {
+                    "enum": [
+                        "add"
+                    ],
+                    "type": "string"
+                }
+            },
+            "required": [
+                "new",
+                "type"
+            ],
+            "type": "object"
+        },
+        "Add<string>": {
+            "properties": {
+                "new": {
+                    "type": "string"
+                },
+                "type": {
+                    "enum": [
+                        "add"
+                    ],
+                    "type": "string"
+                }
+            },
+            "required": [
+                "new",
+                "type"
+            ],
+            "type": "object"
+        },
+        "Delete<MoveData>": {
+            "properties": {
+                "old": {
+                    "$ref": "#/definitions/MoveData"
+                },
+                "type": {
+                    "enum": [
+                        "delete"
+                    ],
+                    "type": "string"
+                }
+            },
+            "required": [
+                "old",
+                "type"
+            ],
+            "type": "object"
+        },
+        "Delete<PropData>": {
+            "properties": {
+                "old": {
+                    "$ref": "#/definitions/PropData"
+                },
+                "type": {
+                    "enum": [
+                        "delete"
+                    ],
+                    "type": "string"
+                }
+            },
+            "required": [
+                "old",
+                "type"
+            ],
+            "type": "object"
+        },
+        "Delete<string>": {
+            "properties": {
+                "old": {
+                    "type": "string"
+                },
+                "type": {
+                    "enum": [
+                        "delete"
+                    ],
+                    "type": "string"
+                }
+            },
+            "required": [
+                "old",
+                "type"
+            ],
+            "type": "object"
+        },
+        "Modify<MoveData>": {
+            "properties": {
+                "new": {
+                    "$ref": "#/definitions/MoveData"
+                },
+                "old": {
+                    "$ref": "#/definitions/MoveData"
+                },
+                "type": {
+                    "enum": [
+                        "modify"
+                    ],
+                    "type": "string"
+                }
+            },
+            "required": [
+                "new",
+                "old",
+                "type"
+            ],
+            "type": "object"
+        },
+        "Modify<MoveOrder[]>": {
+            "properties": {
+                "new": {
+                    "items": {
+                        "$ref": "#/definitions/MoveOrder"
+                    },
+                    "type": "array"
+                },
+                "old": {
+                    "items": {
+                        "$ref": "#/definitions/MoveOrder"
+                    },
+                    "type": "array"
+                },
+                "type": {
+                    "enum": [
+                        "modify"
+                    ],
+                    "type": "string"
+                }
+            },
+            "required": [
+                "new",
+                "old",
+                "type"
+            ],
+            "type": "object"
+        },
+        "Modify<PropData>": {
+            "properties": {
+                "new": {
+                    "$ref": "#/definitions/PropData"
+                },
+                "old": {
+                    "$ref": "#/definitions/PropData"
+                },
+                "type": {
+                    "enum": [
+                        "modify"
+                    ],
+                    "type": "string"
+                }
+            },
+            "required": [
+                "new",
+                "old",
+                "type"
+            ],
+            "type": "object"
+        },
+        "MoveChanges": {
+            "additionalProperties": {
+                "anyOf": [
+                    {
+                        "$ref": "#/definitions/Modify<MoveData>"
+                    },
+                    {
+                        "$ref": "#/definitions/Add<MoveData>"
+                    },
+                    {
+                        "$ref": "#/definitions/Delete<MoveData>"
+                    }
+                ]
+            },
+            "properties": {
+                "moveName": {
+                    "anyOf": [
+                        {
+                            "$ref": "#/definitions/Add<string>"
+                        },
+                        {
+                            "$ref": "#/definitions/Delete<string>"
+                        }
+                    ]
+                },
+                "moveOrder": {
+                    "type": "undefined"
+                }
+            },
+            "type": "object"
+        },
+        "MoveData": {
+            "anyOf": [
+                {
+                    "items": {
+                        "type": "string"
+                    },
+                    "type": "array"
+                },
+                {
+                    "type": [
+                        "string",
+                        "number"
+                    ]
+                }
+            ]
+        },
+        "MoveOrder": {
+            "properties": {
+                "indent": {
+                    "type": "number"
+                },
+                "isCategory": {
+                    "enum": [
+                        true
+                    ],
+                    "type": "boolean"
+                },
+                "name": {
+                    "type": "string"
+                }
+            },
+            "required": [
+                "name"
+            ],
+            "type": "object"
+        },
+        "PropChanges": {
+            "additionalProperties": {
+                "anyOf": [
+                    {
+                        "$ref": "#/definitions/Modify<PropData>"
+                    },
+                    {
+                        "$ref": "#/definitions/Add<PropData>"
+                    },
+                    {
+                        "$ref": "#/definitions/Delete<PropData>"
+                    }
+                ]
+            },
+            "properties": {
+                "moveName": {
+                    "type": "undefined"
+                },
+                "moveOrder": {
+                    "$ref": "#/definitions/Modify<MoveOrder[]>"
+                }
+            },
+            "type": "object"
+        },
+        "PropData": {
+            "anyOf": [
+                {
+                    "items": {
+                        "type": "string"
+                    },
+                    "type": "array"
+                },
+                {
+                    "items": {
+                        "$ref": "#/definitions/MoveOrder"
+                    },
+                    "type": "array"
+                },
+                {
+                    "type": [
+                        "string",
+                        "number"
+                    ]
+                }
+            ]
+        }
+    },
+    "properties": {
+        "baseRevision": {
+            "type": "string"
+        },
+        "createdAt": {
+            "type": "string"
+        },
+        "createdBy": {
+            "type": "string"
+        },
+        "moveChanges": {
+            "additionalProperties": {
+                "$ref": "#/definitions/MoveChanges"
+            },
+            "type": "object"
+        },
+        "previousChange": {
+            "type": "string"
+        },
+        "universalPropChanges": {
+            "$ref": "#/definitions/PropChanges"
+        },
+        "updateDescription": {
+            "type": "string"
+        },
+        "updateTitle": {
+            "type": "string"
+        },
+        "updateVersion": {
+            "type": "string"
+        }
+    },
+    "required": [
+        "baseRevision",
+        "createdAt",
+        "createdBy",
+        "updateTitle"
+    ],
+    "type": "object"
+}
+

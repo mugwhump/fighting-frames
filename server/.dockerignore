@@ -1,3 +1,4 @@
+#Ignoring all source code besides dist directory. Not sure if I want to do compilation inside the image or on dev machine...
 routes
 util
 server.ts
@@ -7,6 +8,5 @@ log
 npm-debug.log
 .git
 .gitignore
-# shared symlinks are not included. Instead actual copies of the shared files are added in a volume.
+# shared files not included...?
 shared
-create-symlinks.sh

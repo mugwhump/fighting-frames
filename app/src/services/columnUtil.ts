@@ -7,6 +7,7 @@ import { cloneDeep, sortBy } from 'lodash';
 
 //Inserts mandatory definitions defined in internalColumns, and meta/builtin definitions if desired.
 //Also optionally compile regexes to do highlighting for NumStr and TagStr columns.
+//Called by server when defs subimtted
 export function insertDefsSortGroupsCompileRegexes(defs: Readonly<T.ColumnDefs>, isUniversalProps: boolean, insertBuiltin: boolean, compileRegexes: boolean) {
   const path = isUniversalProps ? "universalPropDefs" : "columnDefs";
   let newDefs = cloneDeep<T.ColumnDefs>(defs);
@@ -16,7 +17,7 @@ export function insertDefsSortGroupsCompileRegexes(defs: Readonly<T.ColumnDefs>,
     newDefs = {...specialDefs.builtin[path], ...newDefs}; 
   }
   //insert mandatory defs if missing, but don't overwrite
-  console.log("Defs before mandatory added: " + util.keys(newDefs));
+  //console.log("Defs before mandatory added: " + util.keys(newDefs));
   for(const [key, def] of util.keyVals(specialDefs.mandatory[path])) {
     if(!def) continue;
     if(!newDefs[key]) {
@@ -26,7 +27,7 @@ export function insertDefsSortGroupsCompileRegexes(defs: Readonly<T.ColumnDefs>,
       newDefs[key] = {...newDefs[key], ...def};
     }
   }
-  console.log("Defs after mandatory added: " + util.keys(newDefs));
+  //console.log("Defs after mandatory added: " + util.keys(newDefs));
   let result: T.ColumnDefs = {};
   const order: Readonly<string[]> = util.keys(newDefs);
 

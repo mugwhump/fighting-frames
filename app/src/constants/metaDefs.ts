@@ -1,6 +1,6 @@
-import { groupList, ColumnDef, Breakpoint, SizeBreakpoint, BPList, ColumnDefRestrictions, ColumnDefDisplayText, ColumnDefs, ColumnData, DataType } from '../types/characterTypes'; 
+import { groupList, ColumnDef, DesignDoc, Breakpoint, SizeBreakpoint, BPList, ColumnDefRestrictions, ColumnDefDisplayText, ColumnDefs, ColumnData, DataType } from '../types/characterTypes'; 
 import { keys, keyVals } from '../services/util';
-import { forbiddenNames, specialDefs } from './internalColumns';
+import { forbiddenNames, specialDefs, isMandatory } from './internalColumns';
 import * as colUtil from '../services/columnUtil';
 import type { FieldError } from '../types/utilTypes'; //==
 
@@ -18,7 +18,7 @@ export let metaDefs: {[Property in keyof Partial<ColumnDef>]: ColumnDefRestricti
     hintText: "A unique identifier for this column, used internally. Cannot be changed.",
     dataType: DataType.Str,
     required: true,
-//TODO: required columns must bypass error checks for their own names in forbiddenValues. 
+//mandatory columns bypass error checks for their own names in forbiddenValues. 
     forbiddenValues: forbiddenNames, 
     maxSize: 30,
     minSize: 1,
@@ -37,7 +37,7 @@ export let metaDefs: {[Property in keyof Partial<ColumnDef>]: ColumnDefRestricti
     dataType: DataType.Str,
     required: false,
     forbiddenValues: forbiddenNames,
-    maxSize: 3,
+    maxSize: 4,
   },
   hintText: {
     displayName: "Hint Text",
@@ -49,9 +49,9 @@ export let metaDefs: {[Property in keyof Partial<ColumnDef>]: ColumnDefRestricti
   prefix: {
     displayName: "Prefix",
     hintText: "A prefix shown before the column's data. Example: a column for startup frames with a prefix of 'i' and data of 12 would display as 'i12'.",
-    dataType: DataType.NumStr,
-    allowedValues: ['i','%','KDN'], //TODO: TESTING
-    allowedValuesHints: {'i': 'like big butts', '%': 'foo', 'KDN': 'And I get up again'},
+    dataType: DataType.Str,
+    //allowedValues: ['i','%','KDN'], //TODO: TESTING
+    //allowedValuesHints: {'i': 'like big butts', '%': 'foo', 'KDN': 'And I get up again'},
     required: false,
     maxSize: 5,
   },
@@ -215,14 +215,32 @@ export function getPropertyAsColumnData(columnDef: ColumnDef, defProperty: MetaD
   return val;
 }
 
+//run by server
+//result contains tags to be displayed in IonicSafeString (make sure to sanitize)
+export function getDesignDocErrorMessage(doc: Readonly<DesignDoc>): string | false {
+  let errorMsg: string = "";
+  for(const isUniversalProps of [true, false]) {
+    const path = isUniversalProps ? "universalPropDefs" : "columnDefs";
+    for(const [key, def] of keyVals(doc[path])) {
+      if(!def) continue;
+      const errors: DefPropertyFieldErrors = getErrorsForColumnDef(def, isMandatory(key, isUniversalProps));
+      if(keys(errors).length > 0) {
+        const defErrorString = Object.values(errors).map((errorObj) => `${errorObj?.columnName || ""}: ${errorObj?.message || ''}`).join(',<br>'); // `?
+        errorMsg += `<br>Errors in ${isUniversalProps ? 'universal property' : 'move column'} ${def.displayName || key}:<br> ${defErrorString}`;
+      }
+    }
+  }
+  return errorMsg.length > 0 ? errorMsg : false;
+}
+
 // Do error checking for any of the definition's properties that need conversion
-export function getErrorsForColumnDef(columnDef: ColumnDef, doColNameForbiddenCheck?: boolean): DefPropertyFieldErrors {
+export function getErrorsForColumnDef(columnDef: ColumnDef, isMandatory?: boolean): DefPropertyFieldErrors {
   //let result: {[Property in keyof Partial<ColumnDef>]: FieldError} = {};
   let result: DefPropertyFieldErrors = {};
   for(const [prop, metaDef] of keyVals(metaDefs)) {
     if(prop && metaDef) {
       const key = prop as keyof ColumnDef;
-      const err = getDefPropError(columnDef, key, doColNameForbiddenCheck);
+      const err = getDefPropError(columnDef, key, isMandatory );
       if(err) {
         result[key] = err as {columnName: MetaDefKey, message: string};
       }
@@ -260,7 +278,7 @@ export function getErrorsForColumnDef(columnDef: ColumnDef, doColNameForbiddenCh
   return result as DefPropertyFieldErrors;
 }
 
-export function getDefPropError(columnDef: ColumnDef, defProperty: keyof ColumnDef, doColNameForbiddenCheck?: boolean): FieldError | false {
+export function getDefPropError(columnDef: ColumnDef, defProperty: keyof ColumnDef, isMandatory ?: boolean): FieldError | false {
   let metaDef = metaDefs[defProperty];
   if(!metaDef) return false;
   //Ensure allowedValues meet other constraints
@@ -287,14 +305,16 @@ export function getDefPropError(columnDef: ColumnDef, defProperty: keyof ColumnD
       }
     }
   }
-  if(defProperty === 'columnName' && columnDef.columnName?.startsWith('_')) {
-    return {columnName: 'columnName', message: 'Cannot start with underscore'};
+  if(defProperty === 'columnName') {
+    if(columnDef.columnName?.startsWith('_')) {
+      return {columnName: 'columnName', message: 'Cannot start with underscore'};
+    }
   }
   //TODO: maxSize > minSize, error in minSize. Non-number maxsize > 0. 
 
   let err: FieldError | false = false;
   // Mandatory columns skip the forbiddenValues check for columnNames, otherwise couldn't submit themselves
-  if(!doColNameForbiddenCheck && defProperty === 'columnName' && forbiddenNames.includes(columnDef.columnName)) {
+  if(isMandatory  && defProperty === 'columnName' && forbiddenNames.includes(columnDef.columnName)) {
     err = colUtil.checkInvalid(getPropertyAsColumnData(columnDef, defProperty), {columnName: defProperty, ...metaDef, forbiddenValues: undefined});
   }
   else {
@@ -309,10 +329,10 @@ export function getExtraDefPropError(columnDef: ColumnDef, defProperty: ExtraMet
   if(!metaDef) return false;
 
   if(defProperty === "dontRenderEmpty" && columnDef.dontRenderEmpty) {
-    if(columnDef.group === "needsHeader") {
-      return {columnName: defProperty, message: `Cannot set "${metaDef.displayName}" for columns in "Needs Header" group.`};
-    }
-    else if(columnDef.required) {
+    //if(columnDef.group === "needsHeader") {
+      //return {columnName: defProperty, message: `Cannot set "${metaDef.displayName}" for columns in "Needs Header" group.`};
+    //}
+    if(columnDef.required) {
       return {columnName: defProperty, message: `Cannot set "${metaDef.displayName}" for required columns.`};
     }
   }
@@ -335,11 +355,45 @@ export function getExtraDefPropError(columnDef: ColumnDef, defProperty: ExtraMet
     }
   }
   else{
-    if(defProperty === 'size-xs' && columnDef.group === "needsHeader") { //must define widths if needsHeader
-      return {columnName: 'size-xs', message: `Must define width for any column in the needsHeader group`};
-    }
+    //if(defProperty === 'size-xs' && columnDef.group === "needsHeader") { //must define widths if needsHeader
+      //return {columnName: 'size-xs', message: `Must define width for any column in the needsHeader group`};
+    //}
   }
 
   let err = colUtil.checkInvalid(getPropertyAsColumnData(columnDef, defProperty), metaDef);
   return err;
+}
+
+//Warn users about useless properties and delete them upon submission. 
+//can run server-side, server will handle deletions (after server's error-check to ensure consistency).
+export function getUselessProperties(def: Readonly<ColumnDef>): DefPropertyFieldErrors {
+  //let result: {[Property in keyof Partial<T.ColumnDef>]: {columnName: Property, message: string} } = {};
+  let result: DefPropertyFieldErrors = {};
+
+  if(def.allowedValues !== undefined) {
+    //forbidden values does nothing when allowed values are present
+    if(def.forbiddenValues !== undefined) {
+      result.forbiddenValues = {columnName: 'forbiddenValues', message: 'Forbidden values have no effect when allowed values are defined'};
+    }
+    //min/max size useless w/ single select
+    if(def.dataType === DataType.Str) {
+      if(def.maxSize !== undefined) {
+        result.maxSize = {columnName: 'maxSize', message: 'Max size has no effect with String data with allowed values defined'}
+      }
+      if(def.minSize !== undefined) {
+        result.minSize = {columnName: 'minSize', message: 'Min size has no effect with String data with allowed values defined'}
+      }
+    }
+  }
+  //allowedValues and forbidden values useless w/ number types
+  if(colUtil.dataTypeIsNumber(def.dataType)) {
+    if(def.allowedValues !== undefined) {
+      result.allowedValues = {columnName: 'allowedValues', message: 'Allowed values have no effect with number-type data (excluding numeric strings)'};
+    }
+    if(def.forbiddenValues !== undefined) {
+      result.forbiddenValues = {columnName: 'forbiddenValues', message: 'Forbidden values have no effect with number-type data (excluding numeric strings)'};
+    }
+  }
+  //TODO: strip out allowedValuesHints if no allowedValues. 
+  return result;
 }
