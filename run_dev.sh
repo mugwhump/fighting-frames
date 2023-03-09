@@ -34,14 +34,19 @@ WATCHED=$(sed 's/\s*#.*$//;
                 #| paste -sd ' ' - ) #lastly join every line with a space
 WATCHED=$(echo $WATCHED | paste -sd ' ' -)
 
-inotifywait -md -o /dev/null -e close_write --format '%w' $WATCHED | while read FILE
+# run both commands in bg but still display output; in same subshell so ctrl-c kills both.
+(trap 'kill 0' SIGINT;
+#inotifywait -md -o /dev/null -e close_write --format '%w' $WATCHED | while read FILE
+#inotifywait -d -o /dev/null -e close_write --format '%w' $WATCHED | while read FILE
+inotifywait -m -e close_write --format '%w' $WATCHED | while read FILE
 do
     echo "Changed $FILE"
     rsync -av --files-from=./shared_files_to_copy.txt app/src/ server/shared/
     #TODO: if file changed was characterTypes, also regenerate schema
-done
+done &
 
 echo "Running docker backend services..."
-docker compose up
+docker compose up &
+)
 
 #TODO: also run ionic serve, might need concurrently?
