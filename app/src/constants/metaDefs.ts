@@ -1,5 +1,5 @@
 import { groupList, ColumnDef, DesignDoc, Breakpoint, SizeBreakpoint, BPList, ColumnDefRestrictions, ColumnDefDisplayText, ColumnDefs, ColumnData, DataType } from '../types/characterTypes'; 
-import { keys, keyVals } from '../services/util';
+import { keys, keyVals, trimStringProperties } from '../services/util';
 import { forbiddenNames, specialDefs, isMandatory } from './internalColumns';
 import * as colUtil from '../services/columnUtil';
 import type { FieldError } from '../types/utilTypes'; //==
@@ -24,7 +24,7 @@ export let metaDefs: {[Property in keyof Partial<ColumnDef>]: ColumnDefRestricti
     minSize: 1,
   },
   displayName: {
-    displayName: "Column Name",
+    displayName: "Column Display Name",
     hintText: "The name of this column as shown to users.",
     dataType: DataType.Str,
     required: false,
@@ -50,8 +50,6 @@ export let metaDefs: {[Property in keyof Partial<ColumnDef>]: ColumnDefRestricti
     displayName: "Prefix",
     hintText: "A prefix shown before the column's data. Example: a column for startup frames with a prefix of 'i' and data of 12 would display as 'i12'.",
     dataType: DataType.Str,
-    //allowedValues: ['i','%','KDN'], //TODO: TESTING
-    //allowedValuesHints: {'i': 'like big butts', '%': 'foo', 'KDN': 'And I get up again'},
     required: false,
     maxSize: 5,
   },
@@ -67,19 +65,6 @@ export let metaDefs: {[Property in keyof Partial<ColumnDef>]: ColumnDefRestricti
     required: true,
     allowedValues: [...groupList],
   },
-  //widths: { //TODO: this one needs special handling
-    //displayName: "Column Widths",
-    //hintText: `How wide the column will appear at various screen sizes, in twelfths. 
-      //All columns in the same group will be placed in one row, or multiple rows if the sum of the columns' widths exceed 12.
-      //Define larger widths at smaller screen sizes. On phones (the xs breakpoint), columns should get a larger portion of the row, or a full row.
-      //On PC (the xl breakpoint), multiple columns can fit in one row.
-      //Leave undefined to share space equally among other columns of the same row that don't have defined widths.`,
-    //suffix: "/12",
-    //dataType: DataType.List,
-    //required: false,
-    //minSize: 1,
-    //maxSize: 5,
-  //},
   dataType: {
     displayName: "Data Type",
     hintText: "What type of data this column contains.", //TODO: explain here
@@ -90,6 +75,7 @@ export let metaDefs: {[Property in keyof Partial<ColumnDef>]: ColumnDefRestricti
       'STRING': 'Letters, numbers, and symbols. Specifying allowed values makes users select one value from a drop-down, which can be used for true/false values.', 
       'LIST': 'Multiple strings. Specifying allowed values means the list must be made of one or more items from a drop-down menu. Useful for tags.',
       'NUMERIC_STRING': 'A value that starts with a number (or one of any allowed strings you may specify), which can be followed by other characters. Users could enter 7(-2) and it will be parsed as 7 for filtering and sorting purposes. Add "KDN" to your allowed values and users can write "KDN" or KDN(-2).',
+      'TAG_STRING': 'A string where specified allowed values function as tags, which users can insert by selecting them from a drop-down or adding them inside brackets. Users could write "[Unblockable] in air" and Unblockable would show as a tag and be useable for filtering/sorting. Functionally, this is a List with extra descriptive text.'
     }
   },
   allowedValues: { 
@@ -98,7 +84,6 @@ export let metaDefs: {[Property in keyof Partial<ColumnDef>]: ColumnDefRestricti
         For example, a column for a move's frame advantage on hit would usually contain a number, but a move that knocks opponents down might say 'KDN' instead. The order of these entries determines how they are sorted when users sort by this column. Use '#' to represent the sort order of numeric values (users won't be able to select '#', it's just for sorting).`,
     dataType: DataType.List,
     required: false,
-    //TODO: admins putting '#' in allowedValues of NumStr cols is for sorting order, not an option for users. Perhaps put # in forbiddenValues of NumStr...?
     minSize: 1,
     maxSize: 100,
   },
@@ -200,7 +185,7 @@ export function getExtraMetaDef(key: ExtraMetaDefKey): ColumnDef {
 export function getPropertyAsColumnData(columnDef: ColumnDef, defProperty: MetaDefKey): ColumnData | undefined {
   let val: ColumnData | undefined;
   if(defProperty === "required") val = (columnDef.required ? "required" : "optional");
-  if(defProperty === "dontRenderEmpty") val = (columnDef.dontRenderEmpty ? "true" : "false");
+  else if(defProperty === "dontRenderEmpty") val = (columnDef.dontRenderEmpty ? "true" : "false");
   else if(columnDef.allowedValuesHints && defProperty.startsWith("allowedValuesHints-")) {
     const allowedVal = defProperty.split('allowedValuesHints-')[1];
     val = columnDef.allowedValuesHints[allowedVal];
@@ -215,14 +200,19 @@ export function getPropertyAsColumnData(columnDef: ColumnDef, defProperty: MetaD
   return val;
 }
 
-//run by server
+//run by server. Builds error msg for server to return. Also removes unused props and trims whitespace.
 //result contains tags to be displayed in IonicSafeString (make sure to sanitize)
-export function getDesignDocErrorMessage(doc: Readonly<DesignDoc>): string | false {
+export function getDesignDocErrorMessageAndClean(doc: Readonly<DesignDoc>): string | false {
   let errorMsg: string = "";
   for(const isUniversalProps of [true, false]) {
     const path = isUniversalProps ? "universalPropDefs" : "columnDefs";
     for(const [key, def] of keyVals(doc[path])) {
       if(!def) continue;
+      //first trim whitespace around stringus
+      stripWhitespace(def);
+      //remove unused props before error check
+      removeUselessProperties(def);
+
       const errors: DefPropertyFieldErrors = getErrorsForColumnDef(def, isMandatory(key, isUniversalProps));
       if(keys(errors).length > 0) {
         const defErrorString = Object.values(errors).map((errorObj) => `${errorObj?.columnName || ""}: ${errorObj?.message || ''}`).join(',<br>'); // `?
@@ -282,27 +272,24 @@ export function getDefPropError(columnDef: ColumnDef, defProperty: keyof ColumnD
   let metaDef = metaDefs[defProperty];
   if(!metaDef) return false;
   //Ensure allowedValues meet other constraints
-  if(columnDef.allowedValues && defProperty === 'allowedValues') {
-    for(const allowedVal of columnDef.allowedValues) {
-      //NumStr allowedValues can't start with numbers
-      if(columnDef.dataType === DataType.NumStr && !isNaN(Number.parseFloat(allowedVal))) {
-        return {columnName: 'allowedValues', message: `Allowed Value ${allowedVal} for Numeric String may not start with a number`};
-      }
-      //TODO: uhhh why not just run checkInvalid for each allowedVal, passing a custom def with allowedValues stripped out? Because it'll check min/max
-      // No point in these if I'm saying min/maxsize are useless with single-select
-      //if(columnDef.maxSize && allowedVal.length > columnDef.maxSize) {
-        //return {columnName: 'allowedValues', message: `Allowed Value ${allowedVal} is longer than your defined max size of ${columnDef.maxSize}`};
-      //}
-      //if(columnDef.minSize && allowedVal.length < columnDef.minSize) {
-        //return {columnName: 'allowedValues', message: `Allowed Value ${allowedVal} is shorter than your defined min size of ${columnDef.minSize}`};
-      //}
-      if(columnDef.forbiddenValues) {
-        for(const forbiddenVal of columnDef.forbiddenValues) { //if 'foo' in forbiddenValues, can't make 'foobar' an allowedValue
-          if(allowedVal.indexOf(forbiddenVal) !== -1) {
-            return {columnName: 'allowedValues', message: `Allowed Value ${allowedVal} contains Forbidden Value ${forbiddenVal}`};
+  if(defProperty === 'allowedValues') {
+    if(columnDef.allowedValues) {
+      for(const allowedVal of columnDef.allowedValues) {
+        //NumStr allowedValues can't start with numbers
+        if(columnDef.dataType === DataType.NumStr && !isNaN(Number.parseFloat(allowedVal))) {
+          return {columnName: 'allowedValues', message: `Allowed Value ${allowedVal} for Numeric String may not start with a number`};
+        }
+        if(columnDef.forbiddenValues) {
+          for(const forbiddenVal of columnDef.forbiddenValues) { //if 'foo' in forbiddenValues, can't make 'foobar' an allowedValue
+            if(allowedVal.indexOf(forbiddenVal) !== -1) {
+              return {columnName: 'allowedValues', message: `Allowed Value ${allowedVal} contains Forbidden Value ${forbiddenVal}`};
+            }
           }
         }
       }
+    }
+    else if(columnDef.dataType === DataType.TagStr) {
+      return {columnName: 'allowedValues', message: 'Must have one or more allowed values for TAG_STRING data type'};
     }
   }
   if(defProperty === 'columnName') {
@@ -385,6 +372,19 @@ export function getUselessProperties(def: Readonly<ColumnDef>): DefPropertyField
       }
     }
   }
+  //strip out allowedValuesHints if no matching allowedValues. 
+  if(def.allowedValuesHints !== undefined) {
+    if(!def.allowedValues) {
+      result.allowedValuesHints = {columnName: 'allowedValuesHints', message: 'No allowed values present to give hints for'}
+    }
+    else {
+      for(const hintKey in def.allowedValuesHints) {
+        if(!def.allowedValues.includes(hintKey)) {
+          result[`allowedValuesHints-${hintKey}`] = {columnName: `allowedValuesHints-${hintKey}`, message: 'No matching allowed value'}
+        }
+      }
+    }
+  }
   //allowedValues and forbidden values useless w/ number types
   if(colUtil.dataTypeIsNumber(def.dataType)) {
     if(def.allowedValues !== undefined) {
@@ -394,6 +394,30 @@ export function getUselessProperties(def: Readonly<ColumnDef>): DefPropertyField
       result.forbiddenValues = {columnName: 'forbiddenValues', message: 'Forbidden values have no effect with number-type data (excluding numeric strings)'};
     }
   }
-  //TODO: strip out allowedValuesHints if no allowedValues. 
   return result;
+}
+
+export function removeUselessProperties(def: ColumnDef, uselessProps?: DefPropertyFieldErrors) {
+  if(!uselessProps) uselessProps = getUselessProperties(def);
+  for(const key in uselessProps) {
+    //any ExtraMetaDefKeys need special handling
+    if(key.startsWith('allowedValuesHints-') && def.allowedValuesHints) {
+      let allowedVal = key.split('allowedValuesHints-')[1];
+      delete def.allowedValuesHints[allowedVal];
+      if(keys(def.allowedValuesHints).length === 0) delete def.allowedValuesHints;
+    }
+    else delete def[key as keyof ColumnDef];
+  }
+}
+
+export function stripWhitespace(def: ColumnDef) {
+  trimStringProperties(def);
+  for(const arr of [def.allowedValues, def.forbiddenValues]) {
+    if(arr) {
+      for(let i = 0; i < arr.length; i++) {
+        arr[i] = arr[i].trim();
+      }
+    }
+  }
+  if(def.allowedValuesHints) trimStringProperties(def.allowedValuesHints);
 }

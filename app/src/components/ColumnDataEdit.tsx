@@ -39,7 +39,7 @@ const ColumnDataEdit: React.FC<ColumnDataEditProps> = ({columnName, colData, col
 
     let options: HelpTextOption [] = [];
     //use allowedVals if present, then user-submitted vals in inputData (for creatable selects), then an empty list
-    let initialVals: string[] | undefined = colDef.allowedValues; // || (inputData && isList(inputData, colDef.dataType)) ? inputData : [];
+    let initialVals: string[] | undefined = colDef.allowedValues; 
     if(!initialVals) {
       if(inputData && isList(inputData, colDef.dataType)) {
         initialVals = inputData;
@@ -48,6 +48,7 @@ const ColumnDataEdit: React.FC<ColumnDataEditProps> = ({columnName, colData, col
     }
 
     for(const allowedVal of initialVals) {
+      if(colDef.dataType === DataType.NumStr && allowedVal === '#') continue; //for numeric strings, '#' just represents the sorting order
       const optionHelp = colDef.allowedValuesHints?.[allowedVal]; 
       let val = {value: allowedVal, label: allowedVal, helpText: optionHelp};
       options.push(val);
@@ -78,7 +79,6 @@ const ColumnDataEdit: React.FC<ColumnDataEditProps> = ({columnName, colData, col
       newData = value.length > 0 ? [...value] : undefined;
     }
     else {
-      //surrounding whitespace must be trimmed upon submission
       newData = strToColData(value, colDef.dataType);
     }
 
@@ -86,6 +86,16 @@ const ColumnDataEdit: React.FC<ColumnDataEditProps> = ({columnName, colData, col
     //Needed to show changed vals when model reopened.
     setInputData(newData); 
     editSingleColumn(columnName, newData);
+  }
+
+  //trim whitespace upon blur. Submitting also blurs.
+  function itemBlurred() {
+    if(typeof inputData === 'string') {
+      let trimmed = inputData.trim();
+      if(trimmed !== inputData) {
+        dataChanged(trimmed);
+      }
+    }
   }
 
   function moveOrderChanged(moveOrder: MoveOrder[]) {
@@ -158,9 +168,6 @@ const ColumnDataEdit: React.FC<ColumnDataEditProps> = ({columnName, colData, col
   // special handling for moveOrder
   if(inputData && isMoveOrder(inputData, colDef.dataType)) {
     return <MoveOrdererButton moveOrder={inputData} changeMoveOrder={moveOrderChanged} />
-  }
-  else if(isTextArea) {
-    return <IonTextarea value={inputData as string} autoGrow maxlength={maxLength} debounce={debounceTime} onIonChange={(e) => {dataChanged(e.detail.value!)}}></IonTextarea>
   }
   else if (isSelector) {
     return ( 
@@ -293,11 +300,15 @@ const ColumnDataEdit: React.FC<ColumnDataEditProps> = ({columnName, colData, col
   else if((inputData && isList(inputData, colDef.dataType)) || colDef.dataType === DataType.List) { //empty list is undefined
     return <span>List editing handled by selector</span>
   }
+  else if(isTextArea) {
+    return <IonTextarea value={inputData as string} autoGrow maxlength={maxLength} debounce={debounceTime} onIonChange={(e) => {dataChanged(e.detail.value!)}}
+    onIonBlur={(e) => {itemBlurred()}} ></IonTextarea>
+  }
   else return (
     <IonInput value={inputData} type={inputType} maxlength={maxLength} debounce={debounceTime} onIonChange={(e) => {
       console.log('newVal is '+e.detail.value);
       dataChanged(e.detail.value!);
-    }}></IonInput>
+    }} onIonBlur={(e) => {itemBlurred()}} ></IonInput>
   );
 }
 

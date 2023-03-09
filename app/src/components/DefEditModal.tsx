@@ -5,14 +5,14 @@ import ColumnDataEditWrapper from './ColumnDataEditWrapper';
 import * as T from '../types/characterTypes'; //== 
 import type { FieldError } from '../types/utilTypes'; //==
 import { keys, keyVals } from '../services/util';
-//import { isString, isMoveOrder, checkInvalid, dataTypeIsNumber } from '../services/columnUtil';
 import * as colUtil from '../services/columnUtil';
+import { getIonicSanitizedString } from '../services/renderUtil';
 import styles from '../theme/DefEditor.module.css';
 import characterStyles from '../theme/Character.module.css';
 import { createChange, getInvertedMoveChanges } from '../services/merging';
-import { cloneDeep, isEqual } from 'lodash';
+import { cloneDeep, isEqual, set } from 'lodash';
 import { forbiddenNames, predefinedWidths, specialDefs } from '../constants/internalColumns';
-import { metaDefs, extraMetaDefs, ExtraMetaDefKey, DefPropertyFieldErrors, MetaDefKey, getExtraMetaDef, getMetaDef, getPropertyAsColumnData, getErrorsForColumnDef, getDefPropError, getExtraDefPropError, getUselessProperties } from '../constants/metaDefs';
+import { metaDefs, extraMetaDefs, ExtraMetaDefKey, DefPropertyFieldErrors, MetaDefKey, getExtraMetaDef, getMetaDef, getPropertyAsColumnData, getErrorsForColumnDef, getDefPropError, getExtraDefPropError, getUselessProperties, removeUselessProperties, stripWhitespace } from '../constants/metaDefs';
 import { DefEditObj } from './DefEditor';
 import DefEditPreview from './DefEditPreview';
 import { HelpPopup } from './HelpPopup';
@@ -80,8 +80,18 @@ const DefEditModal: React.FC<DefEditModalProps > = ({defEditingInfo, updateDefCa
     let errorString: string | false = false;
     let errorKeys: string[] = keys(fieldErrors);
     if(errorKeys.length === 0) {
-      //TODO: trim string vals
-      errorString = updateDefCallback(clonedDef); //returns error string if columnName in use or the editor component encountered an issue
+      let newDef = cloneDeep<T.ColumnDef>(clonedDef);
+      //Clean up def first
+      stripWhitespace(newDef);
+      removeUselessProperties(newDef);
+
+      if(isEqual(newDef, colDef)) {
+        console.log("No change");
+        dismissModalCallback();
+        return;
+      }
+
+      errorString = updateDefCallback(newDef); //returns error string if columnName in use or the editor component encountered an issue
       if(!errorString) { //only dismiss if no error
         dismissModalCallback();
         return;
@@ -98,7 +108,7 @@ const DefEditModal: React.FC<DefEditModalProps > = ({defEditingInfo, updateDefCa
       presentAlert(
         {
           header: "Error updating column",
-          message: new IonicSafeString(errorString), //TODO: users can actually put html in, say, forbidden values, which will show in errorString and be rendered.
+          message: getIonicSanitizedString(errorString),
           buttons: [
             { text: 'OK', handler: () => dismissAlert() },
           ], 
@@ -116,9 +126,31 @@ const DefEditModal: React.FC<DefEditModalProps > = ({defEditingInfo, updateDefCa
     if(newData === undefined) {
       delete newDef[defProperty];
     }
-    //TODO: if changing an allowedVal, update hints key? Tricky but doable? Can ignore reorderings.
+    //TODO: no point, interface doesn't allow changing, can only delete allowedVals, and useless hints will be stripped
+    //if changing an allowedVal, update hints key? Tricky but doable? Can ignore reorderings.
+    //if(defProperty === 'allowedValues' && clonedDef.allowedValues && clonedDef.allowedValuesHints) {
+      //if(newData !== undefined) {
+        //if(colUtil.isList(newData, metaDefs.allowedValues!.dataType)) {
+          ////TODO: what if they nuke 2 allowedVals really fast...
+          ////If adding one, have new w/o original. If deleting one, have original w/o new. If both, changing one. If neither...reordering?
+          //const originalKey: string | undefined = clonedDef.allowedValues.find((val) => !newData.includes(val)); //was changed or deleted
+          //const newKey: string | undefined = newData.find((val) => !clonedDef.allowedValues!.includes(val)); //was changed or added
+          //const hint: string | undefined = originalKey ? clonedDef.allowedValuesHints?.[originalKey] : undefined;
+          //if(originalKey && hint) {
+            //if(newKey) {
+              //console.log(`Changing allowedVal ${originalKey} to ${newKey}, hint ${hint}`);
+              //set(newDef, `allowedValuesHints.${newKey}`, hint);
+            //}
+            //else console.log(`Deleted allowedVal ${originalKey}, hint ${hint}`);
+            //delete newDef?.allowedValuesHints?.[originalKey];
+          //}
+        //}
+      //}
+      //else { //TODO: test if undefined is actually passed when deleting last allowedVal
+        //delete newDef['allowedValuesHints'];
+      //}
+    //}
     //Skip forbidden val check for columnName if starting name was forbidden (ie if editing mandatory cols) 
-    //setFieldErrors(getErrorsForColumnDef(newDef, !forbiddenNames.includes(defEditingInfo.defName)));
     setFieldErrors(getErrorsForColumnDef(newDef, defEditingInfo.isMandatory));
     setClonedDef(newDef);
   }

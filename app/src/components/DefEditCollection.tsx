@@ -4,7 +4,7 @@ import * as T from '../types/characterTypes';
 import { keys, keyVals } from '../services/util';
 import { getWidthAtBP } from '../services/columnUtil';
 import { calculateHideBreakpoints, } from '../services/renderUtil';
-import { groupDescriptions, specialDefs, isMandatory } from '../constants/internalColumns';
+import { groupDescriptions, specialDefs, isMandatory as getIsMandatory } from '../constants/internalColumns';
 import { cloneDeep, groupBy, set } from 'lodash';
 import ColumnHeaders from './ColumnHeaders';
 import { DesignDocChanges, DefEditObj } from './DefEditor';
@@ -24,7 +24,6 @@ type DefEditCollection = {
 const DefEditCollection: React.FC<DefEditCollection> = ({doc, docChanges, isUniversalProps, itemClicked, previewBreakpoint}) => {
   const path = isUniversalProps ? "universalPropDefs" : "columnDefs";
   const order: string[] = docChanges.changedOrders?.[path] || keys(doc[path]);
-  console.log(order);
   const mergedDefs: T.ColumnDefs = {};
   const deletedDefsArray: T.ColumnDef[] = [];
 
@@ -72,22 +71,22 @@ const DefEditCollection: React.FC<DefEditCollection> = ({doc, docChanges, isUniv
       if(!def) return null;
 
       // Mandatory defs are not considered to have been added
-      //const isMandatory: boolean = mandatoryKeys.includes(def.columnName); 
+      const isMandatory: boolean = getIsMandatory(def.columnName, isUniversalProps); 
       let editObj: DefEditObj = {defName: def.columnName, isUniversalProp: isUniversalProps, propOrColPath: path, 
-        wasAdded: !doc[path][def.columnName] && !isMandatory, wasDeleted: rowKey === 'deleted', isMandatory: isMandatory(def.columnName, isUniversalProps)};
+        wasAdded: !doc[path][def.columnName] && !isMandatory, wasDeleted: rowKey === 'deleted', isMandatory: isMandatory};
       let sizeProps: {size: string | undefined} | T.ColumnDefStyling['widths'] | undefined =  
         rowKey === "deleted" ? {size: '12'} : //deleted defs get full row
           previewBreakpoint 
             ? {size: getWidthAtBP(previewBreakpoint, def.widths)?.toString()} 
             : def.widths;
+
       let classes = [styles.columnDefItem];
       if(editObj.isMandatory) classes.push(styles.mandatory);
       else if(editObj.wasAdded) classes.push(styles.add);
       else if(editObj.wasDeleted) classes.push(styles.delete);
-      let key = def.columnName;
 
       return ( //must put bp in key so ionic recalculates style when sizes change
-      <IonCol key={key + previewBreakpoint} {...sizeProps} className={classes.join(' ')} onClick={() => itemClicked(editObj)}>
+      <IonCol key={def.columnName + previewBreakpoint} {...sizeProps} className={classes.join(' ')} onClick={() => itemClicked(editObj)}>
         {(def.group === "needsHeader" || def.group === "defaultHideNeedsHeader") && 
           <div className={characterStyles.standaloneHeaderCol + ' ' + (def._calculatedMoveHeaderHideClass  || '')}>{def.shortName || def.displayName || def.columnName}</div>
         }

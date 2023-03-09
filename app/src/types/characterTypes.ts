@@ -81,7 +81,7 @@ export type ColumnDefStyling = {
   group: DefGroup;
   //cols without width specified will share remaining space, minimum width same as "auto". "auto" fits to content... but could be awkward. 
   // "size" prop by default specifies xs and up; more entries override larger breakpoints. Must define xs.
-  widths?: {[key in SizeBreakpoint]?: number}; //can give key undefined value to share remaining space in row. If needsHeader, must define numeric widths. Warn if first cols don't add to 12.
+  widths?: {[key in SizeBreakpoint]?: number}; //can omit to share remaining space in row. If needsHeader, must define numeric widths. Warn if first cols don't add to 12.
   dontRenderEmpty?: boolean; //if true, does not display this column when it has no data. Doesn't work in needsHeader group. Should this be a group? Must they be adjacent?
   _calculatedTableHeaderHideClass ?: string;
   _calculatedMoveHeaderHideClass ?: string;
@@ -121,7 +121,6 @@ What if no-show item not ordered at end?
 Use ionic flex grid and breakpoints to construct header row that auto-hides things at certain breakpoints, and lets overflow columns occupy half-lines with their column name
 Only show floating header on small screens, big screens can always show per-col headers. NeedsHeader cols must know how far into the row they are, if previous widths + their width > max width, they'll be pushed to new row. Do calculation for every breakpoint to determine header hiding. Auto and undefined widths tho... needsHeader cols must specify size?
 //TODO: each group could be a row on mobile, or a column containing a row of columns on desktop. So title columns could stack on left. Complex... unless I always do that, and just set the inner column to full-width on mobile! But... really doesn't seem worth it just for title cols.
-COLUMN DEF EDITOR: copy MoveOrder modal, "categories" make groups, use indent controls for col width? Doesn't work for multiple widths.
 */
 
 //internal utility type to help rendering, lets us show empty columns with no data, or data with no definition (to prompt for deletion)

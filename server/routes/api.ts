@@ -43,7 +43,6 @@ function sendError(res: Response, message: string, code: number = 500) {
 router.post('/game/:gameId/config/publish', couchAuth.requireAuth, couchAuth.requireRole("user") as any,
            async (req: Request<{gameId:string}>, res) => {
   try {
-    logger.warn(`startin da tangy`);
     const user: CouchAuthTypes.SlRequestUser = req.user!;
     const db = adminNano.use(req.params.gameId);
     const sec = await db.get("_security") as Security.SecObj;
@@ -54,35 +53,40 @@ router.post('/game/:gameId/config/publish', couchAuth.requireAuth, couchAuth.req
     if(newDesignDoc._id !== '_design/columns') {
       return sendError(res, `Incorrect _id ${newDesignDoc._id}`, 400);
     }
+
     //repair mandatory columns, ensure group sorting
+    //remember that clients may have outdated versions of mandatory cols, so just repair w/o error
     colUtil.insertDefsSortGroupsCompileRegexes(newDesignDoc.universalPropDefs, true, false, false);
     colUtil.insertDefsSortGroupsCompileRegexes(newDesignDoc.columnDefs, false, false, false);
+    logger.info(JSON.stringify(newDesignDoc.universalPropDefs));
 
-    //TODO: check errors
+
+    //Cannot have {key: undefined} since undefined not valid json, key gets stripped by pouch
+    //check type errors
     let typeValidationResult = DesignDocValidator(newDesignDoc);
     if(typeValidationResult) {
       logger.info('Type validation successful');
     }
     else {
-      logger.warn('Validation result: '+JSON.stringify(typeValidationResult));
+      logger.warn('Validation result: '+JSON.stringify(typeValidationResult)+' for design doc '+JSON.stringify(newDesignDoc.universalPropDefs));
       return sendError(res, "Type validation failed", 400);
     }
-    const error = metaDefs.getDesignDocErrorMessage(newDesignDoc);
-    if(error) {
-      return sendError(res, error, 400);
+    //trim whitespace in strings, remove unused properties, then check validation errors
+    const err = metaDefs.getDesignDocErrorMessageAndClean(newDesignDoc);
+    if(err) {
+      return sendError(res, err, 400);
     }
 
-    //TODO: remove useless columns
     try {
       const putResult = await db.insert(newDesignDoc); 
     }
     catch(err: any) {
-      return sendError(res, err.reason ?? JSON.stringify(err), err.statusCode);
+      return sendError(res, "Error inserting document: " + err, err.statusCode);
     }
     return sendSuccess(res, JSON.stringify(newDesignDoc));
   }
   catch(err) {
-    return sendError(res, JSON.stringify(err));
+    return sendError(res, "Server Error "+err);
   }
 });
 

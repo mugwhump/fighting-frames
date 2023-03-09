@@ -29,6 +29,14 @@ export function shallowCompare(obj1: any, obj2: any): boolean {
   }
 }
 
+export function trimStringProperties(record: Record<string, unknown>) {
+  for (const [key, value] of Object.entries(record)) {
+    if (typeof value === "string") {
+      record[key] = value.trim();
+    }
+  }
+}
+
 export function getGameUrl(gameId: string): string {
   return generatePath(CompileConstants.GAME_MATCH, {gameId: gameId});
 }

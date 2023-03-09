@@ -51,10 +51,14 @@ const MoveEditModal: React.FC<MoveEditModalProps > = ({moveName, getDefsAndData,
 
   //as data is typed, check errors and put it in clonedChanges' modifications or additions
   //if newData undefined, means it's empty/deleted
-  //function editSingleColumn(columnName: string, newData?: ColumnData): void {
   const editSingleColumn = useCallback((columnName: string, newData?: ColumnData) => {
     const dataDef = defsAndData.find((dataDef) => dataDef.columnName === columnName);
     if(!dataDef) throw new Error("defAndData not found found in editSingleColumn func for column "+columnName);
+
+    //trim whitespace so that adding leading/trailing whitespace won't dodge error checking or create changes
+    if(typeof newData === 'string') {
+      newData = newData.trim();
+    }
 
     //Error checking
     if(dataDef.def) {

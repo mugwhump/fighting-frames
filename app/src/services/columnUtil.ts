@@ -58,8 +58,17 @@ export function insertDefsSortGroupsCompileRegexes(defs: Readonly<T.ColumnDefs>,
   return result;
 }
 
-export function repairOrder(order: Readonly<string[]>, defs: Readonly<T.ColumnDefs>): string[] {
-  let newOrder: string[] = sortBy(order, (key: string) => {
+export function repairOrder(order: Readonly<string[]>, defs: Readonly<T.ColumnDefs>, insertExtraFromDefs?: boolean, deleteMissingFromDefs?: boolean): string[] {
+  let moddedOrder: string[] = [...order];
+  if(insertExtraFromDefs) {
+    for(const key in defs) {
+      if(!moddedOrder.includes(key)) moddedOrder.push(key);
+    }
+  }
+  if(deleteMissingFromDefs) {
+    moddedOrder = moddedOrder.filter((key) => defs[key] !== undefined);
+  }
+  let newOrder: string[] = sortBy(moddedOrder, (key: string) => {
     let keyDef = defs[key];
     if(!keyDef) console.error(`Error repairing order, cannot find def for ${key}`);
     return keyDef ? T.groupList.indexOf(keyDef.group) : 999;
@@ -152,14 +161,14 @@ export function parseNumStrVal(data: string, def: T.ColumnDefRestrictions): numb
     return num;
   }
   else {
-    for(const allowedVal of def.allowedValues ?? []) {
+    for(const allowedVal of def.allowedValues?.filter((x)=> x!=='#') ?? []) {
       if(data.startsWith(allowedVal)) return allowedVal;
     }
   }
   return undefined;
 }
 
-//TODO: build this once per definition when ddoc loaded (and make sure defs aren't being cloned or no point). Perhaps integrate with cssRegex?
+//built once per definition when ddoc loaded
 export function getNumStrColRegex(def: T.ColumnDefRestrictions): RegExp {
   let str = def.allowedValues ?
     // Escape special characters
@@ -224,8 +233,8 @@ export function checkInvalid(data: T.ColumnData | undefined, def: T.ColumnDefRes
       numberValue = numOrStr;
     }
     else if(numOrStr === undefined) {
-      const allowedMsg = def.allowedValues ? "or one of " + def.allowedValues.join(', ') : "";
-      return {columnName: colName, message: "Must begin with number or one of " + allowedMsg};
+      const allowedMsg = def.allowedValues ? "or one of " + def.allowedValues.filter((x)=> x!=='#').join(', ') : "";
+      return {columnName: colName, message: "Must begin with number " + allowedMsg};
     }
   }
   else if(isTagString(data, dataType)) {
