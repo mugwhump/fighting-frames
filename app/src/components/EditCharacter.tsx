@@ -174,6 +174,7 @@ export const EditCharacter: React.FC<EditCharProps> = ({gameId, columnDefs, univ
     );
     function submit(opts: any) {
       console.log("Current values: "+JSON.stringify(opts));
+      //TODO: API call will do this validation server-side
       //Validate title
       const titleRegex = new RegExp(/^[\w-.~]{1,25}$/); //alphanumeric and _, -, ., ~ length between 3-25
       const titleValid = titleRegex.test(opts.title);

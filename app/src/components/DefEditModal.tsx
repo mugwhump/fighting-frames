@@ -65,7 +65,10 @@ const DefEditModal: React.FC<DefEditModalProps > = ({defEditingInfo, updateDefCa
 
   function getWarnings(): DefPropertyFieldErrors {
     let result: {[Property in keyof Partial<T.ColumnDef>]: {columnName: Property, message: string} } = {};
-    //TODO: warn about changing columnName. Will defEditor even work if returned definition has different name than one given with defEditingInfo?
+    //warn about changing columnName. 
+    if(!defEditingInfo.wasAdded && defEditingInfo.defName !== clonedDef.columnName) {
+      result.columnName = {columnName: 'columnName', message: 'Cannot change name of column that has already been uploaded'};
+    }
 
     //Warn if existing definition and dataTypes aren't the same underlying javascript type
     if(!defEditingInfo.wasAdded && colDef?.dataType && !colUtil.dataTypesAreCompatible(clonedDef.dataType, colDef?.dataType)) {

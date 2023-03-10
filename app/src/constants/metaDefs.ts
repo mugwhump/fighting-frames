@@ -3,6 +3,7 @@ import { keys, keyVals, trimStringProperties } from '../services/util';
 import { forbiddenNames, specialDefs, isMandatory } from './internalColumns';
 import * as colUtil from '../services/columnUtil';
 import type { FieldError } from '../types/utilTypes'; //==
+import CompileConstants from './CompileConstants';
 
 
 export type MetaDefKey = keyof ColumnDef | ExtraMetaDefKey;
@@ -11,7 +12,7 @@ export type DefPropertyFieldErrors = {[Property in MetaDefKey]?: {columnName: Me
 
 // These are meta-definitions that describe each field of a column's definition, used by admins when editing/creating columns
 // There are other restrictions on some of these that are coded into the editor
-//export type MetaDefKeys = keyof ColumnDef | `width-${Breakpoint}`;
+// ookAAIIIIEEEEEEEEEEEE
 export let metaDefs: {[Property in keyof Partial<ColumnDef>]: ColumnDefRestrictions & ColumnDefDisplayText} = {
   columnName: {
     displayName: "Column ID",
@@ -91,6 +92,7 @@ export let metaDefs: {[Property in keyof Partial<ColumnDef>]: ColumnDefRestricti
     displayName: "Forbidden Values",
     hintText: "Values users cannot enter",
     dataType: DataType.List,
+    allowedValues: ['f1','f2'], //TODO: ONLY FOR TESTING
     required: false,
     minSize: 1,
     maxSize: 100,
@@ -287,17 +289,32 @@ export function getDefPropError(columnDef: ColumnDef, defProperty: keyof ColumnD
           }
         }
       }
+      if(columnDef.dataType === DataType.List && columnDef.minSize !== undefined && columnDef.minSize > columnDef.allowedValues.length) {
+        return {columnName: 'allowedValues', message: `If the min size of a list is ${columnDef.minSize} and you define allowed values, there must be at least ${columnDef.minSize} of them`};
+      }
     }
     else if(columnDef.dataType === DataType.TagStr) {
       return {columnName: 'allowedValues', message: 'Must have one or more allowed values for TAG_STRING data type'};
     }
   }
   if(defProperty === 'columnName') {
-    if(columnDef.columnName?.startsWith('_')) {
+    if(columnDef.columnName.startsWith('_')) {
       return {columnName: 'columnName', message: 'Cannot start with underscore'};
     }
+    const forbiddenMatches = CompileConstants.FORBIDDEN_COL_ID_REGEX.exec(columnDef.columnName);
+    if(forbiddenMatches) {
+      return {columnName: 'columnName', message: 'Cannot contain '+forbiddenMatches.join(' or ')};
+    }
   }
-  //TODO: maxSize > minSize, error in minSize. Non-number maxsize > 0. 
+  //maxSize > minSize. Non-number maxsize can't be negative. 
+  if(defProperty === 'maxSize' && columnDef.maxSize !== undefined) {
+    if(columnDef.minSize !== undefined && columnDef.minSize > columnDef.maxSize) {
+      return {columnName: 'maxSize', message: `Max size can't be less than min size`};
+    }
+    if(columnDef.maxSize <= 0 && !colUtil.dataTypeIsNumber(columnDef.dataType)) {
+      return {columnName: 'maxSize', message: `Max size for non-number data types must be above 0`};
+    }
+  }
 
   let err: FieldError | false = false;
   // Mandatory columns skip the forbiddenValues check for columnNames, otherwise couldn't submit themselves

@@ -2,10 +2,11 @@ import { IonIcon, IonItem, IonGrid, IonRow, IonCol, IonButton, IonLabel, useIonA
 import React, { useEffect, useState, useCallback } from 'react';
 import { swapVerticalOutline, swapVerticalSharp, warningOutline, warningSharp } from 'ionicons/icons';
 import * as T from '../types/characterTypes';
-import { keys, keyVals } from '../services/util';
+import { keys, keyVals, getApiUploadConfigUrl } from '../services/util';
 import { getIonicSanitizedString } from '../services/renderUtil';
 import { insertDefsSortGroupsCompileRegexes, repairOrder } from '../services/columnUtil';
 import { makeApiCall, userHasPerms, PermissionLevel } from '../services/pouch';
+//import { useGameDispatch, Action as GameAction } from './GameProvider';
 import HeaderPage from './HeaderPage';
 import NeedPermissions from './NeedPermissions';
 import DefEditModal from './DefEditModal';
@@ -18,7 +19,7 @@ import characterStyles from '../theme/Character.module.css';
 import styles from '../theme/DefEditor.module.css';
 
 import PouchDB from 'pouchdb'; //TODO: testing, delete
-import { usePouch } from 'use-pouchdb';
+import { useDoc } from 'use-pouchdb';
 
 export type DesignDocChanges = Partial<T.DesignDoc> & {
   //if order is changed, it's shown here. Additions are added but deletions aren't removed.
@@ -40,6 +41,8 @@ type DefEditorProps = {
   designDoc: T.DesignDoc; //does NOT contain modified definitions, they're straight from DB
 }
 const DefEditor: React.FC<DefEditorProps> = ({gameId, designDoc}) => {
+  //const gameDispatch = useGameDispatch();
+  //const { doc: designDoc, loading, state, error } = useDoc<T.DesignDoc>("_design/columns"); 
   const [docChanges, setDocChanges] = useState<DesignDocChanges>({}); 
   const [clonedDoc, setClonedDoc] = useState<T.DesignDoc>(cloneDesignDocStripMetaAddMandatory);
   const [defToEdit, setDefToEdit] = useState<DefEditObj | null>(null); //null when not editing, defName is empty string when adding new def
@@ -87,6 +90,11 @@ const DefEditor: React.FC<DefEditorProps> = ({gameId, designDoc}) => {
     return newDoc;
   }
 
+  useEffect(() => {
+    return () => {
+      console.log("Unmounting DefEditor, goodbye cruel world");
+    }
+  }, []);
 
   // handle conflicting changes to document
   useEffect(() => {
@@ -140,8 +148,6 @@ const DefEditor: React.FC<DefEditorProps> = ({gameId, designDoc}) => {
               buttons: [
                 { text: 'Discard their changes', handler: () => {setClonedDoc({...clonedDoc, _rev: designDoc._rev})} },
                 { text: 'Discard your changes', handler: () => {
-                    //TODO: some way to only discard conflicting changes
-                    //TODO: if a change stops being a change (cuz other guy made same change), is that an issue?
                     setClonedDoc(cloneDeep<T.DesignDoc>(designDoc));
                     setDocChanges({});
                 } },
@@ -159,7 +165,6 @@ const DefEditor: React.FC<DefEditorProps> = ({gameId, designDoc}) => {
           );
         }
         else { //Definition changes do not conflict. If you changed some other setting, don't care, just take yours.
-          //TODO: TESTED: they add/delete, you no order change. They reorder, fine. You reorder they group change, and vice-versa. You delete they reorder.
           //must repair order if you changed order and they made a group change that didn't cause an order change
           //must repair order if THEY changed order and YOU made a group change that didn't cause an order change
           setClonedDoc(cloneDeep<T.DesignDoc>(designDoc));
@@ -194,22 +199,26 @@ const DefEditor: React.FC<DefEditorProps> = ({gameId, designDoc}) => {
     //newDesignDoc.universalPropDefs.Bio!.displayName = ' Bio   ';
     //newDesignDoc.universalPropDefs.Bio!.allowedValues = [' spaceu   ', '   a'];
     //newDesignDoc.universalPropDefs.Bio!.allowedValuesHints = {'spaceu': ' bombamna  '};
-    //newDesignDoc.universalPropDefs.Bio!.forbiddenValues = [' spaceu   ', '   b'];
+    //newDesignDoc.universalPropDefs.Bio!.forbiddenValues = ['f1', 'f3'];
+    //let testErr = checkInvalid(newDesignDoc.universalPropDefs.Bio!.forbiddenValues!, getMetaDef('forbiddenValues')!);
+    //let testErr = getErrorsForColumnDef(newDesignDoc.universalPropDefs.Bio!);
     //console.log(JSON.stringify(newDesignDoc.universalPropDefs));
-    makeApiCall(`game/${gameId}/config/publish`, 'POST', newDesignDoc).then((res) => {
+    const url = getApiUploadConfigUrl(gameId);
+    makeApiCall(`url`, 'POST', newDesignDoc).then((res) => {
       console.log(res.message ?? "Success!");
       presentAlert("Successfully updated config!");
       setDocChanges({});
     }).catch((err) => {
       console.error(err.message);
       if(err.status === 409) {
-        //TODO: update conflict, trigger a fetch.
+        //TODO: update conflict. This page forces use of remote db, but might get conflict if change subscription broke
+        //Would still be good to fetch, update clonedDoc, and call this again.
+        console.warn('update conflict');
       }
       presentAlert( {
         header: "Error",
         message: getIonicSanitizedString(err.message),
       })
-      //presentAlert(getIonicSanitizedString("Error updating config: " +err.message));
     });
   }
 
@@ -321,7 +330,6 @@ const DefEditor: React.FC<DefEditorProps> = ({gameId, designDoc}) => {
           if(keys(changedOrder).length === 0) delete newChanges.changedOrders?.[path];
         }
         //if a reorder changed a non-added col's group, this resets its group, so must fix order. 
-        //TODO: maybe have resetting not reset its order/group by making new changed def w/ just group change?
         else if(docChanges[path]?.[defName] && docChanges[path]?.[defName]?.group !== clonedDoc[path][defName]?.group) {
           presentAlert(`Column ${defName} was moved to back to group ${clonedDoc[path][defName]?.group}, please check its order inside the group`);
           let repairedOrder = repairOrder(changedOrder, {...clonedDoc[path], ...newChanges[path]});
@@ -459,16 +467,11 @@ const DefEditor: React.FC<DefEditorProps> = ({gameId, designDoc}) => {
         </div>
 
         </IonGrid>
-        {/*<div>{JSON.stringify(clonedDoc)}</div>*/}
       </IonContent>
     </HeaderPage>
     </>
   );
 }
 
-
-                  //const changesWithoutDeletions = {...docChanges};
-                  //delete changesWithoutDeletions.deletedDefs;
-                  //const mergedDoc = getUpdatedDoc(designDoc, changesWithoutDeletions);
 
 export default DefEditor;

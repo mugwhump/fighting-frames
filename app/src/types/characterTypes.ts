@@ -88,8 +88,10 @@ export type ColumnDefStyling = {
   // Performance hack, compile regexes when defs are loaded instead of every time column renders.
   _compiledNumStrRegex?: RegExp;
   _compiledTagStrRegex?: RegExp;
-  //compile after loading. If applyViaSplit, use string.split(regex) to apply to individual spans of text instead of the outer cell
-  cssRegex?: {regex: string, _compiled_regex?: RegExp, css: string, applyViaSplit?: boolean}[]; 
+  //TODO: implement CSS rules, which apply css to data based on numeric or regex comparisons, based on datatype.
+  //for regexes, compile after loading. If applyViaSplit, use string.split(regex) to apply to individual spans of text instead of the outer cell
+  cssRules?: ({type: "regex", css: string, regex: string, _compiled_regex?: RegExp, applyViaSplit: boolean}
+    | {type: "numeric", css: string, numberComparator: NumericComparison, numVal: number})[]; 
 }
 
 export type Breakpoint =  "xs" | "sm" | "md" | "lg" | "xl";
@@ -103,6 +105,8 @@ export type SizeBreakpoint =  `size-${Breakpoint}`;
 export type DefGroup = "meta" | "title" | "needsHeader" | "normal" | "defaultHideNeedsHeader" | "defaultHide" | "no-definition";
 export const groupList : Readonly<DefGroup[]> = ["title", "needsHeader", "normal", "defaultHideNeedsHeader", "defaultHide"]; //groups that can actually be assigned to by users
 export const groupListAll : Readonly<DefGroup[]> = ["meta", "title", "needsHeader", "normal", "defaultHideNeedsHeader", "defaultHide", "no-definition"];
+
+export type NumericComparison = "==" | "!=" | "<" | "<=" | ">" | "<=";
 
 export type ColumnDefs = {
   [columnName: string]: ColumnDef | undefined;

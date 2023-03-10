@@ -1,6 +1,6 @@
 import { IonContent, IonButton, IonMenu, IonRouterOutlet, IonSplitPane } from '@ionic/react';
-import React, { useEffect, useState, useMemo } from 'react';
-import { Route } from 'react-router-dom';
+import React, { useEffect, useState, useMemo, useCallback } from 'react';
+import { Route, useRouteMatch } from 'react-router-dom';
 //import PouchDB from 'pouchdb';
 import { useDocumentLocalRemoteSwitching } from '../services/pouch';
 import { useDoc } from 'use-pouchdb';
@@ -28,53 +28,12 @@ const Game: React.FC<GameProps> = () => {
   const gameId: string = gameContext.gameId; //TODO: Wrapper component. Note this will update after the provider switches DBs.
   const gameDispatch = useGameDispatch();
   const [middleware, setMiddleware] = useState<Middleware>({});
-  const { doc, loading, state, error } = useDoc<T.DesignDoc>("_design/columns"); 
+  const [previewDoc, setPreviewDoc] = useState<T.DesignDoc | null>(null);
+  const configPageMatch = useRouteMatch<{gameId: string}>(CompileConstants.CONFIGURATION_MATCH); //force remote db if on configuration page
+  const { doc: actualDoc, loading, state, error } = useDoc<T.DesignDoc>("_design/columns", {db: !!configPageMatch ? 'remote' : '_default'}); 
+  const doc: T.DesignDoc | null = previewDoc ?? actualDoc;
   useDocumentLocalRemoteSwitching(state, error, 'Game');
   const displayName: string | undefined = doc?.displayName;
-
-
-  //Insert meta definitions, required definitions if they're missing, and reorder defs if required ones are inserted
-  //function modifyDefs(defs: Readonly<T.ColumnDefs>, isUniversalProps: boolean): T.ColumnDefs {
-    //const path = isUniversalProps ? "universalPropDefs" : "columnDefs";
-    //let reorderRequired = false;
-    //let newDefs = cloneDeep<T.ColumnDefs>(defs);
-    ////meta at front
-    //newDefs = {...specialDefs.meta[path], ...newDefs}; 
-    ////insert required defs if missing, but don't overwrite
-    //for(const [key, def] of util.keyVals(specialDefs.required[path])) {
-      //if(!def) continue;
-      //if(!newDefs[key]) {
-        //newDefs[key] = def;
-        //reorderRequired = true;
-      //}
-    //}
-
-    //let result: T.ColumnDefs = newDefs;
-    //if(reorderRequired) {
-      //result = {};
-      //const order: Readonly<string[]> = util.keys(newDefs);
-
-      //// Loop over groups to ensure they're all present and newDefs are properly ordered
-      //let nextItemIndex = 0;
-      //for(let group of T.groupListAll) {
-        //for(let key of order) {
-          //const def: T.ColumnDef | undefined = newDefs[key];
-          //if(!def) throw new Error("Cannot find definition for "+key);
-          //if(def.group === group) {
-            //if(order[nextItemIndex] !== key) {
-              //console.log(`definition ${key} in group ${group} is out of order`);
-              ////everything between the misplaced item and where it's moved to will be considered misplaced
-            //}
-            //result[key] = def;
-            //nextItemIndex++;
-          //}
-        //}
-      //}
-    //}
-
-    //return result;
-  //}
-
 
   const modifiedUniversalPropDefs = useMemo(() => {
     return insertDefsSortGroupsCompileRegexes  (doc?.universalPropDefs ?? {}, true, true, true);
@@ -90,6 +49,11 @@ const Game: React.FC<GameProps> = () => {
     gameDispatch({actionType: 'setGameDisplayName', gameId: gameId, displayName: displayName} as GameAction);
   }, [displayName]);
 
+  //TODO: would need to give character state info about whether it's a preview doc so players can't save or upload changes based on faulty defs
+  //and display a banner saying "you're previewing your definitions"
+  const previewDesignDoc = useCallback((docToPreview: T.DesignDoc) => {
+  }, []);
+
   if (state === 'error') {
     return (
       <div>
@@ -98,6 +62,7 @@ const Game: React.FC<GameProps> = () => {
       </div>
     );
   }
+
   // loading is true even after the doc loads
   // TODO: check if changing this from && doc==null messed anything up
   if (loading || doc === null) {

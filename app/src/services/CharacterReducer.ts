@@ -104,7 +104,7 @@ export interface State {
     | { actionType: 'editsWritten' } //to signify that writes to (or deletion of) local edits have been completed in provider
     //should these be inside reducer? Local saving/writing shouldn't be.
     | { actionType: 'uploadChangeList', changes: T.ChangeDocServer } //upload current list, redirect to it in changes section, and delete local after success
-    | { actionType: 'publishChangeList', changeListId: string } //tells couch to calculate new doc based on that changeList id
+    | { actionType: 'publishChangeList', character: string, title: string } //tells couch to calculate new doc based on that changeList id
 
 
 

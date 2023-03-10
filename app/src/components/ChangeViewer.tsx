@@ -43,7 +43,7 @@ export const ChangeViewer: React.FC<ChangeViewerProps> = ({columnDefs, universal
   }
 
   function publishChanges() {
-    dispatch({actionType: "publishChangeList", changeListId: changeDocId});
+    dispatch({actionType: "publishChangeList", character: character, title: changeTitle});
     dismissPopOver();
   }
 

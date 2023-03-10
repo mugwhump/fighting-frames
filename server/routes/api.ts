@@ -17,6 +17,7 @@ import * as util from '../shared/services/util';
 import * as colUtil from '../shared/services/columnUtil';
 import * as metaDefs from '../shared/constants/metaDefs';
 import * as merging from '../shared/services/merging';
+import CompileConstants from '../shared/constants/CompileConstants';
 
 const DesignDocValidator = require('../schema/DesignDoc-validator').default;
 
@@ -40,7 +41,7 @@ function sendError(res: Response, message: string, code: number = 500) {
   return res.status(code).json({message: message, status: code});
 }
 
-router.post('/game/:gameId/config/publish', couchAuth.requireAuth, couchAuth.requireRole("user") as any,
+router.post(CompileConstants.API_UPLOAD_CONFIG_MATCH, couchAuth.requireAuth, couchAuth.requireRole("user") as any,
            async (req: Request<{gameId:string}>, res) => {
   try {
     const user: CouchAuthTypes.SlRequestUser = req.user!;
@@ -90,8 +91,22 @@ router.post('/game/:gameId/config/publish', couchAuth.requireAuth, couchAuth.req
   }
 });
 
+
+router.post(CompileConstants.API_UPLOAD_CHANGE_MATCH, couchAuth.requireAuth, couchAuth.requireRole("user") as any,
+           async (req: Request<{gameId:string, characterId:string, changeTitle:string}>, res) => {
+  try {
+    const {gameId, characterId, changeTitle} = req.params;
+    const user: CouchAuthTypes.SlRequestUser = req.user!;
+    const db = adminNano.use(req.params.gameId);
+    const sec = await db.get("_security") as Security.SecObj;
+  }
+  catch(err) {
+    return sendError(res, "Server Error "+err);
+  }
+});
+
 // Couchauth middleware verifies user is who they say they are. If not, rejects with 401.
-router.post('/game/:gameId/character/:characterId/changes/:changeTitle/publish', couchAuth.requireAuth, couchAuth.requireRole("user") as any,
+router.post(CompileConstants.API_PUBLISH_CHANGE_MATCH, couchAuth.requireAuth, couchAuth.requireRole("user") as any,
            async (req: Request<{gameId:string, characterId:string, changeTitle:string}>, res) => {
   try {
     const {gameId, characterId, changeTitle} = req.params;

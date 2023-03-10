@@ -64,6 +64,7 @@ export type Action =
   // But note that when CustomPouchError wraps a TypeError, error.name is just "Error"...
   | { actionType: 'fetchFailure', error: PouchDB.Core.Error | Error, usedLocal: boolean, dispatcher: string } //NOT replication failure, for doc access failure
   | { actionType: 'retry', db: string } 
+  //| { actionType: 'force-remote' } // force switch to remote db 
   // ---------------- ONLY CALLED INTERNALLY, but still modify state --------------------
   // REMEMBER! State updates are deferred until the next render! If update state, must listen in hook to continue any logic that needs new state!
   | { actionType: 'setUserWants', db: string, wantedDBs: StringSet }
@@ -222,6 +223,11 @@ function Reducer(state: State, action: Action) {
       console.log(`Retrying with online=${newState.isOnline}`);
       break;
     }
+    //case 'force-remote': {
+      //newState.isOnline = true;
+      //newState.usingLocal = false; 
+      //break;
+    //}
     case 'setUserWants': {
       for(const db of action.wantedDBs) {
         state.dbStatuses.get(db); //ensure newly-wanted db is in list

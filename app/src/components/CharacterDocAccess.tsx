@@ -125,29 +125,34 @@ export const CharacterDocAccess: React.FC<CharProviderProps> = ({children, gameI
     const id: string = util.getChangeId(state.characterId, changeList.updateTitle!);
     console.log("Uploading ID " + id);
     const uploadDoc: T.ChangeDocWithMeta = {...changeList, _id: id, _rev: undefined};
-    remoteDatabase.put(uploadDoc).then((response) => {
-      console.log("Upload response = " + JSON.stringify(response));
+
+    const apiUrl = util.getApiUploadChangeUrl(gameId, state.characterId, changeList.updateTitle);
+    //remoteDatabase.put(uploadDoc).then((response) => {
+    myPouch.makeApiCall(apiUrl, "POST").then((res) => {
+      console.log("Upload response = " + JSON.stringify(res));
       presentToast("Changes uploaded! Someone with write permissions must publish these changes.", 6000);
       //TODO: redirect to this specific change in changes section, with info on how it was just published?. Also lets writers publish what they just uploaded.
       let url = util.getSegmentUrl(gameId, state.characterId, SegmentUrl.Changes);
       history.push(url);
       dispatch({actionType:'deleteEdits'});
     }).catch((err) => {
-      console.log("Upload error = " + JSON.stringify(err));
+      console.log("Upload error = " + err.message);
       presentToast('Upload failed: ' + err.message, 6000);
     });
   }, [gameId]);
+
 
   const publishChangeListCallback: MiddlewareFn = useCallback((state, action, dispatch) => {
     if (action.actionType !== 'publishChangeList') {
       console.warn("Publish changelist middleware being called for action "+action.actionType);
       return;
     }
-    let changeId = action.changeListId;
-    console.log("Publishing changeDoc " + changeId);
-    myPouch.makeApiCall(`game/${gameId}/${changeId}/publish`, "POST").then((data) => {
+    //let changeId = action.changeListId;
+    let apiUrl = util.getApiPublishChangeUrl(gameId, action.character, action.title);
+    console.log(`Publishing changeDoc ${apiUrl}`);
+    myPouch.makeApiCall(apiUrl, "POST").then((res) => {
       //TODO: if this change was submitted by a user without write perms and current user is admin, prompt for whether to give author write perms
-      console.log("Response: "+JSON.stringify(data));
+      console.log("Response: "+JSON.stringify(res));
       presentToast("Change successfully published!", 3000);
       let url = util.getSegmentUrl(gameId, state.characterId, SegmentUrl.Base); 
       //TODO: getting error about "Node to be removed is not a child of this node," can I access history here?

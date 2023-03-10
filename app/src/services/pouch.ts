@@ -12,7 +12,7 @@ export const remoteWithBasicCreds: string = `http://${CompileConstants.DEFAULT_C
 export const remoteWithTestAdminCreds: string = 'http://admin:password@localhost:5984/';
 //TODO: turn all of these into environment variables, they need to change in production.
 export const remote: string = 'http://localhost:5984/';
-export const apiUrl: string = 'http://localhost:3000/api/';
+export const apiUrl: string = 'http://localhost:3000/api';
 PouchDB.plugin(PouchAuth);
 
 superlogin.configure({
@@ -59,7 +59,7 @@ export function makeRequest(url: string, username: string, password: string, met
 // Api calls that return text instead of json will be converted to the above format.
 export function makeApiCall(uri: string, method: "GET" | "PUT" | "POST", body?: Object): Promise<Record<string, any>> {
   if(uri.indexOf("http") !== -1) throw new Error("Only include the part of the address after website.com/api/");
-  if(uri.indexOf("/") === 0) throw new Error("Do not start address with a /, it's already included. Given uri: "+uri);
+  if(uri.indexOf("/") !== 0) throw new Error("Address must start with a slash (/). Given uri: "+uri);
 
   let session = superlogin.getSession();
   //if(!session) return Promise.reject("No superlogin session found");

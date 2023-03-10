@@ -3,6 +3,7 @@ import * as T from '../types/characterTypes';
 import * as util from '../services/util';
 import type { FieldError } from '../types/utilTypes'; //==
 import { specialDefs } from '../constants/internalColumns';
+import CompileConstants from '../constants/CompileConstants';
 import { cloneDeep, sortBy } from 'lodash';
 
 //Inserts mandatory definitions defined in internalColumns, and meta/builtin definitions if desired.
@@ -222,6 +223,14 @@ export function checkInvalid(data: T.ColumnData | undefined, def: T.ColumnDefRes
     }
   }
 
+  //validate moveName
+  if(colName === 'moveName') {
+    const forbiddenMatches = CompileConstants.FORBIDDEN_MOVE_ID_REGEX.exec(data as string);
+    if(forbiddenMatches) {
+      return {columnName: 'moveName', message: 'Illegal character '+forbiddenMatches.join(' or ')};
+    }
+  }
+
   // Parse out NumericStrings which could effectively be a number or string value. If they have a number, stringValue will be the full string.
   let stringValue: null | string = (isString(data, dataType)) ? data : null;
   let numberValue: null | number = (isNumber(data, dataType)) ? data : null;
@@ -248,6 +257,20 @@ export function checkInvalid(data: T.ColumnData | undefined, def: T.ColumnDefRes
     }
   }
 
+  //List items are unique and in allowedValues
+  if(isList(data, dataType)) {
+    if(def.allowedValues) {
+      for(const item of data) {
+        if(!def.allowedValues.includes(item)) {
+          return {columnName: colName, message: `Item ${item} is not an allowed value`};
+        }
+      }
+    }
+    if(data.length > (new Set(data)).size) {
+      return {columnName: colName, message: "No duplicate values allowed"};
+    }
+  }
+
   if(def.forbiddenValues) {
     if(stringValue !== null) {
       if(def.forbiddenValues.includes(stringValue)) {
@@ -267,6 +290,11 @@ export function checkInvalid(data: T.ColumnData | undefined, def: T.ColumnDefRes
         return {columnName: colName, message: "Minimum value:"+def.minSize};
       }
     }
+    else if(isList(data, dataType)) {
+      if(data.length < def.minSize) {
+        return {columnName: colName, message: `List must contain ${def.minSize} items`};
+      }
+    }
   }
 
   if(def.maxSize) {
@@ -278,6 +306,11 @@ export function checkInvalid(data: T.ColumnData | undefined, def: T.ColumnDefRes
     else if(numberValue !== null) {
       if(numberValue > def.maxSize) {
         return {columnName: colName, message: "Maximum value:"+def.maxSize};
+      }
+    }
+    else if(isList(data, dataType)) {
+      if(data.length > def.maxSize) {
+        return {columnName: colName, message: `List can only contain ${def.maxSize} items`};
       }
     }
   }
