@@ -46,7 +46,7 @@ do
 done &
 
 echo "Running docker backend services..."
-docker compose up &
+docker compose up
 )
 
 #TODO: also run ionic serve, might need concurrently?
