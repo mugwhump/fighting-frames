@@ -4,11 +4,14 @@
       "read"
     ],
     "names": [
+      "testing-bootstrapper"
     ]
   },
   "admins": {
     "roles": [
       "_admin"
     ]
-  }
+  },
+  "publicIsWriter": false,
+  "publicCanUploadChanges": true
 }

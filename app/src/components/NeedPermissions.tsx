@@ -1,12 +1,12 @@
 //import { IonItem, IonIcon, IonButton, IonLabel, IonInput } from '@ionic/react';
 import React, { useEffect } from 'react';
 //import LoginModal from './LoginModal';
-import * as myPouch from '../services/pouch';
+import * as security from '../services/security';
 import { useLoginInfoContext, LoginInfo } from './LoginProvider';
 
 type NeedPermissionsProps = {
   children?: React.ReactNode,
-  permissions: myPouch.PermissionLevel,
+  permissions: security.PermissionLevel,
   ifYes?: React.ReactNode,
   ifNo?: React.ReactNode,
 }
@@ -16,7 +16,7 @@ type NeedPermissionsProps = {
 // Just for presentation logic, actual permission checks are server-side.
 const NeedPermissions: React.FC<NeedPermissionsProps> = ({children, permissions, ifYes, ifNo}) => {
   const loginInfo: LoginInfo = useLoginInfoContext();
-  const hasPerms: boolean = myPouch.userHasPerms(loginInfo, permissions);
+  const hasPerms: boolean = security.userHasPerms(loginInfo, permissions);
   if((!ifYes || !ifNo) && ifYes !== ifNo) throw new Error("Must provide both ifYes and ifNo to NeedPermission if using either");
   if(!!children && !!ifYes) throw new Error("Either use children with NeedPermission or the ifYes+ifNo props, not both");
 

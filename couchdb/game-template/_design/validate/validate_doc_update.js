@@ -33,8 +33,7 @@ function (newDoc, oldDoc, userCtx, secObj) {
   }
   // All users can upload NEW change docs.
   else if (isChangeDoc) {
-    // but nobody can edit or delete changedocs. Could potentially store hash of changes part and ensure that doesn't change so metadata could be edited.
-    // OR could just use an update function for admins/writers to use to update metadata.
+    // but nobody can edit or delete changedocs. Could potentially write API to modify metadata or allow deletion of non-published ones
 
     // Replications ignore these checks
     //if(!isReplication) {

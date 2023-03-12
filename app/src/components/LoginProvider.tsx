@@ -5,6 +5,7 @@ import { useDoc, usePouch } from 'use-pouchdb';
 import CompileConstants from '../constants/CompileConstants';
 import { useGameContext, useGameDispatch, Action as GameAction } from './GameProvider';
 import { Credentials } from '../types/utilTypes';
+import { SecObj } from '../services/security';
 import LoginModal from './LoginModal';
 
 
@@ -25,7 +26,7 @@ export const LoginProvider: React.FC<LoginProviderProps> = ({children, gameId, s
   const [showModal, setShowModal] = useState(false);
   //const [currentCreds, setCurrentCreds] = useState<Credentials>(CompileConstants.DEFAULT_CREDENTIALS);
   const [currentUser, setCurrentUser] = useState<string>(CompileConstants.DEFAULT_CREDENTIALS.username);
-  const [secObj, setSecObj] = useState<myPouch.SecObj | null>(null);
+  const [secObj, setSecObj] = useState<SecObj | null>(null);
   const [roles, setRoles] = useState<string[]>(CompileConstants.DEFAULT_USER_ROLES);
   //const [loginInfo, setLoginInfoUsingFunction] = useState<LoginInfo>(getInitialLoginInfo); //Must use functional updates to not constantly re-set stale state!
   const loginInfo = useMemo<LoginInfo>(() => {return {currentUser: currentUser, secObj: secObj, roles: roles, setShowModal: setShowModal, logout: logoutCallback}}, [currentUser, secObj]);
@@ -81,7 +82,7 @@ export const LoginProvider: React.FC<LoginProviderProps> = ({children, gameId, s
       setSecObj(null);
       //const dbAtStart = getCurrentDB();
       console.log(`fetching SecObj for db ${startingGameId}`);
-      let res = await database.get<myPouch.SecObj>('_security');
+      let res = await database.get<SecObj>('_security');
       // if rapidly switching between dbs and one occurs before the other, set to null if they arrive out-of-order
       if(startingGameId === gameIdRef.current) {
         console.log("Setting secObj for "+startingGameId+" to " + JSON.stringify(res));
@@ -226,7 +227,7 @@ export const LoginProvider: React.FC<LoginProviderProps> = ({children, gameId, s
 export type LoginInfo = {
   //currentCreds: Credentials, //actually, context should only offer username, not pw
   currentUser: string, 
-  secObj: myPouch.SecObj | null,
+  secObj: SecObj | null,
   roles: string[],
   setShowModal: (showModal: boolean)=>void,
   logout: ()=>void,

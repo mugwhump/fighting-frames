@@ -15,6 +15,7 @@ export let CompileConstants = {
   AUTHORIZED_USERS_MATCH: "/game/:gameId/authorized-users",
   HOME_PATH: "/page/Inbox",
   API_UPLOAD_CHANGE_MATCH: "/game/:gameId/character/:characterId/changes/:changeTitle",
+  API_UPLOAD_CHANGE_MATCH_PUBLIC: "/public/game/:gameId/character/:characterId/changes/:changeTitle",
   API_PUBLISH_CHANGE_MATCH: "/game/:gameId/character/:characterId/changes/:changeTitle/publish",
   API_UPLOAD_CONFIG_MATCH: "/game/:gameId/config",
 

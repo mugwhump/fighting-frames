@@ -12,7 +12,6 @@ export type DefPropertyFieldErrors = {[Property in MetaDefKey]?: {columnName: Me
 
 // These are meta-definitions that describe each field of a column's definition, used by admins when editing/creating columns
 // There are other restrictions on some of these that are coded into the editor
-// ookAAIIIIEEEEEEEEEEEE
 export let metaDefs: {[Property in keyof Partial<ColumnDef>]: ColumnDefRestrictions & ColumnDefDisplayText} = {
   columnName: {
     displayName: "Column ID",

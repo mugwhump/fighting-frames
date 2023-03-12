@@ -62,14 +62,17 @@ export function getDeleteCharacterUrl(gameId: string): string {
 export function getAuthorizedUsersUrl(gameId: string): string {
   return generatePath(CompileConstants.AUTHORIZED_USERS_MATCH, {gameId: gameId});
 }
-export function getApiUploadConfigUrl(gameId: string): string {
-  return generatePath(CompileConstants.API_UPLOAD_CONFIG_MATCH, {gameId: gameId});
+export function getApiPublicUploadChangeUrl(gameId: string, characterId: string, changeTitle: string): string {
+  return generatePath(CompileConstants.API_UPLOAD_CHANGE_MATCH_PUBLIC, {gameId: gameId, characterId: characterId, changeTitle: changeTitle});
 }
 export function getApiUploadChangeUrl(gameId: string, characterId: string, changeTitle: string): string {
   return generatePath(CompileConstants.API_UPLOAD_CHANGE_MATCH, {gameId: gameId, characterId: characterId, changeTitle: changeTitle});
 }
 export function getApiPublishChangeUrl(gameId: string, characterId: string, changeTitle: string): string {
   return generatePath(CompileConstants.API_PUBLISH_CHANGE_MATCH, {gameId: gameId, characterId: characterId, changeTitle: changeTitle});
+}
+export function getApiUploadConfigUrl(gameId: string): string {
+  return generatePath(CompileConstants.API_UPLOAD_CONFIG_MATCH, {gameId: gameId});
 }
 export function getCharDocId(character: string): string {
   return 'character/'+character;

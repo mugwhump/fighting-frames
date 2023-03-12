@@ -6,6 +6,7 @@ constants/metaDefs.ts
 services/columnUtil.ts
 services/merging.ts
 services/util.ts
+services/security.ts
 
 types/characterTypes.ts
 types/utilTypes.ts

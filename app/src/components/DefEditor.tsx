@@ -5,7 +5,7 @@ import * as T from '../types/characterTypes';
 import { keys, keyVals, getApiUploadConfigUrl } from '../services/util';
 import { getIonicSanitizedString } from '../services/renderUtil';
 import { insertDefsSortGroupsCompileRegexes, repairOrder } from '../services/columnUtil';
-import { makeApiCall, userHasPerms, PermissionLevel } from '../services/pouch';
+import { makeApiCall } from '../services/pouch';
 //import { useGameDispatch, Action as GameAction } from './GameProvider';
 import HeaderPage from './HeaderPage';
 import NeedPermissions from './NeedPermissions';

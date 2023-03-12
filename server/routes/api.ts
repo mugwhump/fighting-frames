@@ -2,7 +2,7 @@
 import express, { Express, Request, Response } from 'express';
 import nodeUtil from 'util'; //node's util
 import logger from '../util/logger';
-import * as Security from '../util/security';
+import * as Security from '../shared/services/security';
 import { secrets } from "docker-secret";
 import couchAuth from './couchauth';
 import * as CouchAuthTypes from '@perfood/couch-auth/lib/types/typings';
@@ -47,7 +47,7 @@ router.post(CompileConstants.API_UPLOAD_CONFIG_MATCH, couchAuth.requireAuth, cou
     const user: CouchAuthTypes.SlRequestUser = req.user!;
     const db = adminNano.use(req.params.gameId);
     const sec = await db.get("_security") as Security.SecObj;
-    const isGameAdmin = Security.userIsGameAdminOrHigher(user, sec);
+    const isGameAdmin = Security.userIsGameAdminOrHigher(user._id, user.roles, sec);
     if(!isGameAdmin) return sendError(res, "Game Admin permissions required to change game config", 403); 
 
     const newDesignDoc: T.DesignDoc = req.body;
@@ -91,6 +91,18 @@ router.post(CompileConstants.API_UPLOAD_CONFIG_MATCH, couchAuth.requireAuth, cou
   }
 });
 
+router.post(CompileConstants.API_UPLOAD_CHANGE_MATCH_PUBLIC, 
+           async (req: Request<{gameId:string, characterId:string, changeTitle:string}>, res) => {
+  try {
+    const {gameId, characterId, changeTitle} = req.params;
+    const db = adminNano.use(req.params.gameId);
+    //is there even a point to securing this endpoint?
+    const sec = await db.get("_security") as Security.SecObj;
+  }
+  catch(err) {
+    return sendError(res, "Server Error "+err);
+  }
+});
 
 router.post(CompileConstants.API_UPLOAD_CHANGE_MATCH, couchAuth.requireAuth, couchAuth.requireRole("user") as any,
            async (req: Request<{gameId:string, characterId:string, changeTitle:string}>, res) => {
@@ -113,7 +125,7 @@ router.post(CompileConstants.API_PUBLISH_CHANGE_MATCH, couchAuth.requireAuth, co
     const user: CouchAuthTypes.SlRequestUser = req.user!;
     const db = adminNano.use(req.params.gameId);
     const sec = await db.get("_security") as Security.SecObj;
-    const isWriter = Security.userIsWriterOrHigher(user, sec);
+    const isWriter = Security.userIsWriterOrHigher(user._id, user.roles, sec);
     //if(!isWriter) return res.status(403).send("Write permissions required to publish changes"); 
     if(!isWriter) return sendError(res, "Write permissions required to publish changes", 403); 
 

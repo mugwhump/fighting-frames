@@ -5,6 +5,7 @@ import { usePouch } from 'use-pouchdb';
 import { useEffect, useState, useRef, MutableRefObject, useCallback } from 'react';
 import { useGameDispatch, Action as GameAction } from '../components/GameProvider';
 import type { LoginInfo } from '../components/LoginProvider'; //=}
+import * as security from './security';
 import CompileConstants from '../constants/CompileConstants';
 
 // also currently have admin:password
@@ -40,8 +41,8 @@ export function nameIsRemote(name: string): boolean {
 
 //returns a promise response that must be resolved to another promise via response.json(), response.text(), response.blob() etc
 export function makeRequest(url: string, username: string, password: string, method: "GET" | "PUT" | "POST", body?: Object) {
-  var str = username + ':' + password;
-  var token = btoa(unescape(encodeURIComponent(str)));
+  const str = username + ':' + password;
+  const token = btoa(unescape(encodeURIComponent(str)));
   const response = fetch(url, {
     method: method,
     mode: 'cors',
@@ -54,26 +55,33 @@ export function makeRequest(url: string, username: string, password: string, met
   return response;
 }
 
-// For api calls using superlogin session bearer auth
+// For api calls using superlogin session bearer auth, unless usePublic is specified, in which case it uses Basic auth with public user.
+// Most endpoints require a superlogin user.
 // Rejected promises have form {message: string, status: number}. 
 // Api calls that return text instead of json will be converted to the above format.
-export function makeApiCall(uri: string, method: "GET" | "PUT" | "POST", body?: Object): Promise<Record<string, any>> {
+export function makeApiCall(uri: string, method: "GET" | "PUT" | "POST", body?: Object, usePublic?: boolean): Promise<Record<string, any>> {
   if(uri.indexOf("http") !== -1) throw new Error("Only include the part of the address after website.com/api/");
   if(uri.indexOf("/") !== 0) throw new Error("Address must start with a slash (/). Given uri: "+uri);
 
-  let session = superlogin.getSession();
-  //if(!session) return Promise.reject("No superlogin session found");
-  if(!session) return Promise.reject({message: "No superlogin session found", status: 401});
+  let authHeader = {};
+  if(usePublic) { 
+    const token = btoa(unescape(encodeURIComponent('public:password')));
+    authHeader = {'Authorization': 'Basic ' + token};
+  }
+  else {
+    let session = superlogin.getSession();
+    if(!session) return Promise.reject({message: "No superlogin session found", status: 401});
+    authHeader = {'Authorization': 'Bearer ' + session.token+':'+session.password};
+    //'Authorization': 'Bearer admin:madeUpPassword', //couchAuth middleware rejects if client sends invalid creds
+  }
 
-  //return makeRequest(apiUrl + uri, session.token, session.password, method, body);
   const response = fetch(apiUrl + uri, {
     method: method,
     mode: 'cors',
     headers: {
       'Content-Type': 'application/json',
-      'Authorization': 'Bearer ' + session.token+':'+session.password,
+      ...authHeader,
       //TODO: if posting with no body, make length 0 or some routers might get confused
-      //'Authorization': 'Bearer admin:madeUpPassword', //couchAuth middleware rejects if client sends invalid creds
     },
     body: JSON.stringify(body),
   });
@@ -98,17 +106,6 @@ export function makeApiCall(uri: string, method: "GET" | "PUT" | "POST", body?: 
     }).catch((err) => {
       return Promise.reject({message: err.message || err, status: res.status});
     })
-    //.finally(() =>{
-      //return Promise.reject({message: `banan`, status: res.status})
-    //});
-    //return res.json().then((data) => {
-      //if(res.ok) {
-        //return Promise.resolve(data);
-      //}
-      //return Promise.reject(data);
-    //}).catch((oops) => {
-      //return Promise.reject({message: oops.message, status: res.status});
-    //});
   });
 }
 
@@ -236,6 +233,7 @@ export function useDocumentLocalRemoteSwitching(state: string, error: PouchDB.Co
     //} 
     //NOTE: state does appear to go error or done between re-fetches if the database is changed
     //STATE IS SET TO LOADING EVERY TIME GAMEPROVIDER RERENDERS
+    //If subscription fetches new doc it sets loading but doc isn't null, if provider changed doc will also be null. (Not that doc is used in this hook)
     //if(fetchedWithLocal !== null) { //for one render state will still be error while usingLocal is switched and fetchedWithLocal is null
       if (state === 'error' && !failureAlreadyDispatched) {
         console.log(`Error loading ${componentName} ` + (usingLocal ? "locally: " : "remotely: ") + error?.message);
@@ -285,50 +283,3 @@ export function useDocumentLocalRemoteSwitching(state: string, error: PouchDB.Co
   }, [usingLocal, state, error, fetchedWithLocal, currentPouch]);
 }
 */
-
-export type PermissionLevel = "Reader" | "Writer" | "GameAdmin" | "ServerManager" | "ServerAdmin";
-
-export function userHasPerms(loginInfo: LoginInfo, permissions: PermissionLevel): boolean {
-  switch(permissions) {
-    case "Reader": {
-      return true;
-    }
-    case "Writer": {
-      return userIsWriterOrHigher(loginInfo);
-    }
-    case "GameAdmin": {
-      return userIsGameAdminOrHigher(loginInfo);
-    }
-    case "ServerManager": {
-      return userIsServerManagerOrHigher(loginInfo);
-    }
-    case "ServerAdmin": {
-      return userIsServerAdmin(loginInfo);
-    }
-  }
-  throw new Error("Unrecognized permission level: "+permissions);
-}
-
-export type SecObj = {
-  admins?: {
-    names?: string[],
-    roles?: string[],
-  };
-  members?: {
-    names?: string[],
-    roles?: string[],
-  };
-}
-
-function userIsWriterOrHigher(loginInfo: LoginInfo): boolean {
-  return loginInfo.secObj?.members?.names && loginInfo.secObj.members.names.includes(loginInfo.currentUser) || userIsGameAdminOrHigher(loginInfo);
-}
-function userIsGameAdminOrHigher(loginInfo: LoginInfo): boolean {
-  return loginInfo.secObj?.admins?.names && loginInfo.secObj.admins.names.includes(loginInfo.currentUser) || userIsServerManagerOrHigher(loginInfo);
-}
-function userIsServerManagerOrHigher(loginInfo: LoginInfo): boolean {
-  return loginInfo.roles.includes("server-manager") || userIsServerAdmin(loginInfo);
-}
-function userIsServerAdmin(loginInfo: LoginInfo): boolean {
-  return loginInfo.roles.includes("_admin");
-}
