@@ -20,6 +20,7 @@ const config: Config = {
   dbServer: {
     protocol: 'http://',
     host: process.env.COUCHDB_URL!,
+    //publicURL: 'https://mydb.example.com', //even if backend uses localhost, client code obv can't. Only needed if couch-auth is giving users db addresses (like for personal dbs)
     user: admin,
     password: adminPassword,
     userDB: 'sl-users',
@@ -34,7 +35,7 @@ const config: Config = {
       secure: false, // true for 465, false for other ports
       auth: {
         user: mailFrom, 
-        pass: mailApiKey, 
+        pass: 'CUMCUMCUM',//mailApiKey, TODO: TESTING, does couch-auth's register route not catch error from calling sendEmail() from insertNewUserDocument() in user.ts?
       }
     },
     // Can't activate my SendinBlue SMTP account until I can submit ticket w/ my website, skip for now
@@ -58,15 +59,16 @@ const config: Config = {
   security: {
     defaultRoles: ['user', 'read'], //I keep user in case superlogin expects it
     //Other options about login lockout, session life, etc
-    sessionLife: 3700, //50 seconds for testing
+    sessionLife: 3700, //50 seconds for testaroonis
+    forwardErrors: true, //if true couch-auth forwards errors to node err handler instead of sending response, test with requireAuth failures
   },
   local: { //settings for couchAuth's internal user registration (aka when not signing in with google, FB, etc)
     emailUsername: false, // store the username in the database instead of an auto-generated key
-    usernameLogin: true, // allow login with username
+    usernameLogin: true, // allow login with username instead of email TODO: maybe disable, this makes account-guessing easier
     sendConfirmEmail: true,
-    requireEmailConfirm: false,
+    requireEmailConfirm: false, //TODO: couch-auth is making the confirm url https, fails locally. It IS an api endpoint that users must GET via browser link...
     // If this is set, the user will be redirected to this location after confirming email instead of JSON response
-    confirmEmailRedirectURL: '/',
+    confirmEmailRedirectURL: process.env.FRONTEND_URL!+'/page/confirmed', //this is a frontend page showing success message, different from the api url used to actually confirm
     //passwordContraints: { various password restrictions }
   },
   emailTemplates: {
@@ -75,6 +77,16 @@ const config: Config = {
         subject: 'Please confirm your email',
       },
       //forgotPassword: {} same format as above
+    }
+  },
+  userModel: {
+    validate: {
+      username: { //by default couch-auth trims username, forbids starting underscore, and must match /^[a-z0-9_-]{3,16}$/
+        exclusion: {
+          within: ['public', 'password', 'admin', '_admin', 'replicator-guy'],
+          message: "^Cannot use that username"
+        }
+      }
     }
   },
   testMode: {

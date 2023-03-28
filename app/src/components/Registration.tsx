@@ -1,4 +1,4 @@
-import { useIonAlert, IonContent, IonTitle, IonText, IonToolbar, IonItem, IonButton, IonLabel, IonInput } from '@ionic/react';
+import { useIonAlert, IonContent, IonTitle, IonText, IonToolbar, IonItem, IonButton, IonLabel, IonNote, IonInput } from '@ionic/react';
 import React, { useState, useEffect } from 'react';
 //import { useLocalDispatch, Credentials, Action } from './LocalProvider';
 import PouchDB from 'pouchdb';
@@ -18,14 +18,20 @@ const Registration: React.FC<RegistrationProps> = ({closeIfModal}) => {
   const [password, setPassword] = useState<string>(''); 
   const [confirmPassword, setConfirmPassword] = useState<string>(''); 
   const [errorText, setErrorText] = useState<string>('');
+  const [validationErrors, setValidationErrors] = useState<{[fieldKey: string]: string[]} | null>(null);
   const [success, setSuccess] = useState<boolean>(false);
   //const [presentAlert, dismissAlert] = useIonAlert(); //used for deletion confirmation, new move conflicts, other
 
   useEffect(() => {
     return () => { //called when modal destroyed (aka when return to home)
-      setErrorText('');
+      clearErrors();
     };
   }, []);
+
+  function clearErrors() {
+    setErrorText('');
+    setValidationErrors(null);
+  }
 
   function registerClick(e: any): void {
     e.preventDefault(); //need this or page reloads
@@ -36,13 +42,18 @@ const Registration: React.FC<RegistrationProps> = ({closeIfModal}) => {
       password: password,
       confirmPassword: confirmPassword
     }
+    clearErrors();
     myPouch.superlogin.register(reg).then((response) => {
       console.log("Registration response: " + JSON.stringify(response));
-      //presentAlert('Registration successful! Please check your email for a link to verify your account.');
       setSuccess(true);
     }).catch((error) => {
+      //TODO: this doesn't appear to catch errors with sending confirmation emails (and in that case the account is still made in sl-users db)
+      //^^in fact, a mail error (eg for wrong mailer creds) crashes api lol. Submitted an issue, hopefully they update it to return error if email not sent.
       console.log("Registration error: " + JSON.stringify(error));
       setErrorText(error.error);
+      if(error.validationErrors) {
+        setValidationErrors(error.validationErrors);
+      }
     });
   }
 
@@ -68,25 +79,29 @@ const Registration: React.FC<RegistrationProps> = ({closeIfModal}) => {
         <IonTitle>Register</IonTitle>
       </IonToolbar>
         <form action="#" onSubmit={registerClick}>
-          <IonItem>
+          <IonItem className={validationErrors?.username ? 'ion-invalid' : '' }>
             <IonLabel position="floating">Username</IonLabel>
             <IonInput name="username" type="text" required={true}
               onIonChange={e => setUsername(e.detail.value!)}></IonInput>
+            <IonNote slot="error">{validationErrors?.username?.join('\n')}</IonNote>
           </IonItem>
-          <IonItem>
+          <IonItem className={validationErrors?.email ? 'ion-invalid' : '' }>
             <IonLabel position="floating">Email</IonLabel>
             <IonInput name="email" type="text" autocomplete="email" required={true} 
               onIonChange={e => setEmail(e.detail.value!)}></IonInput>
+            <IonNote slot="error">{validationErrors?.email?.join('\n')}</IonNote>
           </IonItem>
-          <IonItem>
+          <IonItem className={validationErrors?.password ? 'ion-invalid' : '' }>
             <IonLabel position="floating">Password</IonLabel>
             <IonInput name="password" type="password" required={true} 
               onIonChange={e => setPassword(e.detail.value!)}></IonInput>
+            <IonNote slot="error">{validationErrors?.password?.join('\n')}</IonNote>
           </IonItem>
-          <IonItem>
+          <IonItem className={validationErrors?.confirmPassword ? 'ion-invalid' : '' }>
             <IonLabel position="floating">Confirm Password</IonLabel>
             <IonInput name="confirmPassword" type="password" required={true} 
               onIonChange={e => setConfirmPassword(e.detail.value!)}></IonInput>
+            <IonNote slot="error">{validationErrors?.confirmPassword?.join('\n')}</IonNote>
           </IonItem>
           {errorText !== '' && 
             <IonItem class='error'>
