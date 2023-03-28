@@ -18,9 +18,9 @@ export let CompileConstants = {
 
   //TODO: RESTful uris don't generally have verbs, they're like this so they match couchdb's uris. Is that useful? URLs are already different since these start with api/
   API_UPLOAD_CHANGE_MATCH: "/game/:gameId/character/:characterId/changes/:changeTitle", //PUT. Would be POST if it ended at changes/. Using PUT since idempotent.
-  API_PUBLISH_CHANGE_MATCH: "/game/:gameId/character/:characterId/changes/:changeTitle/publish", //PUT. Would be more RESTFUL to end at :characterId and have changeTitle as body
-  API_UPLOAD_AND_PUBLISH_CHANGE_MATCH: "/game/:gameId/character/:characterId/changes/:changeTitle/upload-publish", //PUT
-  //API_PUBLISH_CHANGE_MATCH: "/game/:gameId/character/:characterId", //PUT. Body is either a changeId or a whole changeDoc
+  //API_PUBLISH_CHANGE_MATCH: "/game/:gameId/character/:characterId/changes/:changeTitle/publish", //PUT. Would be more RESTFUL to end at :characterId and have changeTitle as body
+  //API_UPLOAD_AND_PUBLISH_CHANGE_MATCH: "/game/:gameId/character/:characterId/changes/:changeTitle/upload-publish", //PUT
+  API_PUBLISH_CHANGE_MATCH: "/game/:gameId/character/:characterId", //PUT. Body contains title of change.
   API_UPLOAD_CONFIG_MATCH: "/game/:gameId/_design/columns", //PUT
 
   //Auth

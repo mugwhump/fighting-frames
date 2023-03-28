@@ -202,7 +202,7 @@ export const EditCharacter: React.FC<EditCharProps> = ({gameId, columnDefs, univ
         createdAt: "", //set on server
         createdBy: "",
       };
-      dispatch({actionType:'uploadChangeList', changes: changeDoc!});
+      dispatch({actionType:'uploadChangeList', character: state.characterId, changes: changeDoc!, publish: publish});
     }
   }
 

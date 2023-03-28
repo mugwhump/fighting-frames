@@ -6,6 +6,7 @@ import { useDoc, usePouch } from 'use-pouchdb';
 import type * as T from '../types/characterTypes'; //==
 import * as myPouch from '../services/pouch';
 import * as util from '../services/util';
+import { PublishChangeBody } from '../types/utilTypes';
 import { State, useCharacterDispatch, useTrackedCharacterState, useMiddleware, MiddlewareFn } from '../services/CharacterReducer';
 import { SegmentUrl } from '../types/utilTypes';
 import { cloneDeep } from 'lodash';
@@ -139,43 +140,61 @@ export const CharacterDocAccess: React.FC<CharProviderProps> = ({children, gameI
     //util.sanitizeChangeDoc(changeList);
     //console.log('After sanitization '+JSON.stringify(changeList));
 
-    const apiUrl = action.publish ? 
-                    util.getApiUploadChangeUrl(gameId, state.characterId, changeList.updateTitle) :
-                    util.getApiUploadPublishChangeUrl(gameId, state.characterId, changeList.updateTitle);
+    const apiUrl = util.getApiUploadChangeUrl(gameId, state.characterId, changeList.updateTitle);
     myPouch.makeApiCall(apiUrl, "PUT", changeList).then((res) => {
       console.log("Upload response = " + JSON.stringify(res));
-      presentToast(res.message, 6000);
-      //TODO: redirect to this SPECIFIC change in changes section. Currently redirecting to frontpage or general changes section.
-      let url = util.getSegmentUrl(gameId, state.characterId, action.publish ? SegmentUrl.Base : SegmentUrl.Changes);
-      //history.push(url); TODO: disabled while testing
-      //dispatch({actionType:'deleteEdits'});
+      if(action.publish) {
+        dispatch({actionType: 'publishChangeList', character: action.character, title: changeList.updateTitle, justUploaded: true});
+      }
+      else {
+        presentToast("Changes uploaded. Someone with editor permissions must publish these changes to apply them to the character.", 6000);
+        //TODO: redirect to this SPECIFIC change in changes section. Currently redirecting to frontpage or general changes section.
+        let url = util.getSegmentUrl(gameId, state.characterId, action.publish ? SegmentUrl.Base : SegmentUrl.Changes);
+        //history.push(url); TODO: disabled while testing
+        //dispatch({actionType:'deleteEdits'});
+      }
     }).catch((err) => {
-      //TODO: if status is 409 (conflict) and on local, gotta fetch newer charDoc!
+      if(err.status === 409) {
+        presentToast(`Changes named ${changeList.updateTitle} already exist`, 6000);
+      }
+      else if(err.status === 422) {
+        //TODO: if status is 409 (conflict) and on local, gotta fetch newer charDoc!
+        presentToast(err.message, 6000);
+      }
+      else {
+        presentToast('Upload failed: ' + err.message, 6000);
+      }
       console.log("Upload error = " + err.message);
-      //TODO: find what error you get from successfully uploading but failing to publish
-      presentToast('Upload failed: ' + err.message, 6000);
     });
   }, [gameId]);
 
 
+  //can be called right after uploading, action.justUploaded indicates this
   const publishChangeListCallback: MiddlewareFn = useCallback((state, action, dispatch) => {
     if (action.actionType !== 'publishChangeList') {
       console.warn("Publish changelist middleware being called for action "+action.actionType);
       return;
     }
-    //let changeId = action.changeListId;
-    let apiUrl = util.getApiPublishChangeUrl(gameId, action.character, action.title);
-    console.log(`Publishing changeDoc ${apiUrl}`);
-    myPouch.makeApiCall(apiUrl, "PUT").then((res) => {
+
+    let apiUrl = util.getApiPublishChangeUrl(gameId, action.character);
+    const body: PublishChangeBody = {changeTitle: action.title};
+
+    console.log(`Publishing changeDoc ${apiUrl} with payload ${JSON.stringify(body)}`);
+    myPouch.makeApiCall(apiUrl, "PUT", body).then((res) => {
       //TODO: if this change was submitted by a user without write perms and current user is admin, prompt for whether to give author write perms
       console.log("Response: "+JSON.stringify(res));
-      presentToast(res.message, 3000);
+      presentToast(res.message, 6000);
       let url = util.getSegmentUrl(gameId, state.characterId, SegmentUrl.Base); 
       //TODO: getting error about "Node to be removed is not a child of this node," can I access history here?
       history.push(url);
     }).catch((err) => {
       console.error("Error publishing change: "+ err.message);
-      presentToast("Error publishing change: "+ err.message, 6000);
+      if(action.justUploaded) {
+        presentToast(`Changes were uploaded successfully, but there was an error publishing them: ${err.message}`, 6000);
+      }
+      else {
+        presentToast(`Error publishing change: ${err.message}`, 6000);
+      }
     });
   }, [gameId]);
 

@@ -34,6 +34,10 @@ export type ApiResponse = {
   message: string;
   status: number;
 }
+
+export type PublishChangeBody = {
+  changeTitle: string;
+}
 //cannot override [] accessor without proxies, and then my custom accessor gives false positives if anything checks for existence of property, eg stringify checking for toJSON
 //Also cannot add custom methods to children of Records since method is another property whose value is expected to be the Record's value type
 //type DBStatuses = Record<string, DBStatus>; 

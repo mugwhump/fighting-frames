@@ -5,100 +5,24 @@ import logger from '../util/logger';
 import * as Security from '../shared/services/security';
 import { secrets } from "docker-secret";
 import couchAuth from './couchauth';
+import { adminNano, TypedRequest, getSuccessObject, sendSuccess, getErrorObject, sendError, needsPermissions, getUser } from '../util/expressUtil';
 import * as CouchAuthTypes from '@perfood/couch-auth/lib/types/typings';
 import { cloneDeep, isEqual } from 'lodash';
 import * as Nano from 'nano';
 import type * as T from '../shared/types/characterTypes'; //= //not included in runtime buildo
-import type { ApiResponse } from '../shared/types/utilTypes'; //= 
+import type { ApiResponse, PublishChangeBody } from '../shared/types/utilTypes'; //= 
 import * as util from '../shared/services/util';
 import * as colUtil from '../shared/services/columnUtil';
 import * as metaDefs from '../shared/constants/metaDefs';
 import * as merging from '../shared/services/merging';
 import CompileConstants from '../shared/constants/CompileConstants';
-import nodeTest from 'node:test';
 
 const DesignDocValidator = require('../schema/DesignDoc-validator').default;
 const ChangeDocValidator = require('../schema/ChangeDocServer-validator').default;
 
 const router = express.Router();
-const admin = secrets.couch_admin;
-const password = secrets.couch_password;
-const adminNano = Nano.default(`http://${admin}:${password}@`+process.env.COUCHDB_URL); //can configure http pool size, by default has infinite active connections
 const testUser = 'joesmith2';
 
-function getSuccessObject(message: string, code: number = 200): ApiResponse {
-  return {message: message, status: code};
-}
-function sendSuccess(res: Response, message: string, code: number = 200): Response<ApiResponse> {
-  return res.status(code).json(getSuccessObject(message, code));
-}
-function getErrorObject(message: string, code: number = 500): ApiResponse {
-  return {message: message, status: code};
-}
-function sendError(res: Response, message: string, code: number = 500): Response<ApiResponse> {
-  // Pouchdb error obj has name, error, message, and reason fields
-  logger.warn(`${code} error: ${message}`);
-  return res.status(code).json(getSuccessObject(message, code));
-}
-
-//Could make it so any route with a :game match attaches the nano db obj to the request, but it's not really saving anything
-//Would also have to extend the Request type like so https://blog.logrocket.com/extend-express-request-object-typescript/
-//router.param('game', function(req: Request, res: Response, next: NextFunction, gameId: string) {
-  //try {
-    //const db = adminNano.use(req.params.gameId);
-    //req.db = db;
-    //next();
-  //}
-  //catch (err) {
-    //sendError(res, `Error using db ${gameId}, ${err}`);
-  //}
-//});
-
-function needsPermissions(perms: Security.PermissionLevel) {
-  //TODO: debug occasional empty responses w/ "failed to fetch" message. 
-  return async function(req: Request, res: Response, next: NextFunction) { //actual middleware
-    try {
-      const db = adminNano.use(req.params.gameId);
-      const sec = await db.get("_security") as Security.SecObj;
-      console.log("Need perms "+perms+", authInfo "+nodeUtil.inspect(req.authInfo)+", -------------- HEADERINOS "+req.headers.authorization);
-      if(req.headers.authorization?.startsWith('Bearer ')) {
-        console.log("U liek SL? ogey");
-        couchAuth.requireAuth(req, res, () => { //this is the next() function I'm giving to couchAuth that it calls upon success
-          //Don't think there's any need for couchAuth.requireRole('user'), requireAuth only works with SL users
-          const user: CouchAuthTypes.SlRequestUser = req.user!;
-          console.log("I guess ur legit?? You am "+JSON.stringify(user));
-          let hasPerms = Security.userHasPerms({secObj: sec, currentUser: user._id, roles: user.roles}, perms);
-          console.log(`You am ${perms}? It be ${hasPerms}`);
-          if(hasPerms) {
-            next(); //I let the chain progress
-          }
-          else {
-            return sendError(res, "Not logged in as user with permissions "+perms, 403);
-          }
-        }); //if couchAuth.requireAuth() rejects, it sets res to 401 and doesn't call next.
-      }
-      else {
-        console.log("hello PUBLIC");
-        let hasPerms = Security.userHasPerms({secObj: sec, currentUser: 'public'}, perms);
-        console.log(`You am ${perms}? It be ${hasPerms}`);
-        if(hasPerms) {
-          next();
-        }
-        else {
-          return sendError(res, "Non-users require permissions "+perms+" for endpoint "+req.url, 403);
-        }
-      }
-    }
-    catch(err) {
-      return sendError(res, `Authorization error, ${err}`);
-    }
-  }
-}
-
-// If this request went through couchAuth authentication, it attached user to request object. If no user, request was made as public.
-function getUser(req: Request): CouchAuthTypes.SlRequestUser | undefined {
-  return req.user;
-}
 
 
 router.put(CompileConstants.API_UPLOAD_CONFIG_MATCH, needsPermissions("GameAdmin"), //couchAuth.requireAuth, couchAuth.requireRole("user") as any,
@@ -159,6 +83,7 @@ router.put(CompileConstants.API_UPLOAD_CHANGE_MATCH, needsPermissions("Uploader"
   else sendSuccess(res, "Changes uploaded, someone with editor permissions must publish these changes.");
 });
 
+//Returns 422 if submitted changes are based on an outdated character document
 async function uploadChange(req: Request<{gameId:string, characterId:string, changeTitle:string}>): Promise<false | ApiResponse> {
   try {
     const {gameId, characterId, changeTitle} = req.params;
@@ -187,7 +112,7 @@ async function uploadChange(req: Request<{gameId:string, characterId:string, cha
     else {
       logger.warn("Type validation errors "+JSON.stringify(ChangeDocValidator.errors));
       logger.info("In changeDoc "+JSON.stringify(changeDoc));
-      return getErrorObject(`Type validation failed. Error in ${ChangeDocValidator?.errors?.[0]?.instancePath}, ${ChangeDocValidator?.errors?.[0]?.message}`, 400);
+      return getErrorObject(`Type validation failed. Error in ${ChangeDocValidator?.errors?.[0]?.instancePath}, ${ChangeDocValidator?.errors?.[0]?.message}`, 400); //`
     }
 
     //make sure changeDoc actually has changes
@@ -196,9 +121,9 @@ async function uploadChange(req: Request<{gameId:string, characterId:string, cha
     }
 
     //fetch doc, make sure changeDoc's baseRevision matches
-    const charDoc = await db.get('character/' + characterId) as T.CharDocWithMeta;
+    const charDoc = await db.get(util.getCharDocId(characterId)) as T.CharDocWithMeta;
     if(changeDoc.baseRevision !== charDoc._rev) {
-      return getErrorObject(`Changes based on outdated character document ${changeDoc.baseRevision}, latest is ${charDoc._rev}, please refresh and update`, 409);
+      return getErrorObject(`Changes based on outdated character document ${changeDoc.baseRevision}, latest is ${charDoc._rev}, please refresh and update`, 422);
     }
 
     //create new document that reflects submitted changes, for testing
@@ -250,7 +175,7 @@ async function uploadChange(req: Request<{gameId:string, characterId:string, cha
       await db.insert(uploadDoc); 
     }
     catch(err: any) {
-      return getErrorObject("Error inserting document, " + err, err.statusCode);
+      return getErrorObject("Error inserting change document, " + err, err.statusCode); //usually 409 for conflicts
     }
     //return getSuccessResponse("Changes uploaded, someone with editor permissions must publish these changes.");
     return false;
@@ -268,31 +193,49 @@ async function uploadChange(req: Request<{gameId:string, characterId:string, cha
 //});
 
 router.put(CompileConstants.API_PUBLISH_CHANGE_MATCH, needsPermissions("Editor"),
-           async (req: Request<{gameId:string, characterId:string, changeTitle:string}>, res) => {
-  let error = await publishChange(req, false);
+           async (req: TypedRequest<{gameId:string, characterId:string}, PublishChangeBody>, res) => {
+           //async (req: Request<{gameId:string, characterId:string, changeTitle:string}>, res) => {
+  let testoId: string = req.body.changeTitle;
+  let error = await publishChange(req);
   if(error) sendError(res, error.message, error.status);
   else sendSuccess(res, "Changes published!");
 });
 
-//If justUploaded, can skip error checking on changeDoc
-async function publishChange(req: Request<{gameId:string, characterId:string, changeTitle:string}>, justUploaded: boolean): Promise<false | ApiResponse> {
+//If justUploaded, can skip error checking on changeDoc. Currently unused.
+async function publishChange(req: TypedRequest<{gameId:string, characterId:string}, PublishChangeBody>/*, justUploaded: boolean*/): Promise<false | ApiResponse> {
   try {
-    const {gameId, characterId, changeTitle} = req.params;
+    const {gameId, characterId} = req.params;
+    const changeTitle = req.body.changeTitle;
+    const changeId = util.getChangeId(characterId, changeTitle); //if client provides invalid body type, this will fail
+    let changeDoc: T.ChangeDocServer & Nano.DocumentGetResponse;
+    const charDocId = util.getCharDocId(characterId);
+    let charDoc: T.CharDocWithMeta;
     const db = adminNano.use(gameId);
 
     //fetch specified changeList
-    const changeDoc = await db.get(`character/${characterId}/changes/${changeTitle}`) as T.ChangeDocServer & Nano.DocumentGetResponse;
+    try {
+      changeDoc = await db.get(changeId) as T.ChangeDocServer & Nano.DocumentGetResponse;
+    }
+    catch(err) {
+      return getErrorObject(`Error getting change ${changeId}: ${err}`, 404);
+    }
     //fetch current charDoc
-    const charDoc = await db.get('character/' + characterId) as T.CharDocWithMeta;
+    try {
+      charDoc = await db.get(charDocId) as T.CharDocWithMeta;
+    }
+    catch(err) {
+      return getErrorObject(`Error getting character document ${charDocId}: ${err}`, 404);
+    }
+
     //verify changeList's prevChange and baseRevision
     const lastHistoryItem = charDoc.changeHistory.at(-1);
     const prevChange = changeDoc.previousChange;
     if(charDoc._rev !== changeDoc.baseRevision) {
-      return getErrorObject(`Outdated change: listed base revision ${changeDoc.baseRevision} does not match current revision, ${charDoc._rev}. Try importing the change.`, 409);
+      return getErrorObject(`Outdated change: listed base revision ${changeDoc.baseRevision} does not match current revision, ${charDoc._rev}. Try importing the change.`, 422);
     }
     if(charDoc.changeHistory.length > 0) {
       if(prevChange !== lastHistoryItem) {
-        return getErrorObject(`Outdated change: listed previous change ${prevChange} does not match final item of document's change history, ${lastHistoryItem}. Try importing the change.`, 409);
+        return getErrorObject(`Outdated change: listed previous change ${prevChange} does not match final item of document's change history, ${lastHistoryItem}. Try importing the change.`, 422);
       }
       if(charDoc.changeHistory.includes(changeTitle)) {
         //TODO: test
@@ -309,13 +252,13 @@ async function publishChange(req: Request<{gameId:string, characterId:string, ch
     merging.applyChangeDoc(charDoc, changeDoc);
 
     //make sure updated doc passes validation
-    if(!justUploaded) {
+    //if(!justUploaded) {
       const designDoc = await db.get('_design/columns') as T.DesignDoc;
       const errors = colUtil.getCharDocErrors(charDoc, designDoc);
       if(errors) {
         return getErrorObject("Errors validating, "+JSON.stringify(errors), 400);
       }
-    }
+    //}
 
     //write charDoc w metadata
     charDoc.changeHistory.push(changeTitle);
@@ -328,31 +271,31 @@ async function publishChange(req: Request<{gameId:string, characterId:string, ch
       const putResult = await db.insert(charDoc); 
     }
     catch(err: any) {
-      return getErrorObject("Error inserting document, " + err, err.statusCode);
+      return getErrorObject("Error inserting character document, " + err, err.statusCode);
     }
     return false;
   }
   catch(err) {
-    return getErrorObject(`Server Error uploading change, ${err}`);
+    return getErrorObject(`Server Error publishing change, ${err}`);
   }
 }
 
 
-router.put(CompileConstants.API_UPLOAD_AND_PUBLISH_CHANGE_MATCH, needsPermissions("Editor"), 
-           async (req: Request<{gameId:string, characterId:string, changeTitle:string}>, res) => {
-  logger.info("Uploading and publishing");
-  //upload
-  let uploadError = await uploadChange(req);
-  if(uploadError) return sendError(res, uploadError.message, uploadError.status);
-  logger.info("Uploaded successfully");
+//router.put(CompileConstants.API_UPLOAD_AND_PUBLISH_CHANGE_MATCH, needsPermissions("Editor"), 
+           //async (req: Request<{gameId:string, characterId:string, changeTitle:string}>, res) => {
+  //logger.info("Uploading and publishing");
+  ////upload
+  //let uploadError = await uploadChange(req);
+  //if(uploadError) return sendError(res, uploadError.message, uploadError.status);
+  //logger.info("Uploaded successfully");
 
-  //publish
-  let publishError = await publishChange(req, true);
-  //TODO: return different error nesting this one, so client knows upload succeeded but publish failed?
-  //It's more RESTful to keep upload and publish as two separate api calls and let client invoke both tbh.
-  if(publishError) return sendError(res, publishError.message, publishError.status);
-  else sendSuccess(res, "Changes published!");
-});
+  ////publish
+  //let publishError = await publishChange(req, true);
+  ////TODO: return different error nesting this one, so client knows upload succeeded but publish failed?
+  ////It's more RESTful to keep upload and publish as two separate api calls and let client invoke both tbh.
+  //if(publishError) return sendError(res, publishError.message, publishError.status);
+  //else sendSuccess(res, "Changes published!");
+//});
 
 
 
