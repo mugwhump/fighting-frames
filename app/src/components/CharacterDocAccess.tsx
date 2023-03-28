@@ -8,6 +8,7 @@ import * as myPouch from '../services/pouch';
 import * as util from '../services/util';
 import { State, useCharacterDispatch, useTrackedCharacterState, useMiddleware, MiddlewareFn } from '../services/CharacterReducer';
 import { SegmentUrl } from '../types/utilTypes';
+import { cloneDeep } from 'lodash';
 
 
 type CharProviderProps = {
@@ -121,22 +122,37 @@ export const CharacterDocAccess: React.FC<CharProviderProps> = ({children, gameI
       console.warn("Upload changelist middleware being called for action "+action.actionType);
       return;
     }
-    const changeList: T.ChangeDocServer = action.changes;
-    const id: string = util.getChangeId(state.characterId, changeList.updateTitle!);
-    console.log("Uploading ID " + id);
-    const uploadDoc: T.ChangeDocWithMeta = {...changeList, _id: id, _rev: undefined};
+    //const changeList: T.ChangeDocServer = action.changes;
+    const changeList: T.ChangeDocServer = cloneDeep<T.ChangeDocServer>(action.changes); //TODO: just for testing
+    //delete (changeList as any).conflictList;
+    //delete (changeList as any).rebaseSource;
+    //delete (changeList as any).mergeSource;
+    //delete (changeList as any)._id;
+    //delete (changeList as any)._rev; //type validation rejects extra props. Okay --remove-additional should make ajv strip them.
+    //const id: string = util.getChangeId(state.characterId, changeList.updateTitle!);
+    //console.log("Uploading ID " + id);
+    //const uploadDoc: T.ChangeDocWithMeta = {...changeList, _id: id, _rev: undefined};
 
-    const apiUrl = util.getApiUploadChangeUrl(gameId, state.characterId, changeList.updateTitle);
-    //remoteDatabase.put(uploadDoc).then((response) => {
-    myPouch.makeApiCall(apiUrl, "POST").then((res) => {
+    //changeList.moveChanges!['testo '] = {moveName: {type: 'delete', old: 'testo weiner   '}, madeUpListField: {type:'add', new: [' trim ', 'b']}};
+    //changeList.universalPropChanges = {moveOrder: {type: 'modify', new: [{"name":"windy moves","isCategory":true},{"name":"AA"},{name: 'category no remove pls', isCategory: true},{name: '  trim'}], old:state.charDoc.universalProps.moveOrder}}
+    //console.log('Before sanitization '+JSON.stringify(changeList));
+    //util.sanitizeChangeDoc(changeList);
+    //console.log('After sanitization '+JSON.stringify(changeList));
+
+    const apiUrl = action.publish ? 
+                    util.getApiUploadChangeUrl(gameId, state.characterId, changeList.updateTitle) :
+                    util.getApiUploadPublishChangeUrl(gameId, state.characterId, changeList.updateTitle);
+    myPouch.makeApiCall(apiUrl, "PUT", changeList).then((res) => {
       console.log("Upload response = " + JSON.stringify(res));
-      presentToast("Changes uploaded! Someone with write permissions must publish these changes.", 6000);
-      //TODO: redirect to this specific change in changes section, with info on how it was just published?. Also lets writers publish what they just uploaded.
-      let url = util.getSegmentUrl(gameId, state.characterId, SegmentUrl.Changes);
-      history.push(url);
-      dispatch({actionType:'deleteEdits'});
+      presentToast(res.message, 6000);
+      //TODO: redirect to this SPECIFIC change in changes section. Currently redirecting to frontpage or general changes section.
+      let url = util.getSegmentUrl(gameId, state.characterId, action.publish ? SegmentUrl.Base : SegmentUrl.Changes);
+      //history.push(url); TODO: disabled while testing
+      //dispatch({actionType:'deleteEdits'});
     }).catch((err) => {
+      //TODO: if status is 409 (conflict) and on local, gotta fetch newer charDoc!
       console.log("Upload error = " + err.message);
+      //TODO: find what error you get from successfully uploading but failing to publish
       presentToast('Upload failed: ' + err.message, 6000);
     });
   }, [gameId]);
@@ -150,10 +166,10 @@ export const CharacterDocAccess: React.FC<CharProviderProps> = ({children, gameI
     //let changeId = action.changeListId;
     let apiUrl = util.getApiPublishChangeUrl(gameId, action.character, action.title);
     console.log(`Publishing changeDoc ${apiUrl}`);
-    myPouch.makeApiCall(apiUrl, "POST").then((res) => {
+    myPouch.makeApiCall(apiUrl, "PUT").then((res) => {
       //TODO: if this change was submitted by a user without write perms and current user is admin, prompt for whether to give author write perms
       console.log("Response: "+JSON.stringify(res));
-      presentToast("Change successfully published!", 3000);
+      presentToast(res.message, 3000);
       let url = util.getSegmentUrl(gameId, state.characterId, SegmentUrl.Base); 
       //TODO: getting error about "Node to be removed is not a child of this node," can I access history here?
       history.push(url);
@@ -163,7 +179,35 @@ export const CharacterDocAccess: React.FC<CharProviderProps> = ({children, gameI
     });
   }, [gameId]);
 
-  useMiddleware("CharacterDocAccess", {uploadChangeList: uploadChangeListCallback, publishChangeList: publishChangeListCallback});
+
+  //const uploadAndPublishChangeListCallback: MiddlewareFn = useCallback((state, action, dispatch) => {
+    //if (action.actionType !== 'uploadAndPublishChangeList') {
+      //console.warn("Upload+publish changelist middleware being called for action "+action.actionType);
+      //return;
+    //}
+    ////const changeList: T.ChangeDocServer = action.changes;
+    //const changeList: T.ChangeDocServer = cloneDeep<T.ChangeDocServer>(action.changes); //TODO: just for testing
+    //const apiUrl = util.getApiUploadPublishChangeUrl(gameId, state.characterId, changeList.updateTitle); 
+    //myPouch.makeApiCall(apiUrl, "PUT", changeList).then((res) => {
+      //console.log("Upload+publish response = " + JSON.stringify(res));
+      //presentToast(res.message, 6000);
+      ////TODO: redirect to front page
+      //let url = util.getSegmentUrl(gameId, state.characterId, SegmentUrl.Base);
+      ////history.push(url); TODO: disabled while testing
+      ////dispatch({actionType:'deleteEdits'});
+    //}).catch((err) => {
+      ////TODO: if status is 409 (conflict) and on local, gotta fetch newer charDoc!
+      ////TODO: find what error you get from successfully uploading but failing to publish
+      //console.log("Upload error = " + err.message);
+      //presentToast('Upload failed: ' + err.message, 6000);
+    //});
+  //}, [gameId]);
+
+  useMiddleware("CharacterDocAccess", 
+                { uploadChangeList: uploadChangeListCallback, 
+                  publishChangeList: publishChangeListCallback,
+                  //uploadAndPublishChangeList: uploadAndPublishChangeListCallback,
+                });
 
 
   if (docState === 'error') {

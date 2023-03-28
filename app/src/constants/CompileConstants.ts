@@ -14,10 +14,14 @@ export let CompileConstants = {
   DELETE_CHARACTER_MATCH: "/game/:gameId/delete-character",
   AUTHORIZED_USERS_MATCH: "/game/:gameId/authorized-users",
   HOME_PATH: "/page/Inbox",
-  API_UPLOAD_CHANGE_MATCH: "/game/:gameId/character/:characterId/changes/:changeTitle",
-  API_UPLOAD_CHANGE_MATCH_PUBLIC: "/public/game/:gameId/character/:characterId/changes/:changeTitle",
-  API_PUBLISH_CHANGE_MATCH: "/game/:gameId/character/:characterId/changes/:changeTitle/publish",
-  API_UPLOAD_CONFIG_MATCH: "/game/:gameId/config",
+  CONFIRMATION_PATH: "/page/confirmed", //TODO: make an env var so couch-auth can use it... although frontend currently isn't dockerized
+
+  //TODO: RESTful uris don't generally have verbs, they're like this so they match couchdb's uris. Is that useful? URLs are already different since these start with api/
+  API_UPLOAD_CHANGE_MATCH: "/game/:gameId/character/:characterId/changes/:changeTitle", //PUT. Would be POST if it ended at changes/. Using PUT since idempotent.
+  API_PUBLISH_CHANGE_MATCH: "/game/:gameId/character/:characterId/changes/:changeTitle/publish", //PUT. Would be more RESTFUL to end at :characterId and have changeTitle as body
+  API_UPLOAD_AND_PUBLISH_CHANGE_MATCH: "/game/:gameId/character/:characterId/changes/:changeTitle/upload-publish", //PUT
+  //API_PUBLISH_CHANGE_MATCH: "/game/:gameId/character/:characterId", //PUT. Body is either a changeId or a whole changeDoc
+  API_UPLOAD_CONFIG_MATCH: "/game/:gameId/_design/columns", //PUT
 
   //Auth
   AUTH_TIMEOUT_SECONDS: 3600,

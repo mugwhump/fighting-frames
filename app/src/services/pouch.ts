@@ -5,6 +5,7 @@ import { usePouch } from 'use-pouchdb';
 import { useEffect, useState, useRef, MutableRefObject, useCallback } from 'react';
 import { useGameDispatch, Action as GameAction } from '../components/GameProvider';
 import type { LoginInfo } from '../components/LoginProvider'; //=}
+import type { ApiResponse } from '../types/utilTypes'; //=}
 import * as security from './security';
 import CompileConstants from '../constants/CompileConstants';
 
@@ -55,27 +56,22 @@ export function makeRequest(url: string, username: string, password: string, met
   return response;
 }
 
-// For api calls using superlogin session bearer auth, unless usePublic is specified, in which case it uses Basic auth with public user.
-// Most endpoints require a superlogin user.
-// Rejected promises have form {message: string, status: number}. 
-// Api calls that return text instead of json will be converted to the above format.
-export function makeApiCall(uri: string, method: "GET" | "PUT" | "POST", body?: Object, usePublic?: boolean): Promise<Record<string, any>> {
-  if(uri.indexOf("http") !== -1) throw new Error("Only include the part of the address after website.com/api/");
-  if(uri.indexOf("/") !== 0) throw new Error("Address must start with a slash (/). Given uri: "+uri);
-
+// Makes API call, sending superlogin session creds if logged in.
+// Most endpoints require a superlogin user, but some are useable as public, depending on db configuration,
+// in which case no Authorization header is sent.
+// Api calls that return text instead of json will be converted to an ApiResponse object.
+export function makeApiCall(url: string, method: "GET" | "PUT" | "POST", body?: Object): Promise<ApiResponse> {
   let authHeader = {};
-  if(usePublic) { 
-    const token = btoa(unescape(encodeURIComponent('public:password')));
-    authHeader = {'Authorization': 'Basic ' + token};
-  }
-  else {
-    let session = superlogin.getSession();
-    if(!session) return Promise.reject({message: "No superlogin session found", status: 401});
+  let session = superlogin.getSession();
+  if(session) {
     authHeader = {'Authorization': 'Bearer ' + session.token+':'+session.password};
-    //'Authorization': 'Bearer admin:madeUpPassword', //couchAuth middleware rejects if client sends invalid creds
+    //authHeader = {'Authorization': 'Bearer _admin:madeUpPassword'}; //SL middleware rejects fake creds
+    //authHeader = {'Authorization': 'Bearer public:passward'}; //SL middleware rejects non-SL users
   }
+  if(url.indexOf("http") !== -1) throw new Error("Only include the part of the address after website.com/api");
+  if(url.indexOf("/") !== 0) throw new Error("Address must start with a slash (/). Given url: "+url);
 
-  const response = fetch(apiUrl + uri, {
+  const response = fetch(apiUrl + url, {
     method: method,
     mode: 'cors',
     headers: {
@@ -100,9 +96,9 @@ export function makeApiCall(uri: string, method: "GET" | "PUT" | "POST", body?: 
         }
       }
       if(json && res.ok) {
-        return Promise.resolve(json);
+        return Promise.resolve(json as ApiResponse);
       }
-      return Promise.reject(json || {message: 'Error parsing response from call to '+uri, status: res.status});
+      return Promise.reject(json || {message: 'Error parsing response from call to '+url, status: res.status});
     }).catch((err) => {
       return Promise.reject({message: err.message || err, status: res.status});
     })

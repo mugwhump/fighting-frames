@@ -6,7 +6,7 @@ import type { FieldError } from '../types/utilTypes'; //==
 import { moveNameColumnDef } from '../constants/internalColumns';
 import { getChangeListMoveOrder, keys, updateMoveOrPropChanges, getDateString, unresolvedConflictInList } from '../services/util';
 import { getDefsAndData } from '../services/renderUtil';
-import { reduceChanges, resolveMoveOrder } from '../services/merging';
+import * as security from '../services/security';
 //import MoveOrUniversalProps from './MoveOrUniversalProps';
 //import CategoryAndChildRenderer  from './CategoryAndChildRenderer';
 import MoveEditModal from './MoveEditModal';
@@ -136,22 +136,24 @@ export const EditCharacter: React.FC<EditCharProps> = ({gameId, columnDefs, univ
   //prompt for changelist metadata
   function promptUploadChangeList() {
     if(!changeList) throw new Error("Cannot upload with no changes");
+
+    // Users who can't even upload are never shown this at all, instead edit screen should have constant warning
+    const canPublish = security.userHasPerms(loginInfo, "Editor");
+    const buttons = [
+      { text: 'Cancel', role: 'cancel' },
+      { text: 'Upload', handler: submit },
+    ]; 
+    if(canPublish) buttons.push({ text: 'Upload & Publish', handler: (opts)=>submit(opts, true)})
+
     presentAlert(
       {
         header: "Upload changes",
-        buttons: [
-          { text: 'No', role: 'cancel' },
-          { text: 'Yes', handler: submit }
-        ], 
+        buttons: buttons,
         inputs: [
           {
             type: 'text',
             name: 'title',
-            attributes: {
-              maxLength: 25,
-              required: true, //nope
-              //onChange: (foo, bar) => console.log(JSON.stringify(foo)) //nope
-            },
+            attributes: { maxLength: 25 },
             placeholder: 'title (25 characters, url-friendly)',
             value: changeList.updateTitle,
           },
@@ -172,17 +174,16 @@ export const EditCharacter: React.FC<EditCharProps> = ({gameId, columnDefs, univ
         ],
       }
     );
-    function submit(opts: any) {
+    function submit(opts: any, publish?: boolean) {
       console.log("Current values: "+JSON.stringify(opts));
-      //TODO: API call will do this validation server-side
+      //API call will also does this validation server-side via JSON-schema
       //Validate title
-      const titleRegex = new RegExp(/^[\w-.~]{1,25}$/); //alphanumeric and _, -, ., ~ length between 3-25
+      const titleRegex = new RegExp(/^[\w-.~]{3,25}$/); //alphanumeric and _, -, ., ~ length between 3-25
       const titleValid = titleRegex.test(opts.title);
       if(!titleValid) {
         presentToast('Title must be between 3-25 characters, which must be alphanumeric or ~_-. (no spaces)', 5000);
         return false; 
       }
-      //Validate description?
       //Validate version
       if(opts.version) {
         const versionRegex = new RegExp(/^[\d.]{1,10}$/); //numbers and periods
@@ -192,16 +193,16 @@ export const EditCharacter: React.FC<EditCharProps> = ({gameId, columnDefs, univ
           return false; 
         }
       }
-      let uploadChanges: ChangeDocServer = {
+      let changeDoc: ChangeDocServer = {
         ...changeList!, 
         updateTitle: opts.title, 
-        updateDescription: opts.description, 
-        updateVersion: opts.version,
-        createdAt: getDateString(),
-        //createdAt: "Thu Sep 29 2022 19:45:25 GMT-0700",
-        createdBy: loginInfo.currentUser,
+        //empty string will fail regex, but undefined properties will be removed
+        updateDescription: opts.description || undefined, 
+        updateVersion: opts.version || undefined, 
+        createdAt: "", //set on server
+        createdBy: "",
       };
-      dispatch({actionType:'uploadChangeList', changes: uploadChanges!});
+      dispatch({actionType:'uploadChangeList', changes: changeDoc!});
     }
   }
 
