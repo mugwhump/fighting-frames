@@ -12,7 +12,6 @@ import { remote, getDB, pullDB, pushDB, deleteDBWhichOutdatesDBReferences, remot
 import type * as T from '../types/characterTypes'; //==
 import * as util from '../services/util';
 import { cloneDeep, isEqual } from 'lodash';
-//const Validator = require('../schema/CharDoc-validator-copy').default;
 
 //Could extend the router props if wanted to. Pass in db as prop from parent?
 type TestProps = {
@@ -641,24 +640,24 @@ const Test: React.FC<TestProps> = ({propNum, propStr}) => {
     }
     else {
       console.error("Test failed. \nExpected: "+JSON.stringify(expected)+"\n  actual: "+JSON.stringify(actual));
-      if(printWrongProps) printDifferencesRecursive('', expected, actual);
+      if(printWrongProps) console.error(util.recursiveCompare('', expected, actual));
     }
   }
-  function printDifferencesRecursive(propName: string, expected: unknown, actual: unknown) {
-    if(typeof expected === 'object' && expected && typeof actual === 'object' && actual) {
-      let keyUnion: Set<string> = new Set(util.keys(expected).concat(util.keys(actual)));
-      for(const key of keyUnion) {
-        let expectedVal = expected[key as keyof typeof expected];
-        let actualVal = actual[key as keyof typeof actual]
-        printDifferencesRecursive(propName+'.'+key, expectedVal, actualVal);
-      }
-    }
-    else {
-      if(expected !== actual) {
-        console.error(`Error in ${propName}: Expected: ${JSON.stringify(expected)} Actual: ${JSON.stringify(actual)}`)
-      }
-    }
-  }
+  //function printDifferencesRecursive(propName: string, expected: unknown, actual: unknown) {
+    //if(typeof expected === 'object' && expected && typeof actual === 'object' && actual) {
+      //let keyUnion: Set<string> = new Set(util.keys(expected).concat(util.keys(actual)));
+      //for(const key of keyUnion) {
+        //let expectedVal = expected[key as keyof typeof expected];
+        //let actualVal = actual[key as keyof typeof actual]
+        //printDifferencesRecursive(propName+'.'+key, expectedVal, actualVal);
+      //}
+    //}
+    //else {
+      //if(expected !== actual) {
+        //console.error(`Error in ${propName}: Expected: ${JSON.stringify(expected)} Actual: ${JSON.stringify(actual)}`)
+      //}
+    //}
+  //}
 
   return (
     <IonPage>

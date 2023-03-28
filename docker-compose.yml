@@ -38,6 +38,7 @@ services:
         build: server/
         environment: # can also use a .env file
             COUCHDB_URL: 'couchdb:5984' #access with 'http://user:pass@couchdb:5984'
+            FRONTEND_URL: 'http://localhost:8100'
         depends_on:
             - couchdb #specifies that couchdb spins up first
         links:

@@ -91,7 +91,6 @@ export let metaDefs: {[Property in keyof Partial<ColumnDef>]: ColumnDefRestricti
     displayName: "Forbidden Values",
     hintText: "Values users cannot enter",
     dataType: DataType.List,
-    allowedValues: ['f1','f2'], //TODO: ONLY FOR TESTING
     required: false,
     minSize: 1,
     maxSize: 100,

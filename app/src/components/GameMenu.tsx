@@ -3,7 +3,7 @@ import { IonContent, IonIcon, IonItem, IonLabel, IonList, IonListHeader, IonMenu
 import React, { useEffect, useState, ReactNode } from 'react';
 import { useLocation } from 'react-router-dom';
 import { bookmarkOutline, bookmarkSharp } from 'ionicons/icons';
-import './Menu.css';
+//import './Menu.css'; //doesn't look much different, and this styling trickles down to child components like login modals
 //import PouchDB from 'pouchdb';
 import { useView, usePouch } from 'use-pouchdb'
 import { useDocumentLocalRemoteSwitching } from '../services/pouch';

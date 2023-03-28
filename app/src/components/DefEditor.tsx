@@ -4,7 +4,7 @@ import { swapVerticalOutline, swapVerticalSharp, warningOutline, warningSharp } 
 import * as T from '../types/characterTypes';
 import { keys, keyVals, getApiUploadConfigUrl } from '../services/util';
 import { getIonicSanitizedString } from '../services/renderUtil';
-import { insertDefsSortGroupsCompileRegexes, repairOrder } from '../services/columnUtil';
+import { insertDefsSortGroupsCompileRegexes, repairDefOrder } from '../services/columnUtil';
 import { makeApiCall } from '../services/pouch';
 //import { useGameDispatch, Action as GameAction } from './GameProvider';
 import HeaderPage from './HeaderPage';
@@ -184,7 +184,7 @@ const DefEditor: React.FC<DefEditorProps> = ({gameId, designDoc}) => {
       const changedOrder = docChanges.changedOrders?.[path];
       const defs = (changedOrder && additionsDeletionsFromDoc) ? {...newDoc[path], ...docChanges[path]} : newDoc[path];
 
-      const repairedOrder = repairOrder(changedOrder ?? keys(newDoc[path]), defs, additionsDeletionsFromDoc, additionsDeletionsFromDoc);
+      const repairedOrder = repairDefOrder(changedOrder ?? keys(newDoc[path]), defs, additionsDeletionsFromDoc, additionsDeletionsFromDoc);
       set(newChanges, `changedOrders.${path}`, repairedOrder);
       if(isEqual(repairedOrder, keys(designDoc[path]))) { // use designDoc because sometimes newDoc is a merged one just used to get defs in right groups
         delete newChanges.changedOrders?.[path];
@@ -204,7 +204,7 @@ const DefEditor: React.FC<DefEditorProps> = ({gameId, designDoc}) => {
     //let testErr = getErrorsForColumnDef(newDesignDoc.universalPropDefs.Bio!);
     //console.log(JSON.stringify(newDesignDoc.universalPropDefs));
     const url = getApiUploadConfigUrl(gameId);
-    makeApiCall(`url`, 'POST', newDesignDoc).then((res) => {
+    makeApiCall(url, 'POST', newDesignDoc).then((res) => {
       console.log(res.message ?? "Success!");
       presentAlert("Successfully updated config!");
       setDocChanges({});
@@ -263,7 +263,7 @@ const DefEditor: React.FC<DefEditorProps> = ({gameId, designDoc}) => {
     if(defToEdit.wasAdded && !docChanges?.[path]?.[defToEdit.defName]) {
       let order: string[] = docChanges.changedOrders?.[path] || keys(clonedDoc[path]);
       order.push(def.columnName);
-      let repairedOrder = repairOrder(order, {...clonedDoc[path], ...newChanges[path]});
+      let repairedOrder = repairDefOrder(order, {...clonedDoc[path], ...newChanges[path]});
       set(newChanges, `changedOrders.${path}`, repairedOrder);
       //console.log(`Added column ${def.columnName} to order, new order is ${newChanges.changedOrders![path]}`);
     }
@@ -332,7 +332,7 @@ const DefEditor: React.FC<DefEditorProps> = ({gameId, designDoc}) => {
         //if a reorder changed a non-added col's group, this resets its group, so must fix order. 
         else if(docChanges[path]?.[defName] && docChanges[path]?.[defName]?.group !== clonedDoc[path][defName]?.group) {
           presentAlert(`Column ${defName} was moved to back to group ${clonedDoc[path][defName]?.group}, please check its order inside the group`);
-          let repairedOrder = repairOrder(changedOrder, {...clonedDoc[path], ...newChanges[path]});
+          let repairedOrder = repairDefOrder(changedOrder, {...clonedDoc[path], ...newChanges[path]});
           set(newChanges, `changedOrders.${path}`, repairedOrder);
         }
       }

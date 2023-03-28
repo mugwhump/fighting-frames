@@ -190,27 +190,33 @@ export type ChangeDoc = Optional<ChangeDocServer, 'updateTitle'> & {
   // If conflicts came from a merge, nothing from the other changelist is needed, just the base
 }
 // Separate ChangeDoc type used internally and ChangeDocServer type used for server-side validation (which requires title and excludes all validation stuff)
-export type ChangeDocServer = {
   //_id is blabla/local-edit when saved/loaded locally, blabla/updateTitle on the server
-  updateTitle: string; //user slug
-  updateDescription?: string; //users give more details, say who they are
-  updateVersion?: string; //game version. Can't enforce accuracy.
-  createdAt: string; //server-side validation
-  createdBy: string; //server-side validation, will usually be "public"
+export type ChangeDocServer = {
+  /** 
+   * url-safe user slug
+   * @pattern ^[\w\-.~]{3,25}$
+  */
+  updateTitle: string; 
+  /**
+   * users give more details, say who they are
+   * @maxLength 250
+   */
+  updateDescription?: string; 
+  /**
+   * game version. Can't enforce accuracy.
+   * @pattern ^[\d.]{1,10}$
+   */
+  updateVersion?: string; 
+  createdAt: string; //Added by server
+  createdBy: string;  //Added by server
   baseRevision: string; //version of charDoc that these changes have seen and accounted for. The "old" values of changes match this doc.
   //Previous _id of WRITER change before this, latest item in baseRev doc's history, can follow chain back to construct history even if doc is nuked. First change doesn't have.
-  //API publish call validates.
   previousChange?: string; 
-  //NON-WRITER changes that were merged in. Copied when non-writers pull in. Useful? Guess it tells writers "x already merged y, don't need both."
-  //Starts empty when you begin editing, added to by every version/change you merge in.
-  //Can't tell what changes were previously merged into base, seems pointless
-  //mergedChanges: string[]; 
-  universalPropChanges?: PropChanges; //better to separate them, even at the cost of many undefined checks
+  universalPropChanges?: PropChanges; 
   moveChanges?: MoveChangeList;
 }
-export type ChangeDocWithMeta = ChangeDocServer & {_id: string, _rev: undefined}; //_rev key must be present to put(), but don't allow updating change docs
-//export type ChangeDocServer = Omit<ChangeDoc, "conflictList"> & {updateTitle: NonNullable<ChangeDoc['updateTitle']>};
-//Meh, just do manual checks on optional properties
+export type ChangeDocWithMeta = ChangeDocServer & {_id: string, _rev: string}; //only ChangeDocServer is passed to api
+
 
 //generics can enforce that both pieces of data in a modify change are the same
 export type ColumnChange<T extends ColumnData = ColumnData> = Modify<T> | Add<T> | Delete<T>;

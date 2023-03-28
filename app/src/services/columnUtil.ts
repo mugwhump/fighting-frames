@@ -59,7 +59,8 @@ export function insertDefsSortGroupsCompileRegexes(defs: Readonly<T.ColumnDefs>,
   return result;
 }
 
-export function repairOrder(order: Readonly<string[]>, defs: Readonly<T.ColumnDefs>, insertExtraFromDefs?: boolean, deleteMissingFromDefs?: boolean): string[] {
+//Returns sorted columnDef order by their group, and adds/deletes to match given defs if indicated
+export function repairDefOrder(order: Readonly<string[]>, defs: Readonly<T.ColumnDefs>, insertExtraFromDefs?: boolean, deleteMissingFromDefs?: boolean): string[] {
   let moddedOrder: string[] = [...order];
   if(insertExtraFromDefs) {
     for(const key in defs) {
@@ -316,6 +317,29 @@ export function checkInvalid(data: T.ColumnData | undefined, def: T.ColumnDefRes
   }
 
   return false;
+}
+
+export function getCharDocErrors(charDoc: T.CharDoc, designDoc: T.DesignDoc): {[moveName: string]: FieldError[]} | false {
+  let errors: {[moveName: string]: FieldError[]} = {};
+  let propErrors = getMoveErrors(charDoc.universalProps, designDoc.universalPropDefs);
+  if(propErrors) errors.universalProps = propErrors;
+  for(const [moveName, move] of util.keyVals(charDoc.moves)) {
+    if(!moveName || !move) continue;
+    let moveErrors = getMoveErrors(move, designDoc.columnDefs);
+    if(moveErrors) errors[moveName] = moveErrors;
+  }
+  return (util.keys(errors).length > 0) ? errors : false;
+}
+
+function getMoveErrors(move: T.Cols, defs: T.ColumnDefs): FieldError[] | false {
+  let errors: FieldError[] = [] 
+  for(const [colName, colData] of util.keyVals(move)) {
+    let def = defs[colName];
+    if(!colName || !def) continue; //TODO: maybe do something with defless data
+    const err = checkInvalid(colData, def);
+    if(err) errors.push(err);
+  }
+  return (errors.length > 0) ? errors : false;
 }
 
 

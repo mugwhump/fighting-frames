@@ -59,7 +59,7 @@ export interface State {
   initialized: boolean; //whether both charDoc and edits are loaded
   editsLoaded: boolean;
   charDoc: T.CharDocWithMeta; //starts as emptyCharDoc until loaded. Provider shouldn't render anything until this and edits are loaded.
-  editChanges?: T.ChangeDoc; //NOT created if no changes! Set to undefined if you revert all changes.
+  editChanges?: T.ChangeDoc; //NOT created if no changes! Set to undefined if you revert all changes. No _id or _rev.
   editsNeedWriting: boolean; //reducer sets to true to signify that CharacterDocAccess must write or delete local changes
   //preview and history changes live in their components
 
@@ -103,7 +103,7 @@ export interface State {
     | { actionType: 'deleteEdits' } //for manual deletion
     | { actionType: 'editsWritten' } //to signify that writes to (or deletion of) local edits have been completed in provider
     //should these be inside reducer? Local saving/writing shouldn't be.
-    | { actionType: 'uploadChangeList', changes: T.ChangeDocServer } //upload current list, redirect to it in changes section, and delete local after success
+    | { actionType: 'uploadChangeList', changes: T.ChangeDocServer, publish?: boolean } //upload current changes, and delete local after success. Redirect to charDoc or change if publishing or not
     | { actionType: 'publishChangeList', character: string, title: string } //tells couch to calculate new doc based on that changeList id
 
 

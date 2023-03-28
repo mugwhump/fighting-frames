@@ -2,11 +2,25 @@ import type * as T from '../types/characterTypes'; //==
 import * as util from '../services/util';
 import { cloneDeep, isEqual } from 'lodash';
 
-export function applyChangeDoc(doc: T.CharDoc, changeDoc: T.ChangeDoc) {
+export function applyChangeDoc(charDoc: T.CharDocWithMeta, changeDoc: T.ChangeDocServer) {
   //TODO: this occurs on server from API call, which also verifies changeDoc's old values
   //modify doc, don't return copy
   //Reject if changeDoc.baseRev !== doc._rev
   //Chardoc has changes added to changeHistory
+  if(changeDoc.universalPropChanges) {
+    let changedProps = getChangedCols(charDoc.universalProps, changeDoc.universalPropChanges, true);
+    charDoc.universalProps = changedProps as T.PropCols;
+  }
+  if(changeDoc.moveChanges) {
+    for(const [moveName, moveChanges] of util.keyVals(changeDoc.moveChanges)) {
+      if(!moveChanges) continue;
+      let changedMove = getChangedCols(charDoc.moves[moveName], moveChanges, true) as T.MoveCols;
+      charDoc.moves[moveName] = changedMove;
+      if(util.keys(changedMove).length === 0) {
+        delete charDoc.moves[moveName];
+      }
+    }
+  }
 }
 export function unapplyChangeDoc(doc: T.CharDoc, changeDoc: T.ChangeDoc) {
   //modify doc, don't return copy
@@ -14,7 +28,7 @@ export function unapplyChangeDoc(doc: T.CharDoc, changeDoc: T.ChangeDoc) {
   //Chardoc has last changeHistory popped
 }
 
-export function invertChangeDoc(changeDoc: T.ChangeDoc): void {
+export function invertChangeDoc(changeDoc: T.ChangeDoc, updateMeta: boolean): void {
   //Just swap additions/deletions and modify new/old
   if(changeDoc.moveChanges) {
     for(const [moveName, changes] of util.keyVals(changeDoc.moveChanges)) {
@@ -477,6 +491,7 @@ export function insertByNeighbor(insertName: string, targetMap: Map<string, T.Mo
 //Returns true if anything added
 export function addMissingMoves(targetMap: Map<string, T.MoveOrder>, targetArray: T.MoveOrder[], 
                                 sourceMap: ReadonlyMap<string, [T.MoveOrder, number]>, sourceArray: Readonly<T.MoveOrder[]>): boolean {
+  let wasAdded = false;
   for(let i = 0; i < sourceArray.length; i++) {
     const item: T.MoveOrder = sourceArray[i];
     const name = item.name;
@@ -485,10 +500,13 @@ export function addMissingMoves(targetMap: Map<string, T.MoveOrder>, targetArray
       console.log("Adding "+name+" to preferred from nonpreferred");
       //Came from resolved if rebasing, present in yours if merging. So always in nonpreferred.
       if(!sourceMap.has(name)) throw new Error(`Item ${name} not in target OR source`);
-      insertByNeighbor(name, targetMap, targetArray, sourceMap, sourceArray);
+      const insertResult = insertByNeighbor(name, targetMap, targetArray, sourceMap, sourceArray);
+      if(insertResult !== -1) {
+        wasAdded = true;
+      }
     }
   }
-  return false;
+  return wasAdded;
 }
 
 //Return new moveOrder incorporating resolved changes (which may add or delete things)
@@ -662,6 +680,33 @@ export function resolveMoveOrder(baseOrder: Readonly<T.MoveOrder[]>, yourChanges
 }
 
 
+//If moveOrder changed and it doesn't reflect the moves present in baseDoc, return one that does, else return false.
+export function getRepairedChangedMoveOrder(baseDoc: T.CharDoc, changeDoc: T.ChangeDocServer): T.MoveOrder[] | false {
+  let changedMoveOrder = changeDoc.universalPropChanges?.moveOrder?.new;
+  if(!changedMoveOrder) return false;
+
+  const changedMoveNames = changedMoveOrder.filter((orderItem) => !orderItem.isCategory).map((orderItem) => orderItem.name);
+  const baseMoveKeys = util.keys(baseDoc.moves);
+
+  if(!isEqual(changedMoveNames.sort(), baseMoveKeys.sort())) { //isEqual checks order for arrays so must sort items
+    let changedOrder: T.MoveOrder[] = [...changedMoveOrder];
+    let changedMap: Map<string, T.MoveOrder> = new Map<string, T.MoveOrder>(changedOrder.map((item)=>[item.name, item]));
+    let baseMoveOrderNoCategories: readonly T.MoveOrder[] = baseMoveKeys.map((name) => { return {name: name} });
+    let baseMoveMapNoCategories: ReadonlyMap<string, [T.MoveOrder, number]> = 
+      new Map<string, [T.MoveOrder, number]>(baseMoveOrderNoCategories.map((item, index)=>[item.name, [item, index]]));
+
+    //First add any moves that are missing from order
+    addMissingMoves(changedMap, changedOrder, baseMoveMapNoCategories, baseMoveOrderNoCategories);
+    //Then remove any from order that aren't in moves
+    changedOrder = changedOrder.filter((item) => baseMoveMapNoCategories.has(item.name) || item.isCategory); 
+
+    return changedOrder;
+  }
+
+  return false;
+}
+
+
 // Returns columns with changes applied. If columns are null (eg for new move), creates columns from changes.
 // Note this doesn't do sorting, new columns are added to the end. Returns a changed deep clone.
 // Returns empty object if every column was deleted.
@@ -687,6 +732,7 @@ export function getChangedCols(originalCols: Readonly<T.Cols> | undefined, chang
   //console.log(`Changed columns for ${changes.moveName} from ${JSON.stringify(originalCols)} to ${JSON.stringify(newCols)} `);
   return newCols;
 }
+
 
 /** Can be called recursively on an array of T.Changes using array.reduce and passing this function.
 Reconciles places where both changes touched same data, and combines changes to different data.
@@ -769,6 +815,7 @@ export function createChange<F extends T.ColumnData>(oldData: F | undefined, new
 export function deleteMove(doc: T.CharDoc, moveName: string): T.DeleteMoveChanges {
   throw new Error("Not implemented");
 }
+
 
 //let order: T.MoveOrder[] = [{name:"a"}, {name:"b", indent:2}];
 //let order2: T.MoveOrder[] = [{name:"c"}, {name:"d", indent:3}];

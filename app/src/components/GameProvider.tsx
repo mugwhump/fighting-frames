@@ -442,7 +442,7 @@ export const GameProvider: React.FC<GameProviderProps> = ({children, storedCrede
     }
 
     let alreadyDownloading: boolean = someDBIsDownloading();
-    const skipIfError: boolean = someDBWithoutErrorsWantsDownload();
+    //const skipIfError: boolean = someDBWithoutErrorsWantsDownload();
     for(let [db, status] of state.dbStatuses) {
       //check for downloads. One db can download at once. Prioritize dbs without existing errors.
       if(status.userWants && status.currentTransition === null && !status.done) {
@@ -450,7 +450,11 @@ export const GameProvider: React.FC<GameProviderProps> = ({children, storedCrede
           console.log("Some db already downloading, not downloading "+db);
         }
         else {
-          if(downloadDB(db, skipIfError)) { //If there's a db w/o errors wanting DL and this one has errors, skip it
+          //If there's a db w/o errors wanting DL and this one has errors, skip it
+          //TODO: leads to infinite loops when want, say, top and sc6 and both have 401 unauthorized errors.
+          //Can test by wanting one and changing public to nonexistent couch user (or deleting public)
+          //Rather than ignoring errors, need system to clear them to signify it's time for a retry.
+          if(downloadDB(db, true/*skipIfError*/)) { 
             console.log("Noticed db download should start for db " + db);
             alreadyDownloading = true;
           }
@@ -462,6 +466,8 @@ export const GameProvider: React.FC<GameProviderProps> = ({children, storedCrede
       }
     }
   }, [state.dbStatuses]);
+  
+
 
   if(routeMatch == null) {
     //console.log("GameProvider sez: no gameId, using top");

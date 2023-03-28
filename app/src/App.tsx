@@ -7,7 +7,7 @@ import DBProvider from './components/DBProvider';
 import GameMenu from './components/GameMenu';
 import { LocalProvider } from './components/LocalProvider';
 import React from 'react';
-import { IonApp, IonMenu, IonRouterOutlet, IonSplitPane, setupIonicReact } from '@ionic/react';
+import { IonApp, IonMenu, IonItem, IonLabel, IonRouterOutlet, IonSplitPane, setupIonicReact } from '@ionic/react';
 import { IonReactRouter } from '@ionic/react-router';
 import { Redirect, Route, Switch } from 'react-router-dom';
 import { TestProvider } from './components/TestProvider';
@@ -60,6 +60,9 @@ const App: React.FC = () => {
                     <Game />
                   </Route>
                   <Route path="/page/Test" component={Test} exact /> 
+                  <Route path={CompileConstants.CONFIRMATION_PATH} exact >
+                    <IonItem><IonLabel>Email confirmed! Your account is now verified.</IonLabel></IonItem>
+                  </Route>
                   <Route path="/page/Inbox" component={Page} exact />
                   {/*<Route path="/game/:gameId" render={({match}) => etc etc to use the match here */}
                   <Redirect from="/" to={{pathname: CompileConstants.HOME_PATH, state: {from: '/'}}} exact />

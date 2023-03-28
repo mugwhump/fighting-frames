@@ -272,13 +272,6 @@ export function getEditingResolutionMoveOrder(currentCharDoc: T.CharDoc, changeL
     let primaryOrderMap: Map<string, T.MoveOrder> = new Map<string, T.MoveOrder>(primaryOrder.map((item)=>[item.name, item])); //for fast lookups
     let secondaryOrderMap: ReadonlyMap<string, [T.MoveOrder, number]> = new Map<string, [T.MoveOrder, number]>(secondaryOrder.map((item, index)=>[item.name, [item, index]]));
     addMissingMoves(primaryOrderMap, result, secondaryOrderMap, secondaryOrder);
-    //for(const item of secondaryOrder) {
-      //if(item.isCategory) continue;
-      //let insertIndex = insertByNeighbor(item.name, primaryOrderMap, result, secondaryOrderMap, secondaryOrder);
-      //if(insertIndex !== -1) {
-        //console.log(`inserted item ${item.name} into order at index ${insertIndex}`);
-      //}
-    //}
   }
   return result;
 }

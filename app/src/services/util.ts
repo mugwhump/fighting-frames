@@ -4,9 +4,11 @@ import {DataType} from '../types/characterTypes'; //==
 import type { FieldError } from '../types/utilTypes'; //==
 import { getChangedCols } from '../services/merging';
 import { SegmentUrl } from '../types/utilTypes';
+import * as colUtil from '../services/columnUtil';
 import { generatePath } from "react-router";
 import { CompileConstants } from '../constants/CompileConstants';
 import sanitizeHtml from 'sanitize-html';
+import { isEqual } from 'lodash';
 
 //export function keys<T extends object>(obj: T): Array<keyof T> { //was always insisting keys could be string | number, maybe since number keys get coerced to strings
 export function keys<T extends object>(obj: T): Array<string> {
@@ -27,6 +29,78 @@ export function shallowCompare(obj1: any, obj2: any): boolean {
       obj2.hasOwnProperty(key) && obj1[key] === obj2[key]
     );
   }
+}
+
+//Goes through object key by key and compares them, returning a string of any properties that are different
+export function recursiveCompare(propName: string, expected: unknown, actual: unknown): string {
+  let result = '';
+  if(typeof expected === 'object' && expected && typeof actual === 'object' && actual) {
+    let keyUnion: Set<string> = new Set(keys(expected).concat(keys(actual)));
+    for(const key of keyUnion) {
+      let expectedVal = expected[key as keyof typeof expected];
+      let actualVal = actual[key as keyof typeof actual]
+      result += recursiveCompare(propName+'.'+key, expectedVal, actualVal);
+    }
+  }
+  else {
+    if(expected !== actual) {
+      return `Error in ${propName}: Expected: ${JSON.stringify(expected)} Actual: ${JSON.stringify(actual)} \n`;
+      //console.error(errStr)
+    }
+  }
+  return result;
+}
+
+
+export function sanitizeChangeDoc(changeDoc: T.ChangeDoc): void {
+  let allChanges = {...changeDoc.moveChanges, universalPropChanges: changeDoc.universalPropChanges};
+  for(const [moveKey, moveChanges] of keyVals(allChanges)) {
+    if(!moveChanges) continue;
+    for(const [col, change] of keyVals(moveChanges)) {
+      if(!change) continue;
+      moveChanges[col] = getTrimmedChange(change);
+    }
+    //trim move keys, ensure they match add/del moveName change. Column keys can stay, there can already be made-up cols with no def
+    let trimmedMoveName = moveKey.trim();
+    if(moveChanges.moveName) {
+      const changeName = getNewFromChange(moveChanges.moveName) || getOldFromChange(moveChanges.moveName);
+      if(changeName !== trimmedMoveName) trimmedMoveName = changeName as string;
+    }
+    if(trimmedMoveName !== moveKey && changeDoc.moveChanges && trimmedMoveName !== 'universalPropChanges') {
+      changeDoc.moveChanges[trimmedMoveName] = moveChanges as T.MoveChanges;
+      delete changeDoc.moveChanges[moveKey];
+    }
+  }
+}
+//Does not modify old values to ensure continuous history
+function getTrimmedChange(change: T.ColumnChange): T.ColumnChange {
+  if((change.type === 'modify')) {
+    //return {type: 'modify', new: trimColumnData(change.new), old: trimColumnData(change.old)};
+    return {type: 'modify', new: trimColumnData(change.new), old: change.old};
+  }
+  else if((change.type === 'add')) {
+    return {type: 'add', new: trimColumnData(change.new)};
+  }
+  //else return {type: 'delete', old: trimColumnData(change.old)};
+  else return change;
+}
+function trimColumnData(data: T.ColumnData): T.ColumnData {
+  if(typeof data === 'string') {
+    return data.trim();
+  }
+  else if(Array.isArray(data)) {
+    let result = [];
+    for(const item of data) {
+      if(typeof item === 'string') {
+        result.push(item.trim());
+      }
+      else if(typeof item.name === 'string') {
+        result.push({...item, name: item.name.trim()});
+      }
+    }
+    return result as T.ColumnData;
+  }
+  return data;
 }
 
 export function trimStringProperties(record: Record<string, unknown>) {
@@ -62,14 +136,14 @@ export function getDeleteCharacterUrl(gameId: string): string {
 export function getAuthorizedUsersUrl(gameId: string): string {
   return generatePath(CompileConstants.AUTHORIZED_USERS_MATCH, {gameId: gameId});
 }
-export function getApiPublicUploadChangeUrl(gameId: string, characterId: string, changeTitle: string): string {
-  return generatePath(CompileConstants.API_UPLOAD_CHANGE_MATCH_PUBLIC, {gameId: gameId, characterId: characterId, changeTitle: changeTitle});
-}
 export function getApiUploadChangeUrl(gameId: string, characterId: string, changeTitle: string): string {
   return generatePath(CompileConstants.API_UPLOAD_CHANGE_MATCH, {gameId: gameId, characterId: characterId, changeTitle: changeTitle});
 }
 export function getApiPublishChangeUrl(gameId: string, characterId: string, changeTitle: string): string {
   return generatePath(CompileConstants.API_PUBLISH_CHANGE_MATCH, {gameId: gameId, characterId: characterId, changeTitle: changeTitle});
+}
+export function getApiUploadPublishChangeUrl(gameId: string, characterId: string, changeTitle: string): string {
+  return generatePath(CompileConstants.API_UPLOAD_AND_PUBLISH_CHANGE_MATCH, {gameId: gameId, characterId: characterId, changeTitle: changeTitle});
 }
 export function getApiUploadConfigUrl(gameId: string): string {
   return generatePath(CompileConstants.API_UPLOAD_CONFIG_MATCH, {gameId: gameId});

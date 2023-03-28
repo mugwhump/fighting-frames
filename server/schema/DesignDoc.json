@@ -1,142 +1,48 @@
 {
     "$schema": "http://json-schema.org/draft-07/schema#",
-    "allOf": [
-        {
-            "properties": {
-                "columnDefs": {
-                    "additionalProperties": {
-                        "$ref": "#/definitions/ColumnDef"
-                    },
-                    "type": "object"
-                },
-                "displayName": {
-                    "type": "string"
-                },
-                "universalPropDefs": {
-                    "additionalProperties": {
-                        "$ref": "#/definitions/ColumnDef"
-                    },
-                    "type": "object"
-                }
-            },
-            "required": [
-                "columnDefs",
-                "displayName",
-                "universalPropDefs"
-            ],
-            "type": "object"
-        },
-        {
-            "properties": {
-                "_id": {
-                    "type": "string"
-                },
-                "_rev": {
-                    "type": "string"
-                }
-            },
-            "required": [
-                "_id",
-                "_rev"
-            ],
-            "type": "object"
-        }
-    ],
+    "additionalProperties": false,
     "definitions": {
         "ColumnDef": {
-            "allOf": [
-                {
-                    "properties": {
-                        "columnName": {
-                            "type": "string"
-                        }
-                    },
-                    "required": [
-                        "columnName"
-                    ],
-                    "type": "object"
+            "additionalProperties": false,
+            "properties": {
+                "_calculatedMoveHeaderHideClass": {
+                    "type": "string"
                 },
-                {
-                    "properties": {
-                        "allowedValuesHints": {
-                            "additionalProperties": {
-                                "type": "string"
-                            },
-                            "type": "object"
-                        },
-                        "displayName": {
-                            "type": "string"
-                        },
-                        "hintText": {
-                            "type": "string"
-                        },
-                        "prefix": {
-                            "type": "string"
-                        },
-                        "shortName": {
-                            "type": "string"
-                        },
-                        "suffix": {
-                            "type": "string"
-                        }
+                "_calculatedTableHeaderHideClass": {
+                    "type": "string"
+                },
+                "_compiledAllowedRegex": {
+                    "$ref": "#/definitions/RegExp"
+                },
+                "_compiledNumStrRegex": {
+                    "$ref": "#/definitions/RegExp"
+                },
+                "_compiledTagStrRegex": {
+                    "$ref": "#/definitions/RegExp"
+                },
+                "allowedRegex": {
+                    "type": "string"
+                },
+                "allowedValues": {
+                    "items": {
+                        "type": "string"
+                    },
+                    "type": "array"
+                },
+                "allowedValuesHints": {
+                    "additionalProperties": {
+                        "type": "string"
                     },
                     "type": "object"
                 },
-                {
-                    "properties": {
-                        "_compiledAllowedRegex": {
-                            "$ref": "#/definitions/RegExp"
-                        },
-                        "allowedRegex": {
-                            "type": "string"
-                        },
-                        "allowedValues": {
-                            "items": {
-                                "type": "string"
-                            },
-                            "type": "array"
-                        },
-                        "dataType": {
-                            "$ref": "#/definitions/DataType"
-                        },
-                        "forbiddenValues": {
-                            "items": {
-                                "type": "string"
-                            },
-                            "type": "array"
-                        },
-                        "maxSize": {
-                            "type": "number"
-                        },
-                        "minSize": {
-                            "type": "number"
-                        },
-                        "required": {
-                            "type": "boolean"
-                        }
-                    },
-                    "required": [
-                        "dataType",
-                        "required"
-                    ],
-                    "type": "object"
+                "columnName": {
+                    "type": "string"
                 },
-                {
-                    "properties": {
-                        "_calculatedMoveHeaderHideClass": {
-                            "type": "string"
-                        },
-                        "_calculatedTableHeaderHideClass": {
-                            "type": "string"
-                        },
-                        "_compiledNumStrRegex": {
-                            "$ref": "#/definitions/RegExp"
-                        },
-                        "_compiledTagStrRegex": {
-                            "$ref": "#/definitions/RegExp"
-                        },
-                        "cssRegex": {
-                            "items": {
+                "cssRules": {
+                    "items": {
+                        "anyOf": [
+                            {
+                                "additionalProperties": false,
                                 "properties": {
                                     "_compiled_regex": {
                                         "$ref": "#/definitions/RegExp"
@@ -149,32 +55,103 @@
                                     },
                                     "regex": {
                                         "type": "string"
+                                    },
+                                    "type": {
+                                        "enum": [
+                                            "regex"
+                                        ],
+                                        "type": "string"
+                                    }
+                                },
+                                "required": [
+                                    "applyViaSplit",
+                                    "css",
+                                    "regex",
+                                    "type"
+                                ],
+                                "type": "object"
+                            },
+                            {
+                                "additionalProperties": false,
+                                "properties": {
+                                    "css": {
+                                        "type": "string"
+                                    },
+                                    "numVal": {
+                                        "type": "number"
+                                    },
+                                    "numberComparator": {
+                                        "$ref": "#/definitions/NumericComparison"
+                                    },
+                                    "type": {
+                                        "enum": [
+                                            "numeric"
+                                        ],
+                                        "type": "string"
                                     }
                                 },
                                 "required": [
                                     "css",
-                                    "regex"
+                                    "numVal",
+                                    "numberComparator",
+                                    "type"
                                 ],
                                 "type": "object"
-                            },
-                            "type": "array"
-                        },
-                        "dontRenderEmpty": {
-                            "type": "boolean"
-                        },
-                        "group": {
-                            "$ref": "#/definitions/DefGroup"
-                        },
-                        "widths": {
-                            "$ref": "#/definitions/{\"size-xs\"?:number|undefined;\"size-sm\"?:number|undefined;\"size-md\"?:number|undefined;\"size-lg\"?:number|undefined;\"size-xl\"?:number|undefined;}"
-                        }
+                            }
+                        ]
                     },
-                    "required": [
-                        "group"
-                    ],
-                    "type": "object"
+                    "type": "array"
+                },
+                "dataType": {
+                    "$ref": "#/definitions/DataType"
+                },
+                "displayName": {
+                    "type": "string"
+                },
+                "dontRenderEmpty": {
+                    "type": "boolean"
+                },
+                "forbiddenValues": {
+                    "items": {
+                        "type": "string"
+                    },
+                    "type": "array"
+                },
+                "group": {
+                    "$ref": "#/definitions/DefGroup"
+                },
+                "hintText": {
+                    "type": "string"
+                },
+                "maxSize": {
+                    "type": "number"
+                },
+                "minSize": {
+                    "type": "number"
+                },
+                "prefix": {
+                    "type": "string"
+                },
+                "required": {
+                    "type": "boolean"
+                },
+                "shortName": {
+                    "type": "string"
+                },
+                "suffix": {
+                    "type": "string"
+                },
+                "widths": {
+                    "$ref": "#/definitions/{\"size-xs\"?:number|undefined;\"size-sm\"?:number|undefined;\"size-md\"?:number|undefined;\"size-lg\"?:number|undefined;\"size-xl\"?:number|undefined;}"
                 }
-            ]
+            },
+            "required": [
+                "columnName",
+                "dataType",
+                "group",
+                "required"
+            ],
+            "type": "object"
         },
         "DataType": {
             "enum": [
@@ -200,7 +177,18 @@
             ],
             "type": "string"
         },
+        "NumericComparison": {
+            "enum": [
+                "!=",
+                "<",
+                "<=",
+                "==",
+                ">"
+            ],
+            "type": "string"
+        },
         "RegExp": {
+            "additionalProperties": false,
             "properties": {
                 "dotAll": {
                     "type": "boolean"
@@ -244,6 +232,7 @@
             "type": "object"
         },
         "{\"size-xs\"?:number|undefined;\"size-sm\"?:number|undefined;\"size-md\"?:number|undefined;\"size-lg\"?:number|undefined;\"size-xl\"?:number|undefined;}": {
+            "additionalProperties": false,
             "properties": {
                 "size-lg": {
                     "type": "number"
@@ -263,6 +252,37 @@
             },
             "type": "object"
         }
-    }
+    },
+    "properties": {
+        "_id": {
+            "type": "string"
+        },
+        "_rev": {
+            "type": "string"
+        },
+        "columnDefs": {
+            "additionalProperties": {
+                "$ref": "#/definitions/ColumnDef"
+            },
+            "type": "object"
+        },
+        "displayName": {
+            "type": "string"
+        },
+        "universalPropDefs": {
+            "additionalProperties": {
+                "$ref": "#/definitions/ColumnDef"
+            },
+            "type": "object"
+        }
+    },
+    "required": [
+        "_id",
+        "_rev",
+        "columnDefs",
+        "displayName",
+        "universalPropDefs"
+    ],
+    "type": "object"
 }
 

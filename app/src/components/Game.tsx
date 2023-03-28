@@ -80,7 +80,7 @@ const Game: React.FC<GameProps> = () => {
             <NeedPermissions permissions={"GameAdmin"}>
               <IonButton size="large" routerLink={util.getConfigurationUrl(gameId)}>Configure game columns and settings</IonButton>
               <IonButton size="large" routerLink={util.getAddCharacterUrl(gameId)}>Add Character</IonButton>
-              <IonButton size="large" routerLink={util.getDeleteCharacterUrl(gameId)}>Delete Character</IonButton>
+              <IonButton size="large" routerLink={util.getDeleteCharacterUrl(gameId)}>Delete Character/Change name</IonButton>
               <IonButton size="large" routerLink={util.getAuthorizedUsersUrl(gameId)}>Change Authorized Users</IonButton>
             </NeedPermissions>
             </IonContent>

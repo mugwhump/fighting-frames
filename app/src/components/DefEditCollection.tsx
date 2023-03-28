@@ -47,7 +47,7 @@ const DefEditCollection: React.FC<DefEditCollection> = ({doc, docChanges, isUniv
     headerOrNormal: {title: 'Header / Normal', desc: `Section containing normal columns that may need a header. ${!isUniversalProps && 'A floating header row will appear if more than one column with defined widths fits on the first row.'} All columns in "Needs Header" group will get a header above them`},
     hiddenHeaderOrNormal: {title: 'Hidden by default', desc: `Section for columns that are hidden by default; users must click to expand. All columns in "Needs Header" group will get a header above them`},
     deleted: {title: 'Deleted Columns (Click to restore)', desc: null},
-    'no-group': {title: 'Error: these columns are missing a definition or a group', desc: null}
+    'no-group': {title: 'Error: these columns are missing a definition or a group', desc: null} //actually defs in the db w/o group will have been stripped out by sort performed in DefEditor
   };
   
   //let defsGroupedByRow: {[row: string]: T.ColumnDef[]} = groupBy(mergedDefs, (def) => {

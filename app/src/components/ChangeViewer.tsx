@@ -70,7 +70,7 @@ export const ChangeViewer: React.FC<ChangeViewerProps> = ({columnDefs, universal
       <IonContent>
         <IonList>
           <IonItem button={true} onClick={importChanges}><IonLabel>Import</IonLabel></IonItem>
-          <NeedPermissions permissions="Writer">
+          <NeedPermissions permissions="Editor">
             <IonItem button={true} onClick={publishChanges}><IonLabel>Publish</IonLabel></IonItem>
           </NeedPermissions> 
         </IonList>
