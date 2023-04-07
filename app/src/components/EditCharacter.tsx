@@ -16,6 +16,7 @@ import { State, EditAction, useCharacterDispatch, useTrackedCharacterState, useC
 import { useLoginInfoContext } from './LoginProvider';
 import styles from '../theme/Character.module.css';
 import { cloneDeep } from 'lodash';
+import CompileConstants from '../constants/CompileConstants';
 
 
 type EditCharProps = {
@@ -178,7 +179,7 @@ export const EditCharacter: React.FC<EditCharProps> = ({gameId, columnDefs, univ
       console.log("Current values: "+JSON.stringify(opts));
       //API call will also does this validation server-side via JSON-schema
       //Validate title
-      const titleRegex = new RegExp(/^[\w-.~]{3,25}$/); //alphanumeric and _, -, ., ~ length between 3-25
+      const titleRegex = new RegExp(CompileConstants.ALLOWED_CHANGE_TITLE_REGEX); //alphanumeric and _, -, ., ~ length between 3-25
       const titleValid = titleRegex.test(opts.title);
       if(!titleValid) {
         presentToast('Title must be between 3-25 characters, which must be alphanumeric or ~_-. (no spaces)', 5000);
@@ -186,7 +187,7 @@ export const EditCharacter: React.FC<EditCharProps> = ({gameId, columnDefs, univ
       }
       //Validate version
       if(opts.version) {
-        const versionRegex = new RegExp(/^[\d.]{1,10}$/); //numbers and periods
+        const versionRegex = new RegExp(CompileConstants.ALLOWED_CHANGE_VERSION_REGEX); //numbers and periods
         const versionValid = versionRegex.test(opts.version);
         if(!versionValid) {
           presentToast('If provided, version must be between 1-10 characters, numbers and periods only', 5000);

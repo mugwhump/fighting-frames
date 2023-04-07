@@ -2,7 +2,7 @@ import { MenuContainer } from './components/Menu';
 import Page from './pages/Page';
 import Test from './pages/Test';
 import { GameProvider } from './components/GameProvider';
-import Game from './components/Game';
+import Game from './pages/Game';
 import DBProvider from './components/DBProvider';
 import GameMenu from './components/GameMenu';
 import { LocalProvider } from './components/LocalProvider';

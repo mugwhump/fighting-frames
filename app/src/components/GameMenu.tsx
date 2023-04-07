@@ -26,7 +26,6 @@ const GameMenu: React.FC = () => {
   const gameId: string = gameContext.gameId; //TODO: Wrapper component
   const gameDisplayName = gameContext.gameDisplayName;
   const gameDispatch = useGameDispatch();
-  const [fetchedWithLocal, setFetchedWithLocal] = useState<boolean | null>(null);
   const { rows, loading, state, error } = useView("list/list-chars"); 
   useDocumentLocalRemoteSwitching(state, error, 'GameMenu');
   let menuContent: ReactNode = (<div>Ky is dishonest</div>);

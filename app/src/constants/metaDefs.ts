@@ -295,7 +295,7 @@ export function getDefPropError(columnDef: ColumnDef, defProperty: keyof ColumnD
       return {columnName: 'allowedValues', message: 'Must have one or more allowed values for TAG_STRING data type'};
     }
   }
-  if(defProperty === 'columnName') {
+  if(defProperty === 'columnName' && columnDef.columnName !== undefined) {
     if(columnDef.columnName.startsWith('_')) {
       return {columnName: 'columnName', message: 'Cannot start with underscore'};
     }

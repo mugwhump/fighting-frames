@@ -191,11 +191,11 @@ export function getApiUploadChangeUrl(gameId: string, characterId: string, chang
 export function getApiPublishChangeUrl(gameId: string, characterId: string/*, changeTitle: string*/): string {
   return generatePath(CompileConstants.API_PUBLISH_CHANGE_MATCH, {gameId: gameId, characterId: characterId/*, changeTitle: changeTitle*/});
 }
-//export function getApiUploadPublishChangeUrl(gameId: string, characterId: string, changeTitle: string): string {
-  //return generatePath(CompileConstants.API_UPLOAD_AND_PUBLISH_CHANGE_MATCH, {gameId: gameId, characterId: characterId, changeTitle: changeTitle});
-//}
 export function getApiUploadConfigUrl(gameId: string): string {
   return generatePath(CompileConstants.API_UPLOAD_CONFIG_MATCH, {gameId: gameId});
+}
+export function getApiAddCharacterUrl(gameId: string): string {
+  return generatePath(CompileConstants.API_ADD_CHARACTER_MATCH, {gameId: gameId});
 }
 export function getCharDocId(character: string): string {
   return 'character/'+character;

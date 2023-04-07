@@ -5,7 +5,7 @@ import { swapVerticalOutline, swapVerticalSharp, chevronForward, chevronBack, tr
 import React, { useState, useEffect, useRef } from 'react';
 import { DefGroup, groupList , DesignDoc, ColumnDefs, ColumnDef, ColumnData, DataType } from '../types/characterTypes';
 import { specialDefs } from '../constants/internalColumns';
-import { DesignDocChanges, DefEditObj } from './DefEditor';  
+import { DesignDocChanges, DefEditObj } from '../pages/DefEditor';  
 import { keys } from '../services/util';
 import { cloneDeep, isEqual, set } from 'lodash';
 import { HelpPopup } from './HelpPopup';

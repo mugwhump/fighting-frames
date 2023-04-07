@@ -24,6 +24,7 @@ const ChangeDocValidator = require('../schema/ChangeDocServer-validator').defaul
 const router = express.Router();
 const testUser = 'joesmith2';
 
+//TODO: make custom error handler for nonexistent endpoint or method, right now express returns html
 
 
 router.put(CompileConstants.API_UPLOAD_CONFIG_MATCH, needsPermissions("GameAdmin"), //couchAuth.requireAuth, couchAuth.requireRole("user") as any,
@@ -292,7 +293,7 @@ async function publishChange(req: TypedRequest<{gameId:string, characterId:strin
   }
 }
 
-router.put(CompileConstants.API_CREATE_CHARACTER_MATCH, needsPermissions("GameAdmin"),
+router.post(CompileConstants.API_ADD_CHARACTER_MATCH, needsPermissions("GameAdmin"),
            async (req: TypedRequest<{gameId:string}, CreateCharacterBody>, res) => {
   try {
     const {gameId} = req.params;

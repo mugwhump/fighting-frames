@@ -3,7 +3,6 @@ import React, { useState, useEffect } from 'react';
 //import { useLocalDispatch, Credentials, Action } from './LocalProvider';
 import PouchDB from 'pouchdb';
 import PouchAuth from 'pouchdb-authentication';
-import CompileConstants from '../constants/CompileConstants';
 import * as myPouch from '../services/pouch';
 
 type RegistrationProps = {

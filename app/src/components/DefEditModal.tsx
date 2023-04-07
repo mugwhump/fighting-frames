@@ -13,7 +13,7 @@ import { createChange, getInvertedMoveChanges } from '../services/merging';
 import { cloneDeep, isEqual, set } from 'lodash';
 import { forbiddenNames, predefinedWidths, specialDefs } from '../constants/internalColumns';
 import { metaDefs, extraMetaDefs, ExtraMetaDefKey, DefPropertyFieldErrors, MetaDefKey, getExtraMetaDef, getMetaDef, getPropertyAsColumnData, getErrorsForColumnDef, getDefPropError, getExtraDefPropError, getUselessProperties, removeUselessProperties, stripWhitespace } from '../constants/metaDefs';
-import { DefEditObj } from './DefEditor';
+import { DefEditObj } from '../pages/DefEditor';
 import DefEditPreview from './DefEditPreview';
 import { HelpPopup } from './HelpPopup';
 import DataRenderer from './DataRenderer';

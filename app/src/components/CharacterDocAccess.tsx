@@ -239,8 +239,11 @@ export const CharacterDocAccess: React.FC<CharProviderProps> = ({children, gameI
 
 
   if (docState === 'error') {
-    console.error("heckin errorino in Character: " + error?.message);
-    return (<span>heckin errorino: {error?.message}</span>);
+    console.error("heckin errorino in CharacterDocAccess: " + JSON.stringify(error));
+    if(error?.status && error.status === 404) {
+      return (<div>Character {character} does not exist</div>);
+    }
+    return (<span>Error loading character: {error?.message}</span>);
   }
   if (!state.initialized) {
     return (<h1> loadin</h1>);
