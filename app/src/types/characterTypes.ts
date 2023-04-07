@@ -173,7 +173,7 @@ export type CharDoc = {
   displayName: string,
   updatedAt: string, // created via new Date().toString()
   updatedBy: string,
-  changeHistory: string[]; //array of changelist IDs used to create this. Full doc Id, not just title updateTitle. Changes not listed can be cleaned up after a time to make room?
+  changeHistory: string[]; //array of changelist titles (not doc IDs) used to create this. Changes not listed can be cleaned up after a time to make room?
   // ^^ would be nice if size of changeHistory matched revision #...
   universalProps: PropCols,
   moves: MoveList; //will be empty object when first created

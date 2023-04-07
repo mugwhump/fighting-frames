@@ -1,5 +1,5 @@
 import { groupList, ColumnDef, Breakpoint, ColumnDefRestrictions, ColumnDefDisplayText, ColumnDefs, ColumnData, DataType } from '../types/characterTypes'; 
-import { keys } from '../services/util'; //hewwo
+//import { keys } from '../services/util'; causes circular dependency, yikes
 
   // mobile:  xs=2/12 sm=3/12 md=4/12 lg=6/12 xl=row
   // desktop: xs=1/12 sm=2/12 md=3/12 lg=4/12 xl=6/12
@@ -62,7 +62,7 @@ export const moveNameColumnDef: Readonly<ColumnDef> = {
   hintText: "A unique identifier for this move, used internally. Cannot be changed.",
   dataType: DataType.Str,
   required: true,
-  forbiddenValues: ["universalProps","moveName","moveOrder","displayName"],
+  forbiddenValues: ["universalProps", "universalPropChanges","moveName","moveOrder","displayName"],
   minSize: 1,
   maxSize: 30,
   group: "meta",
@@ -195,7 +195,8 @@ export const specialDefs = {
   }
 }
 
-export const forbiddenNames: string[] = keys(builtinPropDefs).concat(keys(builtinColumnDefs)).concat(keys(mandatoryPropDefs)).concat(keys(mandatoryColumnDefs)).concat(['columnName']);
+//export const forbiddenNames: string[] = keys(builtinPropDefs).concat(keys(builtinColumnDefs)).concat(keys(mandatoryPropDefs)).concat(keys(mandatoryColumnDefs)).concat(['columnName']);
+export const forbiddenNames: string[] = Object.keys({...builtinPropDefs, ...builtinColumnDefs, ...mandatoryPropDefs, ...mandatoryColumnDefs}).concat(['columnName']);
 
 export function isMandatory(columnName: string, isUniversalProps: boolean): boolean {
   const path = isUniversalProps ? "universalPropDefs" : "columnDefs";

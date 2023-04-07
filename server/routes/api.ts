@@ -10,9 +10,10 @@ import * as CouchAuthTypes from '@perfood/couch-auth/lib/types/typings';
 import { cloneDeep, isEqual } from 'lodash';
 import * as Nano from 'nano';
 import type * as T from '../shared/types/characterTypes'; //= //not included in runtime buildo
-import type { ApiResponse, PublishChangeBody } from '../shared/types/utilTypes'; //= 
-import * as util from '../shared/services/util';
+import type { ApiResponse, PublishChangeBody, CreateCharacterBody } from '../shared/types/utilTypes'; //= 
+import * as intCols from '../shared/constants/internalColumns';
 import * as colUtil from '../shared/services/columnUtil';
+import * as util from '../shared/services/util';
 import * as metaDefs from '../shared/constants/metaDefs';
 import * as merging from '../shared/services/merging';
 import CompileConstants from '../shared/constants/CompileConstants';
@@ -120,10 +121,21 @@ async function uploadChange(req: Request<{gameId:string, characterId:string, cha
       return getErrorObject("Change list has no changes", 400);
     }
 
-    //fetch doc, make sure changeDoc's baseRevision matches
+    //fetch doc, make sure changeDoc's baseRevision matches. Return 422 error otherwise to tell client to fetch new 
     const charDoc = await db.get(util.getCharDocId(characterId)) as T.CharDocWithMeta;
     if(changeDoc.baseRevision !== charDoc._rev) {
       return getErrorObject(`Changes based on outdated character document ${changeDoc.baseRevision}, latest is ${charDoc._rev}, please refresh and update`, 422);
+    }
+
+    //fetch config ddoc, insert builtin and mandatory defs for validation
+    const designDoc = await db.get('_design/columns') as T.DesignDoc; //TODO: this won't include builtin/mandatory?
+    designDoc.universalPropDefs = colUtil.insertDefsSortGroupsCompileRegexes(designDoc.universalPropDefs, true, true, false, false);
+    designDoc.columnDefs = colUtil.insertDefsSortGroupsCompileRegexes(designDoc.columnDefs, false, true, false, false);
+
+    //make sure changeDoc is well formed (which includes moveName checks)
+    const changeDocErrors = util.validateChangeDoc(changeDoc, charDoc, designDoc);
+    if(changeDocErrors) {
+      return getErrorObject(`Errors in submitted changes: ${changeDocErrors.join('\n')}`, 400);  //`
     }
 
     //create new document that reflects submitted changes, for testing
@@ -139,12 +151,11 @@ async function uploadChange(req: Request<{gameId:string, characterId:string, cha
       logger.warn("After >> \n" + JSON.stringify(fixedMoveOrder));
     }
 
-    //make sure updated doc passes validation (which includes moveName checks)
-    const designDoc = await db.get('_design/columns') as T.DesignDoc;
-    const errors = colUtil.getCharDocErrors(newCharDoc, designDoc);
-    if(errors) {
-      return getErrorObject("Errors validating, "+JSON.stringify(errors), 400);
+    const charDocErrors = colUtil.getCharDocErrors(newCharDoc, designDoc);
+    if(charDocErrors) {
+      return getErrorObject("Errors validating, "+JSON.stringify(charDocErrors), 400);
     }
+
 
     //then apply inverse change to document and make sure it matches. Remember isEqual doesn't care about object key order.
     //TODO: test carefully, this could stop people from uploading changes
@@ -171,7 +182,7 @@ async function uploadChange(req: Request<{gameId:string, characterId:string, cha
 
     //finally upload changeDoc
     try {
-      //logger.info("TESTING, not actually inserting");
+      //logger.info("TESTING, not actually inserting. Doc is "+JSON.stringify(uploadDoc));
       await db.insert(uploadDoc); 
     }
     catch(err: any) {
@@ -179,6 +190,7 @@ async function uploadChange(req: Request<{gameId:string, characterId:string, cha
     }
     //return getSuccessResponse("Changes uploaded, someone with editor permissions must publish these changes.");
     return false;
+    //TODO: send email notifications to editors?
   }
   catch(err) {
     return getErrorObject(`Server Error uploading change, ${err}`);
@@ -254,7 +266,7 @@ async function publishChange(req: TypedRequest<{gameId:string, characterId:strin
     //make sure updated doc passes validation
     //if(!justUploaded) {
       const designDoc = await db.get('_design/columns') as T.DesignDoc;
-      const errors = colUtil.getCharDocErrors(charDoc, designDoc);
+      const errors = colUtil.getCharDocErrors(charDoc, designDoc); //TODO: test that moveNames are actually checked against regex
       if(errors) {
         return getErrorObject("Errors validating, "+JSON.stringify(errors), 400);
       }
@@ -280,6 +292,66 @@ async function publishChange(req: TypedRequest<{gameId:string, characterId:strin
   }
 }
 
+router.put(CompileConstants.API_CREATE_CHARACTER_MATCH, needsPermissions("GameAdmin"),
+           async (req: TypedRequest<{gameId:string}, CreateCharacterBody>, res) => {
+  try {
+    const {gameId} = req.params;
+    const db = adminNano.use(gameId);
+
+    if(!req.body.charName || !req.body.displayName) {
+      return sendError(res, "Body must specify charName and displayName", 400);
+    }
+
+    //sanitize character Id, displayName
+    const charId = req.body.charName.trim();
+    const displayName = req.body.displayName.trim();
+    const user = getUser(req)?._id;
+
+    if(!user) {
+      return sendError(res, `No user`);
+    }
+
+    //validate charName against regex. 
+    const charIdMatch = CompileConstants.ALLOWED_CHARACTER_ID_REGEX.test(charId);
+    if(!charIdMatch) {
+      return sendError(res, `Illegal character ID ${charId}`);
+    }
+    //validate display name
+    const charDisplayNameMatch = CompileConstants.ALLOWED_CHARACTER_DISPLAY_NAME_REGEX.test(displayName);
+    if(!charDisplayNameMatch) {
+      return sendError(res, `Illegal character display name ${displayName}`);
+    }
+
+    //construct starting charDoc
+    let charDoc: T.CharDoc & {_id: string} = {
+      _id: util.getCharDocId(charId),
+      charName: charId,
+      displayName: displayName,
+      updatedAt: util.getDateString(),
+      updatedBy: user,
+      changeHistory: [],
+      universalProps: {moveOrder: []},
+      moves: {},
+    }
+
+    try {
+      const putResult = await db.insert(charDoc); 
+    }
+    catch(err: any) {
+      if(err.statusCode === 409) {
+        return sendError(res, `Error, a character with id ${charId} already exists (${err})`, err.statusCode);
+      }
+      else {
+        return sendError(res, "Error creating character document, " + err, err.statusCode);
+      }
+    }
+
+    return sendSuccess(res, "Character created!");
+  }
+  catch(err) {
+    return sendError(res, `Server Error creating character, ${err}`);
+  }
+});
 
 //router.put(CompileConstants.API_UPLOAD_AND_PUBLISH_CHANGE_MATCH, needsPermissions("Editor"), 
            //async (req: Request<{gameId:string, characterId:string, changeTitle:string}>, res) => {

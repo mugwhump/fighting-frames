@@ -5,6 +5,7 @@ import type { FieldError } from '../types/utilTypes'; //==
 import { getChangedCols } from '../services/merging';
 import { SegmentUrl } from '../types/utilTypes';
 import * as colUtil from '../services/columnUtil';
+import { moveNameColumnDef } from '../constants/internalColumns';
 import { generatePath } from "react-router";
 import { CompileConstants } from '../constants/CompileConstants';
 import sanitizeHtml from 'sanitize-html';
@@ -51,9 +52,54 @@ export function recursiveCompare(propName: string, expected: unknown, actual: un
   return result;
 }
 
+//errors for non-delete changes for columns without defs, changes keyed to nonexistent moves, and added moves with invalid names
+//Must do moveName validation here; can't give errors for existing moveNames because they can't be changed.
+//Change inversion catches non-matching changes, eg add for existing stuff, modify/delete for nonexistant stuff, wrong old values, etc
+export function validateChangeDoc(changeDoc: T.ChangeDoc, baseDoc: T.CharDoc, designDoc: T.DesignDoc): string[] | false {
+  let errors: string[] = [];
 
-export function sanitizeChangeDoc(changeDoc: T.ChangeDoc): void {
+  //Validate that universalPropChanges only add/modify defined columns TODO: alla these gotta account for whether you receive builtin/mandatory cols
+  for(const [col, change] of keyVals(changeDoc.universalPropChanges ?? {})) {
+    if(!change) continue;
+    //Can't have non-delete changes for defless columns
+    const colDef = designDoc.universalPropDefs[col];
+    if(!colDef && change.type !== 'delete') {
+      errors.push(`Cannot ${change.type} undefined column ${col} in universal properties`);
+    }
+  }
+
+  for(const [moveKey, moveChanges] of keyVals(changeDoc?.moveChanges ?? {})) {
+    if(!moveChanges) continue;
+
+    for(const [col, change] of keyVals(moveChanges)) {
+      if(!change) continue;
+      //Can't have non-delete changes for defless columns
+      const colDef = designDoc.columnDefs[col];
+      if(!colDef && change.type !== 'delete') {
+        errors.push(`Cannot ${change.type} undefined column ${col} in ${moveKey}`);
+      }
+    }
+    //if adding, check that moveName is valid
+    if(moveChanges.moveName && moveChanges.moveName.type === 'add') {
+      let changeName = getNewFromChange(moveChanges.moveName);
+      if(changeName !== undefined) {
+        const moveNameError = colUtil.checkInvalid(changeName, moveNameColumnDef);
+        if(moveNameError) errors.push(`Invalid move name ${changeName as string}`);
+      }
+    }
+    else if(!keys(baseDoc.moves).includes(moveKey)) {
+      errors.push(`Cannot have changes for move ${moveKey} which doesn't exist and isn't being added`);
+    }
+
+  }
+
+  return (errors.length > 0) ? errors : false;
+}
+
+//Trim strings and make sure move names match keys
+export function sanitizeChangeDoc(changeDoc: T.ChangeDoc, baseDoc?: T.CharDoc): void {
   let allChanges = {...changeDoc.moveChanges, universalPropChanges: changeDoc.universalPropChanges};
+
   for(const [moveKey, moveChanges] of keyVals(allChanges)) {
     if(!moveChanges) continue;
     for(const [col, change] of keyVals(moveChanges)) {
@@ -63,15 +109,18 @@ export function sanitizeChangeDoc(changeDoc: T.ChangeDoc): void {
     //trim move keys, ensure they match add/del moveName change. Column keys can stay, there can already be made-up cols with no def
     let trimmedMoveName = moveKey.trim();
     if(moveChanges.moveName) {
-      const changeName = getNewFromChange(moveChanges.moveName) || getOldFromChange(moveChanges.moveName);
+      let changeName = getNewFromChange(moveChanges.moveName) || getOldFromChange(moveChanges.moveName);
       if(changeName !== trimmedMoveName) trimmedMoveName = changeName as string;
     }
+
     if(trimmedMoveName !== moveKey && changeDoc.moveChanges && trimmedMoveName !== 'universalPropChanges') {
       changeDoc.moveChanges[trimmedMoveName] = moveChanges as T.MoveChanges;
       delete changeDoc.moveChanges[moveKey];
     }
   }
 }
+
+
 //Does not modify old values to ensure continuous history
 function getTrimmedChange(change: T.ColumnChange): T.ColumnChange {
   if((change.type === 'modify')) {

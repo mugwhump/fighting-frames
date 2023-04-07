@@ -59,13 +59,10 @@ export function needsPermissions(perms: Security.PermissionLevel) {
       const sec = await db.get("_security") as Security.SecObj;
 
       if(req.headers.authorization?.startsWith('Bearer ')) {
-        console.log("U liek SL? ogey");
         couchAuth.requireAuth(req, res, () => { //this is the next() function I'm giving to couchAuth that it calls upon success
           //Don't think there's any need for couchAuth.requireRole('user'), requireAuth only works with SL users
           const user: CouchAuthTypes.SlRequestUser = req.user!;
-          console.log("I guess ur legit?? You am "+JSON.stringify(user));
           let hasPerms = Security.userHasPerms({secObj: sec, currentUser: user._id, roles: user.roles}, perms);
-          console.log(`You am ${perms}? It be ${hasPerms}`);
           if(hasPerms) {
             next(); //I let the chain progress
           }
@@ -75,9 +72,7 @@ export function needsPermissions(perms: Security.PermissionLevel) {
         }); //if couchAuth.requireAuth() rejects, it sets res to 401 and doesn't call next.
       }
       else {
-        console.log("hello PUBLIC");
         let hasPerms = Security.userHasPerms({secObj: sec, currentUser: 'public'}, perms);
-        console.log(`You am ${perms}? It be ${hasPerms}`);
         if(hasPerms) {
           next();
         }
@@ -93,6 +88,6 @@ export function needsPermissions(perms: Security.PermissionLevel) {
 }
 
 // If this request went through couchAuth authentication, it attached user to request object. If no user, request was made as public.
-export function getUser(req: Request): CouchAuthTypes.SlRequestUser | undefined {
+export function getUser<Params, ReqBody>(req: TypedRequest<Params, ReqBody>): CouchAuthTypes.SlRequestUser | undefined {
   return req.user;
 }

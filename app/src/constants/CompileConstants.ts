@@ -22,6 +22,7 @@ export let CompileConstants = {
   //API_UPLOAD_AND_PUBLISH_CHANGE_MATCH: "/game/:gameId/character/:characterId/changes/:changeTitle/upload-publish", //PUT
   API_PUBLISH_CHANGE_MATCH: "/game/:gameId/character/:characterId", //PUT. Body contains title of change.
   API_UPLOAD_CONFIG_MATCH: "/game/:gameId/_design/columns", //PUT
+  API_CREATE_CHARACTER_MATCH: "/game/:gameId/character", //POST. Body contains charName and displayName.
 
   //Auth
   AUTH_TIMEOUT_SECONDS: 3600,
@@ -32,9 +33,10 @@ export let CompileConstants = {
   TEXT_AREA_CHARACTERS: 80, //string columns get a textarea input if maxSize is >= this value
 
   //game and char ids completely url-safe. Nothing can start with underscore. Discordbot will use ; as separator, rarely used in notations.
-  //Reject if regex matches anywhere.
+  //Reject if regex matches anywhere. TODO: would allowed regexes be better? They can specify length.
   FORBIDDEN_GAME_ID_REGEX: /^(?:_)|[^\w\-\._~]/, 
-  FORBIDDEN_CHARACTER_ID_REGEX: /^(?:_)|[^\w\-\._~]/, 
+  ALLOWED_CHARACTER_ID_REGEX: /^(?!_)[\w\-\._~]{1,25}$/,
+  ALLOWED_CHARACTER_DISPLAY_NAME_REGEX: /^[^\t\n]{1,35}$/,
   FORBIDDEN_MOVE_ID_REGEX: /^(?:_)|[^\w\-\.,_~+:()\[\]\{\}\/><=]/, 
   FORBIDDEN_COL_ID_REGEX: /^(?:_|group:)|[^\w\-\._~]/, //can't start with _ or group: 
 } as const;

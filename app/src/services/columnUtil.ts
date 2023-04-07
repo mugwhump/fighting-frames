@@ -9,7 +9,7 @@ import { cloneDeep, sortBy } from 'lodash';
 //Inserts mandatory definitions defined in internalColumns, and meta/builtin definitions if desired.
 //Also optionally compile regexes to do highlighting for NumStr and TagStr columns.
 //Called by server when defs subimtted
-export function insertDefsSortGroupsCompileRegexes(defs: Readonly<T.ColumnDefs>, isUniversalProps: boolean, insertBuiltin: boolean, compileRegexes: boolean) {
+export function insertDefsSortGroupsCompileRegexes(defs: Readonly<T.ColumnDefs>, isUniversalProps: boolean, insertBuiltin: boolean, compileRegexes: boolean, doSort: boolean = true) {
   const path = isUniversalProps ? "universalPropDefs" : "columnDefs";
   let newDefs = cloneDeep<T.ColumnDefs>(defs);
 
@@ -28,35 +28,38 @@ export function insertDefsSortGroupsCompileRegexes(defs: Readonly<T.ColumnDefs>,
       newDefs[key] = {...newDefs[key], ...def};
     }
   }
-  //console.log("Defs after mandatory added: " + util.keys(newDefs));
-  let result: T.ColumnDefs = {};
-  const order: Readonly<string[]> = util.keys(newDefs);
 
-  // Loop over groups to ensure they're all present and newDefs are properly ordered, also compile regexes
-  let nextItemIndex = 0;
-  for(let group of T.groupListAll) {
-    for(let key of order) {
-      const def: T.ColumnDef | undefined = newDefs[key];
-      if(!def) throw new Error("Cannot find definition for "+key);
-      if(def.group === group) {
-        if(order[nextItemIndex] !== key) {
-          //console.log(`definition ${key} in group ${group} is out of order`);
-          //everything between the misplaced item and where it's moved to will be considered misplaced
-        }
-        result[key] = def;
-        nextItemIndex++;
-        if(compileRegexes) {
-          if(def.dataType === T.DataType.NumStr && !def._compiledNumStrRegex) {
-            def._compiledNumStrRegex = getNumStrColRegex(def);
+  if(doSort) {
+    let result: T.ColumnDefs = {};
+    const order: Readonly<string[]> = util.keys(newDefs);
+
+    // Loop over groups to ensure they're all present and newDefs are properly ordered, also compile regexes
+    let nextItemIndex = 0;
+    for(let group of T.groupListAll) {
+      for(let key of order) {
+        const def: T.ColumnDef | undefined = newDefs[key];
+        if(!def) throw new Error("Cannot find definition for "+key);
+        if(def.group === group) {
+          if(order[nextItemIndex] !== key) {
+            //console.log(`definition ${key} in group ${group} is out of order`);
+            //everything between the misplaced item and where it's moved to will be considered misplaced
           }
-          else if(def.dataType === T.DataType.TagStr && !def._compiledTagStrRegex) {
-            def._compiledTagStrRegex = getTagStrColRegex(def);
+          result[key] = def;
+          nextItemIndex++;
+          if(compileRegexes) {
+            if(def.dataType === T.DataType.NumStr && !def._compiledNumStrRegex) {
+              def._compiledNumStrRegex = getNumStrColRegex(def);
+            }
+            else if(def.dataType === T.DataType.TagStr && !def._compiledTagStrRegex) {
+              def._compiledTagStrRegex = getTagStrColRegex(def);
+            }
           }
         }
       }
     }
+    return result;
   }
-  return result;
+  else return newDefs;
 }
 
 //Returns sorted columnDef order by their group, and adds/deletes to match given defs if indicated
@@ -204,6 +207,10 @@ export function getTagStrColRegex(def: T.ColumnDefRestrictions): RegExp {
   return new RegExp(str, 'g');
 }
 
+function getMoveNameError(moveName: string): false | string {
+  return false;
+}
+
 export function checkInvalid(data: T.ColumnData | undefined, def: T.ColumnDefRestrictions & {columnName: string}): false | FieldError {
   const colName = def.columnName;
   const dataType: T.DataType = def.dataType;
@@ -224,7 +231,7 @@ export function checkInvalid(data: T.ColumnData | undefined, def: T.ColumnDefRes
     }
   }
 
-  //validate moveName
+  //validate moveName. Only runs for client-side checks, actual charDoc doesn't include moveName cols.
   if(colName === 'moveName') {
     const forbiddenMatches = CompileConstants.FORBIDDEN_MOVE_ID_REGEX.exec(data as string);
     if(forbiddenMatches) {
@@ -319,10 +326,13 @@ export function checkInvalid(data: T.ColumnData | undefined, def: T.ColumnDefRes
   return false;
 }
 
+
 export function getCharDocErrors(charDoc: T.CharDoc, designDoc: T.DesignDoc): {[moveName: string]: FieldError[]} | false {
   let errors: {[moveName: string]: FieldError[]} = {};
+
   let propErrors = getMoveErrors(charDoc.universalProps, designDoc.universalPropDefs);
   if(propErrors) errors.universalProps = propErrors;
+
   for(const [moveName, move] of util.keyVals(charDoc.moves)) {
     if(!moveName || !move) continue;
     let moveErrors = getMoveErrors(move, designDoc.columnDefs);
@@ -330,6 +340,7 @@ export function getCharDocErrors(charDoc: T.CharDoc, designDoc: T.DesignDoc): {[
   }
   return (util.keys(errors).length > 0) ? errors : false;
 }
+
 
 function getMoveErrors(move: T.Cols, defs: T.ColumnDefs): FieldError[] | false {
   let errors: FieldError[] = [] 
@@ -339,6 +350,12 @@ function getMoveErrors(move: T.Cols, defs: T.ColumnDefs): FieldError[] | false {
     const err = checkInvalid(colData, def);
     if(err) errors.push(err);
   }
+
+  //moveName needs special handling since its column isn't usually included
+  //if(moveName) {
+    //const moveNameError = checkInvalid(moveName, specialDefs.builtin.columnDefs.moveName!);
+    //if(moveNameError) errors.push(moveNameError);
+  //}
   return (errors.length > 0) ? errors : false;
 }
 

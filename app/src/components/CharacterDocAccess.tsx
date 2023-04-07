@@ -134,8 +134,17 @@ export const CharacterDocAccess: React.FC<CharProviderProps> = ({children, gameI
     //console.log("Uploading ID " + id);
     //const uploadDoc: T.ChangeDocWithMeta = {...changeList, _id: id, _rev: undefined};
 
-    //changeList.moveChanges!['testo '] = {moveName: {type: 'delete', old: 'testo weiner   '}, madeUpListField: {type:'add', new: [' trim ', 'b']}};
-    //changeList.universalPropChanges = {moveOrder: {type: 'modify', new: [{"name":"windy moves","isCategory":true},{"name":"AA"},{name: 'category no remove pls', isCategory: true},{name: '  trim'}], old:state.charDoc.universalProps.moveOrder}}
+    //changeList.moveChanges!['testo #$%'] = {moveName: {type: 'add', new: 'testo #$%'}, madeUpListField: {type:'add', new: [' trim ', 'b']}};
+    //changeList.moveChanges!['testo'] = {moveName: {type: 'add', new: 'testo'}, displayName: {type: 'add', new: 'test move'}}; //must pass
+    //changeList.moveChanges!['universalProps '] = {moveName: {type: 'add', new: 'universalProps '}};
+    //changeList.moveChanges!['1234567890123456789012345678901'] = {moveName: {type: 'add', new: '1234567890123456789012345678901'}};
+    //changeList.moveChanges!['made_up_move#@!'] = {madeUpListField: {type:'add', new: [' trim ', 'b']}}; //caught due to made up field
+    //changeList.moveChanges!['made_up_move#@!3'] = {damage: {type:'add', new: [' trim ', 'b']}}; //caught
+    //changeList.moveChanges!['AA'] = {damage: {type:'add', new: [' trim ', 'b']}}; //caught
+    //changeList.moveChanges!['made_up_move2'] = {madeUpListField: {type:'modify', new: 7, old:6}}; //caught
+    //changeList.moveChanges!['bad_move_data'] = 2 as any as T.MoveChanges; //caught
+
+    //changeList.universalPropChanges = {moveOrder: {type: 'modify', new: [{"name":"windy moves","isCategory":true},{"name":"AA"},{name: 'category no remove pls', isCategory: true},{name: '  trim'}], old:state.charDoc.universalProps.moveOrder}, madeUpCol: {type:'add', new: 7}}; 
     //console.log('Before sanitization '+JSON.stringify(changeList));
     //util.sanitizeChangeDoc(changeList);
     //console.log('After sanitization '+JSON.stringify(changeList));
@@ -158,7 +167,7 @@ export const CharacterDocAccess: React.FC<CharProviderProps> = ({children, gameI
         presentToast(`Changes named ${changeList.updateTitle} already exist`, 6000);
       }
       else if(err.status === 422) {
-        //TODO: if status is 409 (conflict) and on local, gotta fetch newer charDoc!
+        //TODO: this means based on outdated charDoc, gotta fetch newer charDoc!
         presentToast(err.message, 6000);
       }
       else {
