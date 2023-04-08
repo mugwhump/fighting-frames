@@ -11,11 +11,10 @@ function getEmptyCharDoc(): T.CharDocWithMeta {
     _id: "",
     _rev: "",
     charName: "",
-    displayName: "",
     updatedAt: new Date().toString(), 
     updatedBy: "",
     changeHistory: [], 
-    universalProps: {moveOrder: []},
+    universalProps: {characterDisplayName: "", moveOrder: []},
     moves: {},
   }
 }
@@ -198,7 +197,7 @@ export const characterReducer: Reducer<State, EditAction> = (state, action) => {
 
     case 'setCharDoc': {
       const characterId = action.charDoc.charName;
-      const characterDisplayName = action.charDoc.displayName;
+      const characterDisplayName = action.charDoc.universalProps.characterDisplayName;
       console.log("Loaded chardoc for "+characterId);
       //TODO: check that document matches current character?
       newState.charDoc = action.charDoc;
@@ -326,7 +325,7 @@ export const characterReducer: Reducer<State, EditAction> = (state, action) => {
       }
       let edits = {...state.editChanges};
       applyResolutions(edits);
-      checkRebase(edits);
+      checkRebase(edits); //in case new baseDoc came in while resolving merge conflicts
       updateEditsAndCheckForWrite(edits);
       break;
     }

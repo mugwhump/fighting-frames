@@ -229,11 +229,11 @@ export namespace CharDocs {
     updatedAt: new Date("Mon April 20 1969 16:20:00 GMT+0200 (CEST)").toString(),
     updatedBy: "admin",
     charName: "Talim",
-    displayName: "Talim",
     changeHistory: ['c1','c2alt'],
     universalProps: {
       Age: 14,
       Bio: "Is a good girl",
+      characterDisplayName: "Talim",
       moveOrder: Order.baseOrder,
     },
     moves: {

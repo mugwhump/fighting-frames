@@ -258,13 +258,13 @@ export function getConflictResolvedValue(conflict: T.Conflict, baseValue: T.Colu
   return getConflictNew(conflict, baseValue, conflict.resolution);
 }
 
-export function isConflictMoveOrderMergeBothChange(conflict: T.ConflictMoveOrder): conflict is T.ConflictMoveOrderMergeBothChange {
+export function isConflictMoveOrderMergeBothChange(conflict: T.ConflictMoveOrder): conflict is T.ConflictGeneric<T.Modify<T.MoveOrder[]>> {
   return conflict.yours !== "no-op" && conflict.theirs !== "no-op";
 }
-export function isConflictMoveOrderMergeTheyChange(conflict: T.ConflictMoveOrder): conflict is T.ConflictMoveOrderMergeTheyChange {
+export function isConflictMoveOrderMergeTheyChange(conflict: T.ConflictMoveOrder): conflict is T.ConflictGeneric<"no-op", T.Modify<T.MoveOrder[]>, T.MoveOrder[]> {
   return conflict.yours === "no-op";
 }
-export function isConflictMoveOrderRebaseBothChange(conflict: T.ConflictMoveOrder): conflict is T.ConflictMoveOrderRebaseBothChange {
+export function isConflictMoveOrderRebaseBothChange(conflict: T.ConflictMoveOrder): conflict is T.ConflictGeneric<T.Modify<T.MoveOrder[]>, "no-op"> {
   return conflict.theirs === "no-op";
 }
 

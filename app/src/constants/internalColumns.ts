@@ -23,6 +23,18 @@ export const groupDescriptions = {
 }
 
 // --------------------- UNIVERSAL PROP COLUMNS --------------------
+// Builtins
+export const characterDisplayNameColumnDef: Readonly<ColumnDef> = {
+  columnName: "characterDisplayName",
+  displayName: "Display Name",
+  hintText: "Visible name of this character. Unlike the character's ID, can be changed.",
+  dataType: DataType.Str,
+  required: true,
+  minSize: 1,
+  maxSize: 35,
+  group: "meta",
+  widths: predefinedWidths['full'],
+}
 //EditCharacter must apply changes to this 
 //use with ion-reorder and ion-reorder-group
 export const moveOrderColumnDef: ColumnDef = {
@@ -44,7 +56,7 @@ export const moveOrderColumnDef: ColumnDef = {
   //group: "meta",
   //defaultShow: false,
 //}
-const builtinPropDefs: Readonly<ColumnDefs> = {moveOrder: moveOrderColumnDef};
+const builtinPropDefs: Readonly<ColumnDefs> = {characterDisplayName: characterDisplayNameColumnDef, moveOrder: moveOrderColumnDef};
 const mandatoryPropDefs : Readonly<ColumnDefs> = {};
 const mandatoryPropDefSuggested : Readonly<ColumnDefs> = {};
 const suggestedPropDefs: Readonly<ColumnDefs> = {};
@@ -61,7 +73,7 @@ export const moveNameColumnDef: Readonly<ColumnDef> = {
   displayName: "Move ID",
   hintText: "A unique identifier for this move, used internally. Cannot be changed.",
   dataType: DataType.Str,
-  required: true,
+  required: false, //will usually not be there
   forbiddenValues: ["universalProps", "universalPropChanges","moveName","moveOrder","displayName"],
   minSize: 1,
   maxSize: 30,
@@ -178,8 +190,9 @@ const suggestedColumnDefs: Readonly<ColumnDefs> = {damage, startup, onBlock, onH
 
 export const specialDefs = {
   builtin: { //Defined purely internally in client, not present in database or editable. Have "meta" group and special handling for how they're displayed.
-    universalPropDefs: builtinPropDefs, //inserted at end so moveOrder and banner changes/conflicts show at bottom
-    columnDefs: builtinColumnDefs, //inserted at front so moveName conflict swiper shows at top
+    //Inserted at front so changes/conflicts show up at top
+    universalPropDefs: builtinPropDefs, 
+    columnDefs: builtinColumnDefs, 
   },
   mandatory: { //If present in database, the properties in these will overwrite those defined by admins, allowing limited editing
     universalPropDefs: mandatoryPropDefs,

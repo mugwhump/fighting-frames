@@ -231,7 +231,7 @@ export function checkInvalid(data: T.ColumnData | undefined, def: T.ColumnDefRes
     }
   }
 
-  //validate moveName. Only runs for client-side checks, actual charDoc doesn't include moveName cols.
+  //validate moveName. Runs client-side, and server-side when validating changeDoc since actual charDoc doesn't include moveName cols.
   if(colName === 'moveName') {
     const forbiddenMatches = CompileConstants.FORBIDDEN_MOVE_ID_REGEX.exec(data as string);
     if(forbiddenMatches) {
@@ -343,19 +343,16 @@ export function getCharDocErrors(charDoc: T.CharDoc, designDoc: T.DesignDoc): {[
 
 
 function getMoveErrors(move: T.Cols, defs: T.ColumnDefs): FieldError[] | false {
-  let errors: FieldError[] = [] 
-  for(const [colName, colData] of util.keyVals(move)) {
-    let def = defs[colName];
-    if(!colName || !def) continue; //TODO: maybe do something with defless data
+  let errors: FieldError[] = []; 
+  //for(const [colName, colData] of util.keyVals(move)) {
+  for(const [colName, def] of util.keyVals(defs)) { // loop over defs, not data; want errors for required cols w/o data
+    //let def = defs[colName];
+    let colData = move[colName];
+    if(!colName || !def) continue; 
     const err = checkInvalid(colData, def);
     if(err) errors.push(err);
   }
 
-  //moveName needs special handling since its column isn't usually included
-  //if(moveName) {
-    //const moveNameError = checkInvalid(moveName, specialDefs.builtin.columnDefs.moveName!);
-    //if(moveNameError) errors.push(moveNameError);
-  //}
   return (errors.length > 0) ? errors : false;
 }
 

@@ -246,7 +246,7 @@ export const EditCharacter: React.FC<EditCharProps> = ({gameId, columnDefs, univ
               },
             }
           )}>
-            <IonLabel>Delete</IonLabel>
+            <IonLabel>Discard Edits</IonLabel>
           </IonItem>
           <IonItem button={true} detail={false} onClick={()=> { dismissPopOver(); dispatch({actionType:'openMoveEditModal', moveName:''}) }}>
             <IonLabel>Add Move</IonLabel>

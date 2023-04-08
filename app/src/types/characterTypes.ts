@@ -142,6 +142,7 @@ export interface Cols<T extends ColumnData = ColumnData> {
 export interface MoveCols extends Cols<MoveData> {
 }
 export interface PropCols extends Cols<PropData> {
+  characterDisplayName: string;
   moveOrder: MoveOrder[];
 }
 export interface MoveOrder {
@@ -170,7 +171,7 @@ export type DesignDoc = {
 
 export type CharDoc = {
   charName: string,
-  displayName: string,
+  //displayName: string, //TODO: phasing out in favor of builtin universal prop
   updatedAt: string, // created via new Date().toString()
   updatedBy: string,
   changeHistory: string[]; //array of changelist titles (not doc IDs) used to create this. Changes not listed can be cleaned up after a time to make room?
@@ -185,7 +186,7 @@ type Optional<T, K extends keyof T> = Omit<T, K> & Partial<Pick<T, K>> //utility
 export type ChangeDoc = Optional<ChangeDocServer, 'updateTitle'> & {
   conflictList?: ConflictList; 
   rebaseSource?: CharDocWithMeta; //chardoc that current changedoc saw and rebase conflicts were generated from, needed if an even newer charDoc comes in mid-rebase.
-  // Gets set on all docs that are rebased even if they have no conflicts, then used to update metadata when resolutions applied.
+  // Gets set on all docs that are rebased. If conflicts, used to update metadata when resolutions applied. If no conflicts, metadata immediately updated and rebaseSource deleted.
   mergeSource?: CharDocWithMeta; //chardoc that changeDocs causing merge conflicts were based on
   // If conflicts came from a merge, nothing from the other changelist is needed, just the base
 }
@@ -239,10 +240,12 @@ export type GetChangesType<D extends ColumnData> = D extends MoveData ? MoveChan
 export type Changes = MoveChanges | PropChanges;
 export interface MoveChanges {
   moveName?: Add<string> | Delete<string>; 
+  characterDisplayName?: never;
   moveOrder?: never;
   [columnName: string]: ColumnChange<MoveData> | undefined;
 }
 export interface PropChanges {
+  characterDisplayName?: Modify<string>;
   moveOrder?: Modify<MoveOrder[]>; //moveOrder is always there, creating char doc makes empty array
   moveName?: never;
   [columnName: string]: ColumnChange<PropData> | undefined;
@@ -323,22 +326,16 @@ export type ConflictMergeAllOrNothing<T extends ColumnData = ColumnData> = Confl
   //readonly theirs: ColumnChange<T> | "no-op"; //theirs is noop if you add column while they delete move
 //}
 // -------------------- CONFLICTS FOR SPECIFIC COLUMNS --------------------- 
-export type ConflictMoveOrder = ConflictMoveOrderMergeBothChange | ConflictMoveOrderMergeTheyChange | ConflictMoveOrderRebaseBothChange;
-export type ConflictMoveOrderMergeBothChange = ConflictGeneric<Modify<MoveOrder[]>>;
-//export interface ConflictMoveOrderMergeBothChange extends ConflictMerge<MoveOrder[]> {
-  //readonly yours: Modify<MoveOrder[]>;
-  //readonly theirs: Modify<MoveOrder[]>;
-//}
-export type ConflictMoveOrderMergeTheyChange = ConflictGeneric<"no-op", Modify<MoveOrder[]>, MoveOrder[]>;
-//export interface ConflictMoveOrderMergeTheyChange extends ConflictMergeTheirs<MoveOrder[]> {
-  //readonly yours: "no-op"; //no-op if merging their uncontested changes
-  //readonly theirs: Modify<MoveOrder[]>;
-//}
-export type ConflictMoveOrderRebaseBothChange = ConflictGeneric<Modify<MoveOrder[]>, "no-op">;
-//export interface ConflictMoveOrderRebaseBothChange extends ConflictRebase<MoveOrder[]> {
-  //readonly yours: Modify<MoveOrder[]>; 
-  //readonly theirs: "no-op"; 
-//}
+type ConflictOnlyModify<D extends ColumnData = ColumnData> = 
+  ConflictGeneric<Modify<D>> | //if merging and both change
+  ConflictGeneric<"no-op", Modify<D>, D> | //if merging their uncontested changes
+  ConflictGeneric<Modify<D>, "no-op">; //if rebasing your uncontested changes
+export type ConflictCharacterDisplayName = ConflictOnlyModify<string>;
+export type ConflictMoveOrder = ConflictOnlyModify<MoveOrder[]>;
+//export type ConflictMoveOrder = ConflictMoveOrderMergeBothChange | ConflictMoveOrderMergeTheyChange | ConflictMoveOrderRebaseBothChange;
+//export type ConflictMoveOrderMergeBothChange = ConflictGeneric<Modify<MoveOrder[]>>;
+//export type ConflictMoveOrderMergeTheyChange = ConflictGeneric<"no-op", Modify<MoveOrder[]>, MoveOrder[]>;
+//export type ConflictMoveOrderRebaseBothChange = ConflictGeneric<Modify<MoveOrder[]>, "no-op">;
 export type ConflictMoveName = ConflictGeneric<Add<string> | Delete<string> | "no-op">; 
 let moveNameExample: ConflictMoveName = {
   yours: {type: "add", new: "banan"},
@@ -362,6 +359,7 @@ export interface ConflictsMoves  extends Conflicts <MoveData> {
   moveName?: ConflictMoveName;
 }
 export interface ConflictsProps  extends Conflicts <PropData> {
+  characterDisplayName?: ConflictCharacterDisplayName;
   moveOrder?: ConflictMoveOrder;
 }
 export interface ConflictsRebase<T extends ColumnData = ColumnData> extends Conflicts<T> {

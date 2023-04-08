@@ -133,6 +133,8 @@ async function uploadChange(req: Request<{gameId:string, characterId:string, cha
     designDoc.universalPropDefs = colUtil.insertDefsSortGroupsCompileRegexes(designDoc.universalPropDefs, true, true, false, false);
     designDoc.columnDefs = colUtil.insertDefsSortGroupsCompileRegexes(designDoc.columnDefs, false, true, false, false);
 
+    logger.info("TESTING, ddoc prop defs used in validation are " + JSON.stringify(designDoc.universalPropDefs));
+
     //make sure changeDoc is well formed (which includes moveName checks)
     const changeDocErrors = util.validateChangeDoc(changeDoc, charDoc, designDoc);
     if(changeDocErrors) {
@@ -183,8 +185,8 @@ async function uploadChange(req: Request<{gameId:string, characterId:string, cha
 
     //finally upload changeDoc
     try {
-      //logger.info("TESTING, not actually inserting. Doc is "+JSON.stringify(uploadDoc));
-      await db.insert(uploadDoc); 
+      logger.info("TESTING, not actually inserting. Doc is "+JSON.stringify(uploadDoc));
+      //await db.insert(uploadDoc); 
     }
     catch(err: any) {
       return getErrorObject("Error inserting change document, " + err, err.statusCode); //usually 409 for conflicts
@@ -327,11 +329,10 @@ router.post(CompileConstants.API_ADD_CHARACTER_MATCH, needsPermissions("GameAdmi
     let charDoc: T.CharDoc & {_id: string} = {
       _id: util.getCharDocId(charId),
       charName: charId,
-      displayName: displayName,
       updatedAt: util.getDateString(),
       updatedBy: user,
       changeHistory: [],
-      universalProps: {moveOrder: []},
+      universalProps: {characterDisplayName: displayName, moveOrder: []},
       moves: {},
     }
 
@@ -354,20 +355,13 @@ router.post(CompileConstants.API_ADD_CHARACTER_MATCH, needsPermissions("GameAdmi
   }
 });
 
-//router.put(CompileConstants.API_UPLOAD_AND_PUBLISH_CHANGE_MATCH, needsPermissions("Editor"), 
-           //async (req: Request<{gameId:string, characterId:string, changeTitle:string}>, res) => {
-  //logger.info("Uploading and publishing");
-  ////upload
-  //let uploadError = await uploadChange(req);
-  //if(uploadError) return sendError(res, uploadError.message, uploadError.status);
-  //logger.info("Uploaded successfully");
-
-  ////publish
-  //let publishError = await publishChange(req, true);
-  ////TODO: return different error nesting this one, so client knows upload succeeded but publish failed?
-  ////It's more RESTful to keep upload and publish as two separate api calls and let client invoke both tbh.
-  //if(publishError) return sendError(res, publishError.message, publishError.status);
-  //else sendSuccess(res, "Changes published!");
+//router.delete(CompileConstants.API_CHARACTER_MATCH, needsPermissions("GameAdmin"),
+           //async (req: TypedRequest<{gameId:string}, CreateCharacterBody>, res) => {
+  //try {
+  //}
+  //catch(err) {
+    //return sendError(res, `Server Error creating character, ${err}`);
+  //}
 //});
 
 

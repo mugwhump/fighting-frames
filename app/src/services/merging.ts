@@ -82,6 +82,7 @@ export function autoResolveConflicts (changeDoc: T.ChangeDoc, preference: "yours
 
 //Generate conflicts between changeDoc and a newer charDoc in case they changed the same stuff.
 //Can safely call this even if there's unresolved or partially-resolved rebase conflicts.
+//CANNOT call if there's merge conflicts.
 export function rebaseChangeDoc(baseDoc: Readonly<T.CharDocWithMeta>, changeDoc: T.ChangeDoc, skipRevCheck?: boolean) {
   //Check that rebase is needed
   if(!skipRevCheck && ( util.getRevNumber(changeDoc.baseRevision) >= util.getRevNumber(baseDoc._rev) || 
@@ -123,9 +124,11 @@ export function rebaseChangeDoc(baseDoc: Readonly<T.CharDocWithMeta>, changeDoc:
     changeDoc.conflictList = conflictList;
   }
   else {
-    console.log("No conflicts from rebase");
+    console.log("No conflicts from rebase, updating metaData and deleting rebaseSource");
+    applyResolutions(changeDoc, false);
   }
 }
+
 //assumes changes are less recent than new basis
 //must pass move name so move can be added if changes modify move no longer in base
 //undefined baseValues means move is missing, so your changes may be addition

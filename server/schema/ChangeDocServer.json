@@ -191,6 +191,29 @@
       ],
       "type": "object"
     },
+    "Modify<string>": {
+      "additionalProperties": false,
+      "properties": {
+        "new": {
+          "type": "string"
+        },
+        "old": {
+          "type": "string"
+        },
+        "type": {
+          "enum": [
+            "modify"
+          ],
+          "type": "string"
+        }
+      },
+      "required": [
+        "new",
+        "old",
+        "type"
+      ],
+      "type": "object"
+    },
     "MoveChanges": {
       "additionalProperties": {
         "anyOf": [
@@ -206,6 +229,7 @@
         ]
       },
       "properties": {
+        "characterDisplayName": false,
         "moveName": {
           "anyOf": [
             {
@@ -272,6 +296,9 @@
         ]
       },
       "properties": {
+        "characterDisplayName": {
+          "$ref": "#/definitions/Modify<string>"
+        },
         "moveName": false,
         "moveOrder": {
           "$ref": "#/definitions/Modify<MoveOrder[]>"

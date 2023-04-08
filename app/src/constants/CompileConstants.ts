@@ -18,11 +18,11 @@ export let CompileConstants = {
 
   //TODO: RESTful uris don't generally have verbs, they're like this so they match couchdb's uris. Is that useful? URLs are already different since these start with api/
   API_UPLOAD_CHANGE_MATCH: "/game/:gameId/character/:characterId/changes/:changeTitle", //PUT. Would be POST if it ended at changes/. Using PUT since idempotent.
+  API_PUBLISH_CHANGE_MATCH: "/game/:gameId/character/:characterId", //PUT. Body contains title of change. TODO: PATCH, since PUT replaces entire resource, patch also used for instructions
+  API_ADD_CHARACTER_MATCH: "/game/:gameId/character", //POST. Body contains charName and displayName.
+  API_UPLOAD_CONFIG_MATCH: "/game/:gameId/_design/columns", //PUT
   //API_PUBLISH_CHANGE_MATCH: "/game/:gameId/character/:characterId/changes/:changeTitle/publish", //PUT. Would be more RESTFUL to end at :characterId and have changeTitle as body
   //API_UPLOAD_AND_PUBLISH_CHANGE_MATCH: "/game/:gameId/character/:characterId/changes/:changeTitle/upload-publish", //PUT
-  API_PUBLISH_CHANGE_MATCH: "/game/:gameId/character/:characterId", //PUT. Body contains title of change.
-  API_UPLOAD_CONFIG_MATCH: "/game/:gameId/_design/columns", //PUT
-  API_ADD_CHARACTER_MATCH: "/game/:gameId/character", //POST. Body contains charName and displayName.
 
   //Auth
   AUTH_TIMEOUT_SECONDS: 3600,
@@ -36,7 +36,7 @@ export let CompileConstants = {
   //Most IDs are lowercase-only.
   FORBIDDEN_GAME_ID_REGEX: /^(?:_)|[^a-z0-9\-\._~]/, 
   ALLOWED_CHARACTER_ID_REGEX: /^(?!_)[a-z0-9\-\._~]{1,25}$/,
-  ALLOWED_CHARACTER_DISPLAY_NAME_REGEX: /^[^\t\n]{1,35}$/,
+  ALLOWED_CHARACTER_DISPLAY_NAME_REGEX: /^[^\t\n]{1,35}$/, //TODO: has colDef now so remove this and just remove tabs/returns during validation
   ALLOWED_CHANGE_TITLE_REGEX: /^[\w-.~]{3,25}$/, //uppercase permitted
   ALLOWED_CHANGE_VERSION_REGEX: /^[\d.]{1,10}$/,
   FORBIDDEN_MOVE_ID_REGEX: /^(?:_)|[^\w\-\.,_~+:()\[\]\{\}\/><=]/, //uppercase permitted
