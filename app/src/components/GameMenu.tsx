@@ -49,7 +49,7 @@ const GameMenu: React.FC = () => {
             <IonMenuToggle key={index} autoHide={false}>
               <IonItem className={location.pathname === url ? 'selected' : ''} routerLink={url} routerDirection="forward" lines="none" detail={false}>
                 <IonIcon slot="start" ios={bookmarkOutline} md={bookmarkSharp} />
-                <IonLabel>{row.key}</IonLabel>
+                <IonLabel>{row.value}</IonLabel>
               </IonItem>
             </IonMenuToggle>
           );
