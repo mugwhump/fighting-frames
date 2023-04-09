@@ -3,7 +3,7 @@ import type * as T from '../types/characterTypes'; //==
 import {DataType} from '../types/characterTypes'; //== 
 import type { FieldError } from '../types/utilTypes'; //==
 import { getChangedCols } from '../services/merging';
-import { SegmentUrl } from '../types/utilTypes';
+import { SegmentUrl, HttpMethod } from '../types/utilTypes';
 import * as colUtil from '../services/columnUtil';
 import { moveNameColumnDef } from '../constants/internalColumns';
 import { generatePath } from "react-router";
@@ -185,18 +185,25 @@ export function getDeleteCharacterUrl(gameId: string): string {
 export function getAuthorizedUsersUrl(gameId: string): string {
   return generatePath(CompileConstants.AUTHORIZED_USERS_MATCH, {gameId: gameId});
 }
-export function getApiUploadChangeUrl(gameId: string, characterId: string, changeTitle: string): string {
-  return generatePath(CompileConstants.API_UPLOAD_CHANGE_MATCH, {gameId: gameId, characterId: characterId, changeTitle: changeTitle});
+
+
+export function getApiUploadChangeUrl(gameId: string, characterId: string, changeTitle: string): [string, HttpMethod] {
+  return [generatePath(CompileConstants.API_CHANGE_MATCH, {gameId: gameId, characterId: characterId, changeTitle: changeTitle}), "PUT"];
 }
-export function getApiPublishChangeUrl(gameId: string, characterId: string/*, changeTitle: string*/): string {
-  return generatePath(CompileConstants.API_PUBLISH_CHANGE_MATCH, {gameId: gameId, characterId: characterId/*, changeTitle: changeTitle*/});
+export function getApiPublishChangeUrl(gameId: string, characterId: string/*, changeTitle: string*/): [string, HttpMethod] {
+  return [generatePath(CompileConstants.API_CHARACTER_MATCH, {gameId: gameId, characterId: characterId/*, changeTitle: changeTitle*/}), "PATCH"];
 }
-export function getApiUploadConfigUrl(gameId: string): string {
-  return generatePath(CompileConstants.API_UPLOAD_CONFIG_MATCH, {gameId: gameId});
+export function getApiUploadConfigUrl(gameId: string): [string, HttpMethod] {
+  return [generatePath(CompileConstants.API_CONFIG_MATCH, {gameId: gameId}), "PUT"];
 }
-export function getApiAddCharacterUrl(gameId: string): string {
-  return generatePath(CompileConstants.API_ADD_CHARACTER_MATCH, {gameId: gameId});
+export function getApiAddCharacterUrl(gameId: string): [string, HttpMethod] {
+  return [generatePath(CompileConstants.API_CHARACTERS_MATCH, {gameId: gameId}), "POST"];
 }
+export function getApiDeleteCharacterUrl(gameId: string, characterId: string): [string, HttpMethod] {
+  return [generatePath(CompileConstants.API_CHARACTER_MATCH, {gameId: gameId, characterId: characterId}), "DELETE"];
+}
+
+
 export function getCharDocId(character: string): string {
   return 'character/'+character;
 }
@@ -212,10 +219,10 @@ export function getDateString(): string {
   return new Date().toISOString();
 }
 
-// Needed because "2-" > "100-" > "1-"
-export function getRevNumber(_rev: string): number {
-  return Number.parseInt(_rev.split('-')[0]);
-}
+// Needed because "2-" > "100-" > "1-" //ACTUALLY, can just use parseInt() since that stops at hyphens
+//export function getRevNumber(_rev: string): number {
+  //return Number.parseInt(_rev.split('-')[0]);
+//}
 
 //trims spaces and escapes all tags/attributes. TODO: test how it escapes every instance of <, >, and &
 export function cleanUserString(dirty: string): string {

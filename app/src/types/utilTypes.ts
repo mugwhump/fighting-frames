@@ -1,3 +1,4 @@
+import type { ChangeDocWithMeta, CharDocWithMeta } from './characterTypes';
 
 //these are suffixes that go at the end of the url. Used for local and remote database URIs too.
 export enum SegmentUrl {
@@ -29,6 +30,32 @@ export type FieldError = {
   columnName: string;
   message: string;
 }
+
+export type ViewRowGeneric<Key, Value, Doc extends Object = Object> = {
+  id: string;
+  key: Key;
+  value: Value;
+  doc?: Doc;
+}
+
+// key is character ID, string is character displayName
+export type ListCharactersViewRow = ViewRowGeneric<string, string, CharDocWithMeta>;
+
+export type ListChangesViewRow = ViewRowGeneric<ListChangesViewRowKey, ListChangesViewRowValue, ChangeDocWithMeta>;
+export type ListChangesViewRowKey = 
+  [
+    string, //characterId
+    number, //revision integer
+    string //creation date string
+  ]; 
+export type ListChangesViewRowValue = {
+  _rev: string;
+  updateTitle: string;
+  updateDescription?: string;
+  baseRevision: string;
+}
+
+export type HttpMethod = "GET" | "PUT" | "POST" | "PATCH" | "DELETE";
 
 export type ApiResponse = {
   message: string;

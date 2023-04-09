@@ -7,7 +7,8 @@ import { bookmarkOutline, bookmarkSharp } from 'ionicons/icons';
 //import PouchDB from 'pouchdb';
 import { useView, usePouch } from 'use-pouchdb'
 import { useDocumentLocalRemoteSwitching } from '../services/pouch';
-//import { DBListDoc } from '../types/characterTypes';
+import { CharDocWithMeta } from '../types/characterTypes';
+import type { ListCharactersViewRow } from '../types/utilTypes'; //==
 import { getCharacterUrl, getGameUrl } from '../services/util';
 import LoginButton from './LoginButton';
 import { withGameContext, useGameDispatch, Action as GameAction } from './GameProvider';
@@ -26,7 +27,7 @@ const GameMenu: React.FC = () => {
   const gameId: string = gameContext.gameId; //TODO: Wrapper component
   const gameDisplayName = gameContext.gameDisplayName;
   const gameDispatch = useGameDispatch();
-  const { rows, loading, state, error } = useView("list/list-chars"); 
+  const { rows, loading, state, error } = useView<ListCharactersViewRow, CharDocWithMeta>("list/list-chars"); 
   useDocumentLocalRemoteSwitching(state, error, 'GameMenu');
   let menuContent: ReactNode = (<div>Ky is dishonest</div>);
 
@@ -34,7 +35,7 @@ const GameMenu: React.FC = () => {
     menuContent = (<div>error, GameMenu receiving null gameId</div>);
   }
   else if (state === 'error') {
-    menuContent = (<div>heckin errorino in character menu: {error?.message}</div>);
+    menuContent = (<div>Error in character menu: {error?.message}</div>);
   }
   // loading is true even after the doc loads
   else if (loading && rows.length === 0) {

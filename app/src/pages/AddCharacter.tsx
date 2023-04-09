@@ -24,10 +24,10 @@ const AddCharacter: React.FC<AddCharacterProps> = ({gameId}) => {
 
   function submit() {
     console.log(`Submitting, id = ${charName}, display name = ${displayName}`)
-    const url = util.getApiAddCharacterUrl(gameId);
+    const [url, method] = util.getApiAddCharacterUrl(gameId);
     const body: CreateCharacterBody = {charName: charName, displayName: displayName};
 
-    myPouch.makeApiCall(url, 'POST', body).then((resp) => {
+    myPouch.makeApiCall(url, method, body).then((resp) => {
       presentAlert(resp.message, [ {text: 'OK', role: 'cancel'},
         {text: 'View Character', handler: () => {
         //navigate to newly created character

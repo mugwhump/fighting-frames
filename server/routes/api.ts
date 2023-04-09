@@ -10,7 +10,7 @@ import * as CouchAuthTypes from '@perfood/couch-auth/lib/types/typings';
 import { cloneDeep, isEqual } from 'lodash';
 import * as Nano from 'nano';
 import type * as T from '../shared/types/characterTypes'; //= //not included in runtime buildo
-import type { ApiResponse, PublishChangeBody, CreateCharacterBody } from '../shared/types/utilTypes'; //= 
+import type { ApiResponse, PublishChangeBody, CreateCharacterBody, ListChangesViewRow, ListChangesViewRowValue } from '../shared/types/utilTypes'; //= 
 import * as intCols from '../shared/constants/internalColumns';
 import * as colUtil from '../shared/services/columnUtil';
 import * as util from '../shared/services/util';
@@ -27,7 +27,11 @@ const testUser = 'joesmith2';
 //TODO: make custom error handler for nonexistent endpoint or method, right now express returns html
 
 
-router.put(CompileConstants.API_UPLOAD_CONFIG_MATCH, needsPermissions("GameAdmin"), //couchAuth.requireAuth, couchAuth.requireRole("user") as any,
+/**
+ * PUT. Upload new configuration which defines a game's columns, their restrictions, the game's displayed name, etc.
+ * Body contains configuration document.
+ */
+router.put(CompileConstants.API_CONFIG_MATCH, needsPermissions("GameAdmin"), //couchAuth.requireAuth, couchAuth.requireRole("user") as any,
            async (req: Request<{gameId:string}>, res) => {
   try {
     //const user: CouchAuthTypes.SlRequestUser = req.user!;
@@ -78,11 +82,15 @@ router.put(CompileConstants.API_UPLOAD_CONFIG_MATCH, needsPermissions("GameAdmin
 });
 
 
-router.put(CompileConstants.API_UPLOAD_CHANGE_MATCH, needsPermissions("Uploader"),
+/**
+ * PUT. Upload new changes for given character. Body contains change document.
+ * Not applied to character until this change is published.
+ */
+router.put(CompileConstants.API_CHANGE_MATCH, needsPermissions("Uploader"),
            async (req: Request<{gameId:string, characterId:string, changeTitle:string}>, res) => {
   let error = await uploadChange(req);
   if(error) sendError(res, error.message, error.status);
-  else sendSuccess(res, "Changes uploaded, someone with editor permissions must publish these changes.");
+  else sendSuccess(res, "Changes uploaded, someone with editor permissions must publish these changes.", 201);
 });
 
 //Returns 422 if submitted changes are based on an outdated character document
@@ -185,8 +193,8 @@ async function uploadChange(req: Request<{gameId:string, characterId:string, cha
 
     //finally upload changeDoc
     try {
-      logger.info("TESTING, not actually inserting. Doc is "+JSON.stringify(uploadDoc));
-      //await db.insert(uploadDoc); 
+      //logger.info("TESTING, not actually inserting. Doc is "+JSON.stringify(uploadDoc));
+      await db.insert(uploadDoc); 
     }
     catch(err: any) {
       return getErrorObject("Error inserting change document, " + err, err.statusCode); //usually 409 for conflicts
@@ -200,16 +208,11 @@ async function uploadChange(req: Request<{gameId:string, characterId:string, cha
   }
 }
 
-//router.post(CompileConstants.API_PUBLISH_CHANGE_MATCH_PUBLIC, 
-           //async (req: Request<{gameId:string, characterId:string, changeTitle:string}>, res) => {
-  //let error = await publishChange(req, false);
-  //if(error) sendError(res, error.message, error.status);
-  //else sendSuccess(res, "Changes published!");
-//});
-
-router.put(CompileConstants.API_PUBLISH_CHANGE_MATCH, needsPermissions("Editor"),
+/**
+ * PATCH. Update character by publishing an existing change. Body contains title of said change.
+ */
+router.patch(CompileConstants.API_CHARACTER_MATCH, needsPermissions("Editor"),
            async (req: TypedRequest<{gameId:string, characterId:string}, PublishChangeBody>, res) => {
-           //async (req: Request<{gameId:string, characterId:string, changeTitle:string}>, res) => {
   let testoId: string = req.body.changeTitle;
   let error = await publishChange(req);
   if(error) sendError(res, error.message, error.status);
@@ -295,7 +298,10 @@ async function publishChange(req: TypedRequest<{gameId:string, characterId:strin
   }
 }
 
-router.post(CompileConstants.API_ADD_CHARACTER_MATCH, needsPermissions("GameAdmin"),
+/**
+ * POST - create a new character. Body contains id and display name.
+ */
+router.post(CompileConstants.API_CHARACTERS_MATCH, needsPermissions("GameAdmin"),
            async (req: TypedRequest<{gameId:string}, CreateCharacterBody>, res) => {
   try {
     const {gameId} = req.params;
@@ -348,21 +354,53 @@ router.post(CompileConstants.API_ADD_CHARACTER_MATCH, needsPermissions("GameAdmi
       }
     }
 
-    return sendSuccess(res, "Character created!");
+    return sendSuccess(res, "Character created!", 201);
   }
   catch(err) {
     return sendError(res, `Server Error creating character, ${err}`);
   }
 });
 
-//router.delete(CompileConstants.API_CHARACTER_MATCH, needsPermissions("GameAdmin"),
-           //async (req: TypedRequest<{gameId:string}, CreateCharacterBody>, res) => {
-  //try {
-  //}
-  //catch(err) {
-    //return sendError(res, `Server Error creating character, ${err}`);
-  //}
-//});
+/**
+ * DELETE. Delete character *and* all changes. 
+ */
+router.delete(CompileConstants.API_CHARACTER_MATCH, needsPermissions("Reader"), //TODO: change back to GameAdmin once testing done
+           async (req: Request<{gameId:string, characterId:string}>, res) => {
+  try {
+    const {gameId, characterId} = req.params;
+    const db = adminNano.use(gameId);
+    const charDocId = util.getCharDocId(characterId);
+    let charDoc: T.CharDocWithMeta;
+
+    //fetch current charDoc
+    try {
+      charDoc = await db.get(charDocId) as T.CharDocWithMeta;
+    }
+    catch(err) {
+      return sendError(res, `Error getting character document ${charDocId}: ${err}`, 404);
+    }
+
+    const viewParams: Nano.DocumentViewParams = {descending: true, startkey: [characterId, {}], endkey: [characterId]};
+    const allChanges: Nano.DocumentViewResponse<ListChangesViewRowValue, unknown> = await db.view('changes', 'list-changes', viewParams);
+    const deleteDocIds: {_id: string, _rev: string, _deleted: true}[] = allChanges.rows.map((row) => ({_id: row.id, _rev: row.value._rev, _deleted: true}));
+    deleteDocIds.push({_id: charDocId, _rev: charDoc._rev, _deleted: true});
+
+    //return sendSuccess(res, "All rows ---- " + allChanges.rows.map((row) => JSON.stringify(row)).join(' ----------- '));
+    //return sendSuccess(res, "ChangeDocs to baleet " + deleteDocIds.map((row) => JSON.stringify(row)).join(', '));
+    try {
+      const deleteResult = await db.bulk({docs: deleteDocIds});
+    }
+    catch(err: any) {
+      //TODO: if charDoc deletion succeeds but changeDoc deletion doesn't, the latter will sit there and need manual deletion
+      return sendError(res, `Error during bulk deletion, ${err}`, err.statusCode);
+    };
+
+    return sendSuccess(res, `Character ${characterId} and all of their changes have been deleted`, 200);
+  }
+  catch(err) {
+    return sendError(res, `Server Error creating character, ${err}`);
+  }
+});
 
 
 

@@ -16,6 +16,7 @@ import { insertDefsSortGroupsCompileRegexes   } from '../services/columnUtil';
 import HeaderPage from '../components/HeaderPage';
 import DefEditor from '../pages/DefEditor';
 import AddCharacter from '../pages/AddCharacter';
+import DeleteCharacters from '../pages/DeleteCharacters';
 import * as T from '../types/characterTypes';
 import { cloneDeep } from 'lodash';
 import CompileConstants from '../constants/CompileConstants';
@@ -113,7 +114,7 @@ const Game: React.FC<GameProps> = () => {
 
         {/* this should also let you change display names */}
         <Route path={CompileConstants.DELETE_CHARACTER_MATCH} >
-          <div>Under Construction</div>
+          <DeleteCharacters gameId={gameId} />
         </Route>
 
         <Route path={CompileConstants.AUTHORIZED_USERS_MATCH} >

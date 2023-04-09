@@ -203,8 +203,8 @@ const DefEditor: React.FC<DefEditorProps> = ({gameId, designDoc}) => {
     //let testErr = checkInvalid(newDesignDoc.universalPropDefs.Bio!.forbiddenValues!, getMetaDef('forbiddenValues')!);
     //let testErr = getErrorsForColumnDef(newDesignDoc.universalPropDefs.Bio!);
     //console.log(JSON.stringify(newDesignDoc.universalPropDefs));
-    const url = getApiUploadConfigUrl(gameId);
-    makeApiCall(url, 'POST', newDesignDoc).then((res) => {
+    const [url, method] = getApiUploadConfigUrl(gameId);
+    makeApiCall(url, method, newDesignDoc).then((res) => {
       console.log(res.message ?? "Success!");
       presentAlert("Successfully updated config!");
       setDocChanges({});

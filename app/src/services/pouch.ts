@@ -5,7 +5,7 @@ import { usePouch } from 'use-pouchdb';
 import { useEffect, useState, useRef, MutableRefObject, useCallback } from 'react';
 import { useGameDispatch, Action as GameAction } from '../components/GameProvider';
 import type { LoginInfo } from '../components/LoginProvider'; //=}
-import type { ApiResponse } from '../types/utilTypes'; //=}
+import type { ApiResponse, HttpMethod } from '../types/utilTypes'; //=}
 import * as security from './security';
 import CompileConstants from '../constants/CompileConstants';
 
@@ -60,7 +60,7 @@ export function makeRequest(url: string, username: string, password: string, met
 // Most endpoints require a superlogin user, but some are useable as public, depending on db configuration,
 // in which case no Authorization header is sent.
 // Api calls that return text instead of json will be converted to an ApiResponse object.
-export function makeApiCall(url: string, method: "GET" | "PUT" | "POST", body?: Object): Promise<ApiResponse> {
+export function makeApiCall(url: string, method: HttpMethod, body?: Object): Promise<ApiResponse> {
   let authHeader = {};
   let session = superlogin.getSession();
   if(session) {

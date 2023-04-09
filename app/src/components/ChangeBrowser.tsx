@@ -4,6 +4,8 @@ import React, { useEffect }from 'react';
 import { useView, useDoc } from 'use-pouchdb'
 import * as myPouch from '../services/pouch';
 import * as util from '../services/util';
+import type { ChangeDocWithMeta } from '../types/characterTypes';
+import type { ListChangesViewRow, ListChangesViewRowValue } from '../types/utilTypes'; //==
 import { State, useCharacterDispatch, EditAction, useTrackedCharacterState, useCharacterSelector, useMiddleware, selectMoveOrder } from '../services/CharacterReducer';
 import { useLoginInfoContext, LoginInfo } from './LoginProvider';
 import ChangeViewer from './ChangeViewer';
@@ -18,7 +20,7 @@ export const ChangeBrowser: React.FC<ChangeBrowserProps> = ({gameId}) => {
   const baseRev = state.charDoc._rev;
   const publishedChanges = state.charDoc.changeHistory;
   //regarding how to match first element of array key: https://stackoverflow.com/questions/9687297/couchdb-search-or-filtering-on-key-array
-  const { rows, loading, state: viewState, error } = useView("changes/list-changes", {descending: true, startkey: [state.characterId, {}], endkey: [state.characterId]}); 
+  const { rows, loading, state: viewState, error } = useView<ListChangesViewRow, ChangeDocWithMeta>("changes/list-changes", {descending: true, startkey: [state.characterId, {}], endkey: [state.characterId]}); 
 
   useEffect(() => {
     console.log(`Dem rows: ${JSON.stringify(rows)}`);
@@ -34,9 +36,10 @@ export const ChangeBrowser: React.FC<ChangeBrowserProps> = ({gameId}) => {
 
   return (
     <IonGrid>
-      {rows.map((row: any) => {
-        const changeTitle = row.id.split('/')[3];
-        const changeBasis = row.key[1];
+      {rows.map((row: ListChangesViewRow) => {
+        const changeTitle = row.value.updateTitle;
+        const changeDescription = row.value.updateDescription; //descriptions are optional
+        const changeBasis = row.value.baseRevision;
         const needsRebase = changeBasis !== baseRev;
         const published = publishedChanges.includes(changeTitle);
         const uri = util.getChangeUrl(gameId, state.characterId, changeTitle);
@@ -45,7 +48,7 @@ export const ChangeBrowser: React.FC<ChangeBrowserProps> = ({gameId}) => {
               <IonRow >
                 {published && <IonIcon md={thumbsUpOutline} color="black" />}
                 <IonItem color={needsRebase ? "warning" : "primary"}>{changeTitle}</IonItem>
-                <IonItem>{row.value}</IonItem>
+                <IonItem>{changeDescription}</IonItem>
               </IonRow>
             </IonRouterLink>
           );

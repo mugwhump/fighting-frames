@@ -149,8 +149,8 @@ export const CharacterDocAccess: React.FC<CharProviderProps> = ({children, gameI
     //util.sanitizeChangeDoc(changeList);
     //console.log('After sanitization '+JSON.stringify(changeList));
 
-    const apiUrl = util.getApiUploadChangeUrl(gameId, state.characterId, changeList.updateTitle);
-    myPouch.makeApiCall(apiUrl, "PUT", changeList).then((res) => {
+    const [apiUrl, method] = util.getApiUploadChangeUrl(gameId, state.characterId, changeList.updateTitle);
+    myPouch.makeApiCall(apiUrl, method, changeList).then((res) => {
       console.log("Upload response = " + JSON.stringify(res));
       if(action.publish) {
         dispatch({actionType: 'publishChangeList', character: action.character, title: changeList.updateTitle, justUploaded: true});
@@ -185,17 +185,17 @@ export const CharacterDocAccess: React.FC<CharProviderProps> = ({children, gameI
       return;
     }
 
-    let apiUrl = util.getApiPublishChangeUrl(gameId, action.character);
+    let [apiUrl, method] = util.getApiPublishChangeUrl(gameId, action.character);
     const body: PublishChangeBody = {changeTitle: action.title};
 
     console.log(`Publishing changeDoc ${apiUrl} with payload ${JSON.stringify(body)}`);
-    myPouch.makeApiCall(apiUrl, "PUT", body).then((res) => {
+    myPouch.makeApiCall(apiUrl, method, body).then((res) => {
       //TODO: if this change was submitted by a user without write perms and current user is admin, prompt for whether to give author write perms
       console.log("Response: "+JSON.stringify(res));
       presentToast(res.message, 6000);
       let url = util.getSegmentUrl(gameId, state.characterId, SegmentUrl.Base); 
-      //TODO: getting error about "Node to be removed is not a child of this node," can I access history here?
-      history.push(url);
+      //TODO: getting error about "Node to be removed is not a child of this node," can I access history here? Is it cuz of open popover?
+      //history.push(url);
     }).catch((err) => {
       console.error("Error publishing change: "+ err.message);
       if(action.justUploaded) {
@@ -208,29 +208,6 @@ export const CharacterDocAccess: React.FC<CharProviderProps> = ({children, gameI
   }, [gameId]);
 
 
-  //const uploadAndPublishChangeListCallback: MiddlewareFn = useCallback((state, action, dispatch) => {
-    //if (action.actionType !== 'uploadAndPublishChangeList') {
-      //console.warn("Upload+publish changelist middleware being called for action "+action.actionType);
-      //return;
-    //}
-    ////const changeList: T.ChangeDocServer = action.changes;
-    //const changeList: T.ChangeDocServer = cloneDeep<T.ChangeDocServer>(action.changes); //TODO: just for testing
-    //const apiUrl = util.getApiUploadPublishChangeUrl(gameId, state.characterId, changeList.updateTitle); 
-    //myPouch.makeApiCall(apiUrl, "PUT", changeList).then((res) => {
-      //console.log("Upload+publish response = " + JSON.stringify(res));
-      //presentToast(res.message, 6000);
-      ////TODO: redirect to front page
-      //let url = util.getSegmentUrl(gameId, state.characterId, SegmentUrl.Base);
-      ////history.push(url); TODO: disabled while testing
-      ////dispatch({actionType:'deleteEdits'});
-    //}).catch((err) => {
-      ////TODO: if status is 409 (conflict) and on local, gotta fetch newer charDoc!
-      ////TODO: find what error you get from successfully uploading but failing to publish
-      //console.log("Upload error = " + err.message);
-      //presentToast('Upload failed: ' + err.message, 6000);
-    //});
-  //}, [gameId]);
-
   useMiddleware("CharacterDocAccess", 
                 { uploadChangeList: uploadChangeListCallback, 
                   publishChangeList: publishChangeListCallback,
@@ -241,7 +218,8 @@ export const CharacterDocAccess: React.FC<CharProviderProps> = ({children, gameI
   if (docState === 'error') {
     console.error("heckin errorino in CharacterDocAccess: " + JSON.stringify(error));
     if(error?.status && error.status === 404) {
-      return (<div>Character {character} does not exist</div>);
+      const deletedString = (error.reason === "deleted") ? "(Deleted)" : "";
+      return (<div>Character {character} does not exist {deletedString}</div>);
     }
     return (<span>Error loading character: {error?.message}</span>);
   }

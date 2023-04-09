@@ -85,8 +85,8 @@ export function autoResolveConflicts (changeDoc: T.ChangeDoc, preference: "yours
 //CANNOT call if there's merge conflicts.
 export function rebaseChangeDoc(baseDoc: Readonly<T.CharDocWithMeta>, changeDoc: T.ChangeDoc, skipRevCheck?: boolean) {
   //Check that rebase is needed
-  if(!skipRevCheck && ( util.getRevNumber(changeDoc.baseRevision) >= util.getRevNumber(baseDoc._rev) || 
-                       (changeDoc.rebaseSource && util.getRevNumber(changeDoc.rebaseSource._rev) >= util.getRevNumber(baseDoc._rev)) )) {
+  if(!skipRevCheck && ( Number.parseInt(changeDoc.baseRevision) >= Number.parseInt(baseDoc._rev) || 
+                       (changeDoc.rebaseSource && Number.parseInt(changeDoc.rebaseSource._rev) >= Number.parseInt(baseDoc._rev)) )) {
     console.warn(`No rebase needed, given baseDoc ${baseDoc._rev} probably outdated or already seen`);
     return;
   }
