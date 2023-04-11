@@ -21,8 +21,6 @@ export type ConflictSwiperProps = {
 const ConflictSwiper: React.FC<ConflictSwiperProps> = ({defData, moveName, conflict}) => {
   const characterDispatch = useCharacterDispatch();
   const columnName: string = defData.columnName;
-  const isMoveNameConflict = defData.columnName === "moveName";
-  const isMoveOrderConflict = defData.columnName === "moveOrder";
 
   //TODO: test all-or-nothing more
   /* 
@@ -45,7 +43,7 @@ const ConflictSwiper: React.FC<ConflictSwiperProps> = ({defData, moveName, confl
     let theirVal = (conflict.theirs !== "no-op") ? getNewFromChange(conflict.theirs) : baseVal;
     let theirElement = <DataRenderer defData={{...defData, data: theirVal}} />;
 
-    if(isMoveNameConflict) {
+    if(defData.columnName === "moveName") {
       centerElement = <span>"Conflicting move deletion, swipe to keep or delete"</span> ;
       if(conflict.yours !== "no-op" && conflict.yours.type === "delete") {
         yourElement = <span>Delete</span>;
@@ -60,10 +58,13 @@ const ConflictSwiper: React.FC<ConflictSwiperProps> = ({defData, moveName, confl
         theirElement = <span>Delete</span>;
       }
     }
-    if(isMoveOrderConflict) {
+    if(defData.columnName === "moveOrder") {
       centerElement = <span>"Conflicting move order, swipe for yours or theirs"</span>;
       yourElement = <span>Your Order</span>;
       theirElement = <span>Their Order</span>;
+    }
+    if(defData.columnName === "characterDisplayName") {
+      centerElement = <span>"Conflicting character name, swipe for yours or theirs"</span>;
     }
 
     //TODO: ionic's swiper covers up this background color with white

@@ -1,6 +1,6 @@
 const { log, ExpressAPILogMiddleware } = require('@rama41222/node-logger');
 
-const logger = log({ console: true, file: false, label: 'ff-server' });
+const logger = log({ console: true, file: true, label: 'ff-server' });
 
 export default logger;
 

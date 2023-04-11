@@ -137,11 +137,9 @@ async function uploadChange(req: Request<{gameId:string, characterId:string, cha
     }
 
     //fetch config ddoc, insert builtin and mandatory defs for validation
-    const designDoc = await db.get('_design/columns') as T.DesignDoc; //TODO: this won't include builtin/mandatory?
+    const designDoc = await db.get('_design/columns') as T.DesignDoc; 
     designDoc.universalPropDefs = colUtil.insertDefsSortGroupsCompileRegexes(designDoc.universalPropDefs, true, true, false, false);
     designDoc.columnDefs = colUtil.insertDefsSortGroupsCompileRegexes(designDoc.columnDefs, false, true, false, false);
-
-    logger.info("TESTING, ddoc prop defs used in validation are " + JSON.stringify(designDoc.universalPropDefs));
 
     //make sure changeDoc is well formed (which includes moveName checks)
     const changeDocErrors = util.validateChangeDoc(changeDoc, charDoc, designDoc);
@@ -162,7 +160,7 @@ async function uploadChange(req: Request<{gameId:string, characterId:string, cha
       logger.warn("After >> \n" + JSON.stringify(fixedMoveOrder));
     }
 
-    const charDocErrors = colUtil.getCharDocErrors(newCharDoc, designDoc);
+    const charDocErrors = colUtil.getCharDocErrors(newCharDoc, designDoc, true);
     if(charDocErrors) {
       return getErrorObject("Errors validating, "+JSON.stringify(charDocErrors), 400);
     }
@@ -199,7 +197,6 @@ async function uploadChange(req: Request<{gameId:string, characterId:string, cha
     catch(err: any) {
       return getErrorObject("Error inserting change document, " + err, err.statusCode); //usually 409 for conflicts
     }
-    //return getSuccessResponse("Changes uploaded, someone with editor permissions must publish these changes.");
     return false;
     //TODO: send email notifications to editors?
   }
@@ -272,7 +269,7 @@ async function publishChange(req: TypedRequest<{gameId:string, characterId:strin
     //make sure updated doc passes validation
     //if(!justUploaded) {
       const designDoc = await db.get('_design/columns') as T.DesignDoc;
-      const errors = colUtil.getCharDocErrors(charDoc, designDoc); //TODO: test that moveNames are actually checked against regex
+      const errors = colUtil.getCharDocErrors(charDoc, designDoc, true); //skips moveName checks
       if(errors) {
         return getErrorObject("Errors validating, "+JSON.stringify(errors), 400);
       }
@@ -385,20 +382,42 @@ router.delete(CompileConstants.API_CHARACTER_MATCH, needsPermissions("Reader"), 
     const deleteDocIds: {_id: string, _rev: string, _deleted: true}[] = allChanges.rows.map((row) => ({_id: row.id, _rev: row.value._rev, _deleted: true}));
     deleteDocIds.push({_id: charDocId, _rev: charDoc._rev, _deleted: true});
 
-    //return sendSuccess(res, "All rows ---- " + allChanges.rows.map((row) => JSON.stringify(row)).join(' ----------- '));
-    //return sendSuccess(res, "ChangeDocs to baleet " + deleteDocIds.map((row) => JSON.stringify(row)).join(', '));
     try {
       const deleteResult = await db.bulk({docs: deleteDocIds});
+      console.info("Delete result is " + JSON.stringify(deleteResult));
+      
+      let failedCharDocDeletion: Nano.DocumentBulkResponse | null = null;
+      let failedChangeDeletions: string[] = [];
+      //log all errors
+      for(const resultItem of deleteResult) {
+        if(resultItem.error) {
+          if(resultItem.id === charDocId) {
+            failedCharDocDeletion = resultItem;
+          }
+          else {
+            failedChangeDeletions.push(resultItem.id);
+          }
+          logger.error(`Deletion of document ${resultItem.id} during deletion of character ${characterId} failed with ${resultItem.error}: ${resultItem.reason}`);
+        }
+      }
+      //Tell user there was an error if charDoc didn't delete
+      if(failedCharDocDeletion) {
+        return sendError(res, `Error deleting character (${failedCharDocDeletion.error}: ${failedCharDocDeletion.reason})`, 400);
+      }
+      //If charDoc did delete but some change docs didn't, let user see that as success (since char is gone from their perspective), but log an error to clean up.
+      else if(failedChangeDeletions.length > 0) {
+        logger.error(`Deletion of changes ${failedChangeDeletions.join(', ')} during deletion of character ${characterId} failed although the character doc was deleted. Requires manual cleanup.`);
+        return sendSuccess(res, `Character ${characterId} has been deleted, though some of their changes weren't.`, 200);
+      }
     }
-    catch(err: any) {
-      //TODO: if charDoc deletion succeeds but changeDoc deletion doesn't, the latter will sit there and need manual deletion
-      return sendError(res, `Error during bulk deletion, ${err}`, err.statusCode);
+    catch(bulkDeleteErr: any) {
+      return sendError(res, `Error during bulk deletion, ${bulkDeleteErr}`, bulkDeleteErr.statusCode);
     };
 
     return sendSuccess(res, `Character ${characterId} and all of their changes have been deleted`, 200);
   }
   catch(err) {
-    return sendError(res, `Server Error creating character, ${err}`);
+    return sendError(res, `Server Error deleting character, ${err}`);
   }
 });
 

@@ -73,7 +73,7 @@ export const moveNameColumnDef: Readonly<ColumnDef> = {
   displayName: "Move ID",
   hintText: "A unique identifier for this move, used internally. Cannot be changed.",
   dataType: DataType.Str,
-  required: false, //will usually not be there
+  required: true, //moveEditModal only performs validation when adding new move
   forbiddenValues: ["universalProps", "universalPropChanges","moveName","moveOrder","displayName"],
   minSize: 1,
   maxSize: 30,

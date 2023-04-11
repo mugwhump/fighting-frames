@@ -327,7 +327,7 @@ export function checkInvalid(data: T.ColumnData | undefined, def: T.ColumnDefRes
 }
 
 
-export function getCharDocErrors(charDoc: T.CharDoc, designDoc: T.DesignDoc): {[moveName: string]: FieldError[]} | false {
+export function getCharDocErrors(charDoc: T.CharDoc, designDoc: T.DesignDoc, skipMoveNameCheck = false): {[moveName: string]: FieldError[]} | false {
   let errors: {[moveName: string]: FieldError[]} = {};
 
   let propErrors = getMoveErrors(charDoc.universalProps, designDoc.universalPropDefs);
@@ -335,20 +335,20 @@ export function getCharDocErrors(charDoc: T.CharDoc, designDoc: T.DesignDoc): {[
 
   for(const [moveName, move] of util.keyVals(charDoc.moves)) {
     if(!moveName || !move) continue;
-    let moveErrors = getMoveErrors(move, designDoc.columnDefs);
+    let moveErrors = getMoveErrors(move, designDoc.columnDefs, skipMoveNameCheck);
     if(moveErrors) errors[moveName] = moveErrors;
   }
   return (util.keys(errors).length > 0) ? errors : false;
 }
 
 
-function getMoveErrors(move: T.Cols, defs: T.ColumnDefs): FieldError[] | false {
+function getMoveErrors(move: T.Cols, defs: T.ColumnDefs, skipMoveNameCheck = false): FieldError[] | false {
   let errors: FieldError[] = []; 
   //for(const [colName, colData] of util.keyVals(move)) {
   for(const [colName, def] of util.keyVals(defs)) { // loop over defs, not data; want errors for required cols w/o data
     //let def = defs[colName];
     let colData = move[colName];
-    if(!colName || !def) continue; 
+    if(!colName || !def || (colName === 'moveName' && skipMoveNameCheck)) continue; 
     const err = checkInvalid(colData, def);
     if(err) errors.push(err);
   }

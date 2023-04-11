@@ -16,7 +16,9 @@ export function applyChangeDoc(charDoc: T.CharDocWithMeta, changeDoc: T.ChangeDo
       if(!moveChanges) continue;
       let changedMove = getChangedCols(charDoc.moves[moveName], moveChanges, true) as T.MoveCols;
       charDoc.moves[moveName] = changedMove;
-      if(util.keys(changedMove).length === 0) {
+      //If just adding move w/o other additions, move will be empty, but still want to keep it
+      const addingNewMove = moveChanges.moveName?.type === 'add';
+      if(util.keys(changedMove).length === 0 && !addingNewMove) {
         delete charDoc.moves[moveName];
       }
     }

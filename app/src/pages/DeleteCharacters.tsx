@@ -21,7 +21,7 @@ const DeleteCharacters: React.FC<DeleteCharactersProps> = ({gameId}) => {
   const [presentAlert, dismissAlert] = useIonAlert(); 
 
   function promptDelete(characterId: string, displayName: string) {
-    presentAlert(`Are you sure you want to delete the character ${displayName} (id: ${characterId} and their entire change history? This is a PERMANENT action and cannot be undone.`, 
+    presentAlert(`Are you sure you want to delete the character ${displayName} (id: ${characterId}) and their entire change history? This is a PERMANENT action and cannot be undone.`, 
       [ {text: 'Cancel', role: 'cancel'},
         {text: 'Delete', role: 'destructive', handler: () => {dismissAlert().then(() => promptDeleteAgain(characterId, displayName)); } },
       ]);

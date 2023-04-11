@@ -34,6 +34,29 @@ export const ChangeBrowser: React.FC<ChangeBrowserProps> = ({gameId}) => {
     return (<h1>Loading...</h1>);
   }
 
+  if(rows.length === 0) {
+    return(
+      <IonItem color={"primary"}>There are no changes for this character. Go to the Edit section to submit changes.</IonItem>
+    );
+  }
+
+  const publishedChangeRows: ListChangesViewRow[] = [];
+  const upToDateChangeRows: ListChangesViewRow[] = [];
+  const outdatedChangeRows: ListChangesViewRow[] = [];
+  let row: ListChangesViewRow;
+  for(row of rows) {
+    if(publishedChanges.includes(row.value.updateTitle)) {
+      publishedChangeRows.push(row);
+    }
+    else if(baseRev === row.value.baseRevision) {
+      upToDateChangeRows.push(row);
+    }
+    else {
+      outdatedChangeRows.push(row);
+    }
+  }
+
+  //TODO: show published changes (w/ button to revert), up-to-date (w/ button to publish), outdated (w/ button to import). Click any to go to changeviewer.
   return (
     <IonGrid>
       {rows.map((row: ListChangesViewRow) => {
