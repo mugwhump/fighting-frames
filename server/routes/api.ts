@@ -102,7 +102,9 @@ async function uploadChange(req: Request<{gameId:string, characterId:string, cha
     const changeDoc: T.ChangeDocServer = req.body;
 
     //trim strings, fix keys for added/deleted moves
+      logger.info("changeDoc before sanitization "+JSON.stringify(changeDoc));
     util.sanitizeChangeDoc(changeDoc);
+      logger.info("changeDoc right after sanitization "+JSON.stringify(changeDoc));
 
     //type validation
     //changeDoc.moveChanges!.AA = {'not-a-real-col': {type: 'modify', new: 69, old: 420}}; //rejected by inversion check
@@ -115,13 +117,14 @@ async function uploadChange(req: Request<{gameId:string, characterId:string, cha
     //failDoc.universalPropChanges = {moveName: {type: 'add', new: 'testo '}, madeUpListField: {type:'add', new: [' trim ', 'b']}}; //fails
     //failDoc.hoopla = 'banan'; //caught with --noExtraProps
     //failDoc.moveChanges[0] = 'poop'; //caught
-    let typeValidationResult = ChangeDocValidator(changeDoc);
+    let typeValidationResult = ChangeDocValidator(changeDoc); //NOTE: this mutates changeDoc by removing additional properties!
+      logger.info("changeDoc right after running schema validator "+JSON.stringify(changeDoc));
     if(typeValidationResult) {
       logger.info('Type validation successful');
     }
     else {
       logger.warn("Type validation errors "+JSON.stringify(ChangeDocValidator.errors));
-      logger.info("In changeDoc "+JSON.stringify(changeDoc));
+      //logger.info("In changeDoc "+JSON.stringify(changeDoc));
       return getErrorObject(`Type validation failed. Error in ${ChangeDocValidator?.errors?.[0]?.instancePath}, ${ChangeDocValidator?.errors?.[0]?.message}`, 400); //`
     }
 

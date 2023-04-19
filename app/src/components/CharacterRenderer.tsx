@@ -43,7 +43,7 @@ export const CharacterRenderer: React.FC<CharacterRendererProps> = ({children, c
     <IonGrid className={cssClasses.join(" ")}>
       <IonItem>
         <p>{baseDoc.charName} is the character (DB)</p><br />
-        <p>{JSON.stringify(baseDoc)}</p>
+        {/*<p>{JSON.stringify(baseDoc)}</p>*/}
       </IonItem>
       {children}
         <MoveOrUniversalProps moveName="universalProps" columns={baseDoc.universalProps} columnDefs={universalPropDefs} editMove={!!editingEnabled && !hasConflicts}

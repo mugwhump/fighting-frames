@@ -5,11 +5,7 @@ export enum SegmentUrl {
   Base = '',
   Edit = 'local-edit',
   Changes = 'changes', 
-  History = 'history'
-  //Base = '',
-  //Edit = '/local-edit',
-  //Changes = '/changes', 
-  //History = '/history'
+  //History = 'history'
 }
 
 //fixes JSON.stringify for Set<string>. Still can't use for(let i in set), must use for...of
@@ -50,9 +46,11 @@ export type ListChangesViewRowKey =
   ]; 
 export type ListChangesViewRowValue = {
   _rev: string;
+  baseRevision: string;
+  createdBy: string;
   updateTitle: string;
   updateDescription?: string;
-  baseRevision: string;
+  updateVersion?: string;
 }
 
 export type HttpMethod = "GET" | "PUT" | "POST" | "PATCH" | "DELETE";

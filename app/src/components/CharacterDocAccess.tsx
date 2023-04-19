@@ -1,4 +1,4 @@
-import { useIonToast, } from '@ionic/react';
+import { useIonAlert } from '@ionic/react';
 import React, { useEffect, useCallback }from 'react';
 import { useParams, useHistory } from 'react-router';
 import { useDoc, usePouch } from 'use-pouchdb';
@@ -8,6 +8,7 @@ import * as myPouch from '../services/pouch';
 import * as util from '../services/util';
 import { PublishChangeBody } from '../types/utilTypes';
 import { State, useCharacterDispatch, useTrackedCharacterState, useMiddleware, MiddlewareFn } from '../services/CharacterReducer';
+import { useMyToast } from '../services/hooks';
 import { SegmentUrl } from '../types/utilTypes';
 import { cloneDeep } from 'lodash';
 
@@ -27,7 +28,8 @@ export const CharacterDocAccess: React.FC<CharProviderProps> = ({children, gameI
   const state = useTrackedCharacterState();
   const dispatch = useCharacterDispatch();
   const history = useHistory();
-  const [presentToast, dismissToast] = useIonToast(); 
+  const [presentMyToast, dismissToast] = useMyToast(); 
+  const [presentAlert, dismissAlert] = useIonAlert(); 
   const docEditId = util.getDocEditId(gameId, character);
 
   //Initialization, start loading local edits (charDoc automatically starts reloading due to the hook)
@@ -125,11 +127,11 @@ export const CharacterDocAccess: React.FC<CharProviderProps> = ({children, gameI
     }
     //const changeList: T.ChangeDocServer = action.changes;
     const changeList: T.ChangeDocServer = cloneDeep<T.ChangeDocServer>(action.changes); //TODO: just for testing
-    //delete (changeList as any).conflictList;
-    //delete (changeList as any).rebaseSource;
-    //delete (changeList as any).mergeSource;
-    //delete (changeList as any)._id;
-    //delete (changeList as any)._rev; //type validation rejects extra props. Okay --remove-additional should make ajv strip them.
+    delete (changeList as any).conflictList;
+    delete (changeList as any).rebaseSource;
+    delete (changeList as any).mergeSource;
+    delete (changeList as any)._id;
+    delete (changeList as any)._rev; //type validation rejects extra props. Using --remove-additional is mistakenly stripping some things
     //const id: string = util.getChangeId(state.characterId, changeList.updateTitle!);
     //console.log("Uploading ID " + id);
     //const uploadDoc: T.ChangeDocWithMeta = {...changeList, _id: id, _rev: undefined};
@@ -156,22 +158,22 @@ export const CharacterDocAccess: React.FC<CharProviderProps> = ({children, gameI
         dispatch({actionType: 'publishChangeList', character: action.character, title: changeList.updateTitle, justUploaded: true});
       }
       else {
-        presentToast("Changes uploaded. Someone with editor permissions must publish these changes to apply them to the character.", 6000);
-        //TODO: redirect to this SPECIFIC change in changes section. Currently redirecting to frontpage or general changes section.
-        let url = util.getSegmentUrl(gameId, state.characterId, action.publish ? SegmentUrl.Base : SegmentUrl.Changes);
-        //history.push(url); TODO: disabled while testing
+        presentMyToast("Changes uploaded. Someone with editor permissions must publish these changes to apply them to the character.", 'success');
+        //redirect to this specific change in changes section. Currently redirecting to frontpage or general changes section.
+        let url = util.getChangeUrl(gameId, state.characterId, changeList.updateTitle);
+        history.push(url); 
         //dispatch({actionType:'deleteEdits'});
       }
     }).catch((err) => {
       if(err.status === 409) {
-        presentToast(`Changes named ${changeList.updateTitle} already exist`, 6000);
+        presentMyToast(`Changes named ${changeList.updateTitle} already exist`, 'danger');
       }
       else if(err.status === 422) {
         //TODO: this means based on outdated charDoc, gotta fetch newer charDoc!
-        presentToast(err.message, 6000);
+        presentMyToast(err.message, 'danger');
       }
       else {
-        presentToast('Upload failed: ' + err.message, 6000);
+        presentMyToast('Upload failed: ' + err.message, 'danger');
       }
       console.log("Upload error = " + err.message);
     });
@@ -192,26 +194,55 @@ export const CharacterDocAccess: React.FC<CharProviderProps> = ({children, gameI
     myPouch.makeApiCall(apiUrl, method, body).then((res) => {
       //TODO: if this change was submitted by a user without write perms and current user is admin, prompt for whether to give author write perms
       console.log("Response: "+JSON.stringify(res));
-      presentToast(res.message, 6000);
+      presentMyToast(res.message, 'success');
       let url = util.getSegmentUrl(gameId, state.characterId, SegmentUrl.Base); 
-      //TODO: getting error about "Node to be removed is not a child of this node," can I access history here? Is it cuz of open popover?
-      //history.push(url);
+      //TODO: getting error about "Node to be removed is not a child of this node," can I access history here? If so, close any alerts/popovers first.
+      history.push(url);
     }).catch((err) => {
       console.error("Error publishing change: "+ err.message);
       if(action.justUploaded) {
-        presentToast(`Changes were uploaded successfully, but there was an error publishing them: ${err.message}`, 6000);
+        presentMyToast(`Changes were uploaded successfully, but there was an error publishing them: ${err.message}`, 'danger');
       }
       else {
-        presentToast(`Error publishing change: ${err.message}`, 6000);
+        presentMyToast(`Error publishing change: ${err.message}`, 'danger');
       }
     });
   }, [gameId]);
 
 
+  const promptImportChangesCallback: MiddlewareFn = useCallback((state, action, dispatch) => {
+    if (action.actionType !== 'promptImportChanges') {
+      console.warn("Publish changelist middleware being called for action "+action.actionType);
+      return;
+    }
+
+    //forbid if have conflicts
+    if(state.editChanges?.conflictList) {
+      presentAlert("Your existing edits have unresolved conflicts. Resolve these conflicts before importing.");
+    }
+    else { 
+      //TODO: navigate to edits after importing?
+      if(state.editChanges) {
+        presentAlert(`You have existing edits. Would you like to merge these changes with your own?`, 
+          [ {text: 'Cancel', role: 'cancel'},
+            {text: 'Yes', handler: () => {
+              dispatch({actionType: "importChanges", changes: action.changes});
+              let url = util.getSegmentUrl(gameId, state.characterId, SegmentUrl.Edit); 
+              history.push(url);
+            }},
+          ]);
+      }
+      else {
+        dispatch({actionType: "importChanges", changes: action.changes});
+      }
+    }
+  }, [presentAlert]);
+
+
   useMiddleware("CharacterDocAccess", 
                 { uploadChangeList: uploadChangeListCallback, 
                   publishChangeList: publishChangeListCallback,
-                  //uploadAndPublishChangeList: uploadAndPublishChangeListCallback,
+                  promptImportChanges: promptImportChangesCallback,
                 });
 
 

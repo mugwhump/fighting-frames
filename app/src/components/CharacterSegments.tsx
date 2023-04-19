@@ -35,7 +35,7 @@ const CharacterSegments: React.FC<CharacterSegmentsProps> = ({ gameId, columnDef
     if(!segmentParam || segmentParam === "") return SegmentUrl.Base;
     if(segmentParam === SegmentUrl.Edit) return SegmentUrl.Edit;
     if(segmentParam === SegmentUrl.Changes) return SegmentUrl.Changes;
-    if(segmentParam === SegmentUrl.History) return SegmentUrl.History;
+    {/*if(segmentParam === SegmentUrl.History) return SegmentUrl.History;*/}
     console.error("Non-matching segment param: "+segmentParam);
     return SegmentUrl.Base;
   }
@@ -63,14 +63,14 @@ const CharacterSegments: React.FC<CharacterSegmentsProps> = ({ gameId, columnDef
           <EditCharacter gameId={gameId} columnDefs={columnDefs} universalPropDefs={universalPropDefs} />
         </Route>
         <Route path={util.getSegmentUrl(gameId, character, SegmentUrl.Changes)+'/:changeTitle'} >
-          <ChangeViewer columnDefs={columnDefs} universalPropDefs={universalPropDefs} />
+          <ChangeViewer gameId={gameId} columnDefs={columnDefs} universalPropDefs={universalPropDefs} />
         </Route>
         <Route path={util.getSegmentUrl(gameId, character, SegmentUrl.Changes)} >
           <ChangeBrowser gameId={gameId} />
         </Route>
-        <Route path={util.getSegmentUrl(gameId, character, SegmentUrl.History)} >
-          <div>History not yet implemented</div>
-        </Route>
+        {/*<Route path={util.getSegmentUrl(gameId, character, SegmentUrl.History)} >*/}
+          {/*<div>History not yet implemented</div>*/}
+        {/*</Route>*/}
         <Route path={util.getSegmentUrl(gameId, character, SegmentUrl.Base)} >
           <Character columnDefs={columnDefs} universalPropDefs={universalPropDefs} /> 
         </Route>
@@ -95,9 +95,9 @@ const CharacterSegments: React.FC<CharacterSegmentsProps> = ({ gameId, columnDef
           <IonSegmentButton onClick={clickedSegment} value={SegmentUrl.Changes}>
             <IonLabel>Changes</IonLabel>
           </IonSegmentButton>
-          <IonSegmentButton onClick={clickedSegment} value={SegmentUrl.History}>
-            <IonLabel>History</IonLabel>
-          </IonSegmentButton>
+          {/*<IonSegmentButton onClick={clickedSegment} value={SegmentUrl.History}>*/}
+            {/*<IonLabel>History</IonLabel>*/}
+          {/*</IonSegmentButton>*/}
         </IonSegment>
       </IonToolbar>
     </IonFooter>

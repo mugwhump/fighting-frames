@@ -68,7 +68,7 @@ const AddCharacter: React.FC<AddCharacterProps> = ({gameId}) => {
               <IonLabel position="floating">Character Display Name</IonLabel>
               <IonInput name="displayName" type="text" required={true}
                 onIonChange={e => setDisplayName(e.detail.value!)}> </IonInput>
-              <IonNote slot="helper">Unique identifier used in URLs and discord commands. Cannot be changed.</IonNote>
+              <IonNote slot="helper">Character's name as displayed to users. Can be changed later.</IonNote>
               <IonNote slot="error">{displayNameErr}</IonNote>
             </IonItem>
 

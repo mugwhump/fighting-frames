@@ -1,7 +1,7 @@
 import { ToastOptions } from '@ionic/react';
 import React, { useReducer, Reducer, useEffect }from 'react';
 import * as util from '../services/util';
-import { rebaseChangeDoc, mergeChangeDocs, reduceChanges, createChange, applyResolutions, insertByNeighbor } from '../services/merging';
+import { rebaseChangeDoc, mergeChangeDocs, reduceChanges, createChange, applyResolutions, allConflictsAreAutoNoop, insertByNeighbor } from '../services/merging';
 import { createContainer } from 'react-tracked';
 import { cloneDeep } from 'lodash';
 import type * as T from '../types/characterTypes'; //==
@@ -98,12 +98,13 @@ export interface State {
 
     | { actionType: 'setCharDoc', charDoc: T.CharDocWithMeta } //reject if current unresolved conflicts
     | { actionType: 'loadEditsFromLocal', editChanges?: T.ChangeDoc } //when loading from local. Set undefined if can't find local changes
-    | { actionType: 'importEdits', editChanges: T.ChangeDoc } //import or merge someone else's edits
+    | { actionType: 'promptImportChanges', changes: T.ChangeDocServer } //import or merge someone else's edits
+    | { actionType: 'importChanges', changes: T.ChangeDoc } //import or merge someone else's edits
     | { actionType: 'deleteEdits' } //for manual deletion
     | { actionType: 'editsWritten' } //to signify that writes to (or deletion of) local edits have been completed in provider
     //should these be inside reducer? Local saving/writing shouldn't be.
     | { actionType: 'uploadChangeList', changes: T.ChangeDocServer, character: string, publish?: boolean } //upload current changes, and delete local after success. Redirect to charDoc or change if publishing or not
-    | { actionType: 'publishChangeList', character: string, title: string, justUploaded?: boolean } //tells couch to calculate new doc based on that changeList id
+    | { actionType: 'publishChangeList', character: string, title: string, justUploaded?: boolean } //makes api call to publish/apply indicated change
 
 
 
@@ -172,6 +173,11 @@ export const characterReducer: Reducer<State, EditAction> = (state, action) => {
       }
       else {
         rebaseChangeDoc(newState.charDoc, edits);
+        //if only conflicts are auto-noop, just apply since users don't even have any choices to make.
+        if(allConflictsAreAutoNoop(edits)) {
+          console.log("Rebased, but all changes were redundant. Resolving.");
+          applyResolutions(edits, false);
+        }
       }
     }
   }
@@ -225,10 +231,10 @@ export const characterReducer: Reducer<State, EditAction> = (state, action) => {
       break;
     }
 
-    case 'importEdits': { 
+    case 'importChanges': { 
       //if you have no edits, import and check for rebase and write
       if(!state.editChanges) {
-        let newEdits: T.ChangeDoc = {...action.editChanges, createdBy:"", createdAt: new Date().toString()};
+        let newEdits: T.ChangeDoc = {...action.changes, createdBy:"", createdAt: new Date().toString()};
         //clear imported edit metadata
         delete newEdits.updateTitle;
         delete newEdits.updateDescription;
@@ -242,7 +248,7 @@ export const characterReducer: Reducer<State, EditAction> = (state, action) => {
           console.error("You have unresolved conflicts, not importing");
           break;
         }
-        mergeChangeDocs(action.editChanges, yours, state.charDoc);
+        mergeChangeDocs(action.changes, yours, state.charDoc);
         updateEditsAndCheckForWrite(yours);
       }
       break;

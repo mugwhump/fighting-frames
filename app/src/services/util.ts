@@ -170,8 +170,9 @@ export function getSegmentUrl(gameId: string, character: string, segment: Segmen
   if(segment === SegmentUrl.Base) return getCharacterUrl(gameId, character); //generatePath doesn't let segment be empty
   return generatePath(CompileConstants.SEGMENT_MATCH, {gameId: gameId, character: character, segment: segment});
 }
-export function getChangeUrl(gameId: string, character: string, changeTitle: string): string {
-  return getSegmentUrl(gameId, character, SegmentUrl.Changes) + '/' + changeTitle;
+export function getChangeUrl(gameId: string, character: string, changeTitle: string, revert?: boolean): string {
+  const url = getSegmentUrl(gameId, character, SegmentUrl.Changes) + '/' + changeTitle;
+  return revert ? url + '?revert=true' : url;
 }
 export function getConfigurationUrl(gameId: string): string {
   return generatePath(CompileConstants.CONFIGURATION_MATCH, {gameId: gameId});
@@ -203,7 +204,6 @@ export function getApiDeleteCharacterUrl(gameId: string, characterId: string): [
   return [generatePath(CompileConstants.API_CHARACTER_MATCH, {gameId: gameId, characterId: characterId}), "DELETE"];
 }
 
-
 export function getCharDocId(character: string): string {
   return 'character/'+character;
 }
@@ -232,6 +232,19 @@ export function cleanUserString(dirty: string): string {
 export function sanitizeWithAllowedTags(dirty: string, allowedTags: string[] = ['br', 'b', 'i']): string {
   const res = sanitizeHtml(dirty, {allowedTags: allowedTags, allowedAttributes: {}, disallowedTagsMode: "discard"});
   return res;
+}
+
+
+// Returns docIds of all published changes from the given change to the latest one. 
+// Returns empty array if give title not in history.
+export function getDocIdsOfChangesAfter(changeTitle: string, characterId: string, changeHistory: string[]): string[] {
+  let index = changeHistory.indexOf(changeTitle);
+  if(index < 0) {
+    console.warn(`Error getting consecutive published changes. Change ${changeTitle} not in history ${changeHistory}`);
+    return [];
+  }
+  const titles = changeHistory.slice(index);
+  return titles.map((title) => getChangeId(characterId, title));
 }
 
 

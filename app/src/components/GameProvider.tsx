@@ -219,7 +219,7 @@ function Reducer(state: State, action: Action) {
     case 'retry': {
       updateDbStatus({...currentStatus, localError: null, remoteError: null}, gameId);
       newState.isOnline = true;
-      newState.usingLocal = !state.usingLocal; //force provider swap so it re-fetches
+      newState.usingLocal = !state.usingLocal; //force provider swap so it re-fetches TODO: instead of this, maybe force a re-download if local
       console.log(`Retrying with online=${newState.isOnline}`);
       break;
     }

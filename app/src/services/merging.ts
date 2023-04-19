@@ -39,10 +39,13 @@ export function invertChangeDoc(changeDoc: T.ChangeDoc, updateMeta: boolean): vo
     }
   }
   if(changeDoc.universalPropChanges) changeDoc.universalPropChanges = getInvertedMoveChanges(changeDoc.universalPropChanges) as T.PropChanges;
-  //Add invert- to beginning of title (staying in character limit)
-  if(changeDoc.updateTitle) {
-    changeDoc.updateDescription = "Undoing changes " + changeDoc.updateTitle;
-    changeDoc.updateTitle = "invert-".concat(changeDoc.updateTitle).slice(0, 25);
+  if(updateMeta) {
+    //Add invert- to beginning of title (staying in character limit)
+    if(changeDoc.updateTitle) {
+      changeDoc.updateDescription = "Undoing change " + changeDoc.updateTitle;
+      changeDoc.updateTitle = "undo-".concat(changeDoc.updateTitle).slice(0, 25);
+    }
+    delete changeDoc.updateVersion;
   }
 }
 export function getInvertedMoveChanges(changes: Readonly<T.Changes>): T.Changes {
@@ -80,6 +83,21 @@ export function autoResolveConflicts (changeDoc: T.ChangeDoc, preference: "yours
       conflict.resolution = preference;
     }
   }
+}
+
+//Check if, for every conflict, both yours and theirs is "no-op".
+//Also returns true if no conflicts; TODO: test a little more
+export function allConflictsAreAutoNoop(changeDoc: T.ChangeDoc): boolean {
+  if(!changeDoc.conflictList) return true;
+
+  //see if there's a single set of conflicts that has even one conflict that ISN'T autoNoop
+  return !util.keyVals(changeDoc.conflictList).find(([moveName, conflicts]) => {
+    if(!moveName || !conflicts) return false;
+    return !!util.keyVals(conflicts).find(([colName, conflict]) => {
+      if(!colName || !conflict) return false;
+      return !(conflict.yours === "no-op" && conflict.theirs === "no-op");
+    });
+  })
 }
 
 //Generate conflicts between changeDoc and a newer charDoc in case they changed the same stuff.
@@ -124,6 +142,7 @@ export function rebaseChangeDoc(baseDoc: Readonly<T.CharDocWithMeta>, changeDoc:
   changeDoc.rebaseSource = cloneDeep<T.CharDocWithMeta>(baseDoc);
   if(util.keys(conflictList).length > 0) {
     changeDoc.conflictList = conflictList;
+    console.log("Conflicts from rebase: " + JSON.stringify(conflictList));
   }
   else {
     console.log("No conflicts from rebase, updating metaData and deleting rebaseSource");
@@ -739,9 +758,65 @@ export function getChangedCols(originalCols: Readonly<T.Cols> | undefined, chang
 }
 
 
+//TODO: wait... instead of inverting each one, I can just reduce all to one changeDoc, then invert THAT...
+//Mutates given changeDocs.
+//export function reduceChangeDocs(changeDocs: T.ChangeDocServer[], invertAndApplyBackwards?: boolean): T.ChangeDocServer {
+  //if(changeDocs.length === 0) throw new Error("Called reduceChangeDocs with empty array");
+
+  //if(invertAndApplyBackwards) {
+    //changeDocs.reverse()
+    //changeDocs.map((doc) => invertChangeDoc(doc, false));
+  //}
+
+  ////if(changeDocs.length === 1) { //don't need this, reduce just returns first element if length==1
+    ////return changeDocs[0];
+  ////}
+
+  ////shallow copy first doc
+  ////let accumulator: T.ChangeDoc = {...changeDocs[0], moveChanges: {...changeDocs[0].moveChanges}}; 
+  //return changeDocs.reduce(reduceChangeDoc);
+//}
+
+//TODO: test w/ same changedoc duplicated, w/ arrays of length 0, 1, 2, all. With only moveChanges or propChanges.
+//Use with Array.reduce to apply an array of changeDocs from oldest to newest, consolidating them into a single changeDoc
+//Mutates accumulator and returns it
+export function reduceChangeDocs<C extends T.ChangeDocServer>(accumulator: C, latestChangeDoc: Readonly<C>): C {
+  accumulator.universalPropChanges = reduceChanges(accumulator.universalPropChanges ?? {}, latestChangeDoc.universalPropChanges ?? {}) as T.PropChanges ?? undefined;
+  if(!accumulator.universalPropChanges) delete accumulator.universalPropChanges; 
+
+  const accMoveChangeList: T.MoveChangeList = accumulator.moveChanges ?? {};
+  for(const [moveName, moveChanges] of util.keyVals(latestChangeDoc.moveChanges ?? {})) {
+    if(!moveChanges) continue;
+    const accMoveChanges: T.MoveChanges | undefined = accMoveChangeList?.[moveName];
+    if(accMoveChanges) {
+      const newChanges = reduceChanges(accMoveChanges, moveChanges);
+      if(newChanges) {
+        accMoveChangeList![moveName] = newChanges as T.MoveChanges;
+      }
+      else {
+        delete accMoveChangeList[moveName];
+      }
+    }
+    else {
+      accMoveChangeList![moveName] = moveChanges;
+    }
+  }
+
+  if (util.keys(accMoveChangeList).length > 0) {
+    accumulator.moveChanges = accMoveChangeList;
+  }
+  else {
+    delete accumulator.moveChanges;
+  }
+
+  return accumulator;
+}
+
+
 /** Can be called recursively on an array of T.Changes using array.reduce and passing this function.
 Reconciles places where both changes touched same data, and combines changes to different data.
-Returns null if changes cancel each other out */
+Returns null if changes cancel each other out. 
+Pass empty objects for no changes*/
 export function reduceChanges(accumulator: Readonly<T.Changes>, newChanges: Readonly<T.Changes>): T.Changes | null {
 /*
    {NOOP} means no change if og value = new value 

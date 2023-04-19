@@ -6,6 +6,7 @@ import { keys, keyVals, getApiUploadConfigUrl } from '../services/util';
 import { getIonicSanitizedString } from '../services/renderUtil';
 import { insertDefsSortGroupsCompileRegexes, repairDefOrder } from '../services/columnUtil';
 import { makeApiCall } from '../services/pouch';
+import { useMyToast } from '../services/hooks';
 //import { useGameDispatch, Action as GameAction } from './GameProvider';
 import HeaderPage from '../components/HeaderPage';
 import NeedPermissions from '../components/NeedPermissions';
@@ -49,7 +50,7 @@ const DefEditor: React.FC<DefEditorProps> = ({gameId, designDoc}) => {
   const [showReorderModal, setShowReorderModal] = useState<'props' | 'cols' | null>(null);
   const [showAddDefModal, setShowAddDefModal] = useState<'props' | 'cols' | null>(null);
   const [presentAlert, dismissAlert] = useIonAlert(); 
-  const [presentToast, dismissToast] = useIonToast(); 
+  const [presentMyToast, dismissToast] = useMyToast(); 
   const [previewBreakpoint, setPreviewBreakpoint] = useState<T.Breakpoint | undefined>(undefined);
   let defObjBeingEdited: T.ColumnDef | undefined = undefined; //undefined if not editing or if adding new def
   if(defToEdit && defToEdit.defName !== "") {
@@ -106,7 +107,7 @@ const DefEditor: React.FC<DefEditorProps> = ({gameId, designDoc}) => {
 
       if(keys(docChanges).length === 0) {
         setClonedDoc(cloneDeep<T.DesignDoc>(designDoc));
-        presentToast("Loaded updated configuration from server", 8000);
+        presentMyToast("Loaded updated configuration from server", undefined, 7000);
       }
       else {
         //Catch order conflicts. Conflict if you changed, they changed, and theirs != yours
@@ -170,7 +171,7 @@ const DefEditor: React.FC<DefEditorProps> = ({gameId, designDoc}) => {
           setClonedDoc(cloneDeep<T.DesignDoc>(designDoc));
           const repairedChanges = repairChangedOrders(designDoc, false);
           setDocChanges(repairedChanges);
-          presentToast("Loaded updated configuration from server; no conflicts found", 8000);
+          presentMyToast("Loaded and merged updated configuration from server; no conflicts found", undefined, 8000);
         }
       }
     }

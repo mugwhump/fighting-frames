@@ -217,7 +217,10 @@ export function checkInvalid(data: T.ColumnData | undefined, def: T.ColumnDefRes
 
   //check that this function actually receives undefined instead of empty strings or arrays
   //make exception for admins creating new columns that start with empty columnNames
-  if((data === "" && colName !== "columnName") || data === null || (Array.isArray(data) && data.length===0)) {
+  if((data === "" && colName !== "columnName") 
+      || data === null 
+      || ((Array.isArray(data) && data.length===0 && (colName !== "moveOrder")))
+    ) {
     console.error("checkInvalid received empty-ish data for "+def.columnName+" instead of undefined");
   }
 
