@@ -1,4 +1,4 @@
-import { useIonModal, IonModal, useIonAlert, useIonToast, IonPopover, IonIcon, IonFab, IonFabButton, IonLabel, IonList, IonButton, IonContent, IonItem, IonGrid, IonRow } from '@ionic/react';
+import { useIonModal, IonModal, useIonAlert, IonPopover, IonIcon, IonFab, IonFabButton, IonLabel, IonList, IonButton, IonContent, IonItem, IonGrid, IonRow } from '@ionic/react';
 import React, { useRef, useState, useMemo, useEffect, useCallback, MouseEvent }from 'react';
 import { add, warningOutline, checkmarkOutline } from 'ionicons/icons';
 import {MoveOrder, MoveCols, ColumnDefAndData, ColumnDef, ColumnDefs, ColumnData, Cols, ColumnChange, CharDoc, CharDocWithMeta, ChangeDoc, ChangeDocServer, MoveChanges, Changes, AddMoveChanges , PropChanges, Modify, Conflicts } from '../types/characterTypes';
@@ -7,6 +7,7 @@ import { moveNameColumnDef } from '../constants/internalColumns';
 import { getChangeListMoveOrder, keys, updateMoveOrPropChanges, getDateString, unresolvedConflictInList } from '../services/util';
 import { getDefsAndData } from '../services/renderUtil';
 import * as security from '../services/security';
+import { useMyToast } from '../services/hooks';
 //import MoveOrUniversalProps from './MoveOrUniversalProps';
 //import CategoryAndChildRenderer  from './CategoryAndChildRenderer';
 import MoveEditModal from './MoveEditModal';
@@ -37,7 +38,7 @@ export const EditCharacter: React.FC<EditCharProps> = ({gameId, columnDefs, univ
   const moveOrder: MoveOrder[] = useCharacterSelector<MoveOrder[]>(selectMoveOrder);
   const [presentAlert, dismissAlert] = useIonAlert(); //used for deletion confirmation, new move conflicts, other
   const popOver = useRef<HTMLIonPopoverElement>(null); //there's also a usePopover hook
-  const [presentToast, dismissToast] = useIonToast(); 
+  const [presentMyToast, dismissToast] = useMyToast(); 
   const [presentMoveOrder, dismissMoveOrder] = useIonModal(MoveOrdererModal, {
       moveOrder: moveOrder,
       changeMoveOrder: (newOrder: MoveOrder[])=>{dispatch({actionType:'reorderMoves', newMoveOrder: newOrder})},
@@ -144,7 +145,8 @@ export const EditCharacter: React.FC<EditCharProps> = ({gameId, columnDefs, univ
       { text: 'Cancel', role: 'cancel' },
       { text: 'Upload', handler: submit },
     ]; 
-    if(canPublish) buttons.push({ text: 'Upload & Publish', handler: (opts)=>submit(opts, true)})
+    //
+    if(canPublish) buttons.push({ text: 'Upload & Publish', handler: (opts)=>(submit(opts, true))})
 
     presentAlert(
       {
@@ -175,14 +177,15 @@ export const EditCharacter: React.FC<EditCharProps> = ({gameId, columnDefs, univ
         ],
       }
     );
-    function submit(opts: any, publish?: boolean) {
+    //return false when we don't want alert to close (ie if there's an error)
+    function submit(opts: any, publish?: boolean) { 
       console.log("Current values: "+JSON.stringify(opts));
       //API call will also does this validation server-side via JSON-schema
       //Validate title
       const titleRegex = new RegExp(CompileConstants.ALLOWED_CHANGE_TITLE_REGEX); //alphanumeric and _, -, ., ~ length between 3-25
       const titleValid = titleRegex.test(opts.title);
       if(!titleValid) {
-        presentToast('Title must be between 3-25 characters, which must be alphanumeric or ~_-. (no spaces)', 5000);
+        presentMyToast('Title must be between 3-25 characters, which must be alphanumeric or ~_-. (no spaces)', 'warning');
         return false; 
       }
       //Validate version
@@ -190,7 +193,7 @@ export const EditCharacter: React.FC<EditCharProps> = ({gameId, columnDefs, univ
         const versionRegex = new RegExp(CompileConstants.ALLOWED_CHANGE_VERSION_REGEX); //numbers and periods
         const versionValid = versionRegex.test(opts.version);
         if(!versionValid) {
-          presentToast('If provided, version must be between 1-10 characters, numbers and periods only', 5000);
+          presentMyToast('If provided, version must be between 1-10 characters, numbers and periods only', 'warning');
           return false; 
         }
       }
@@ -286,6 +289,7 @@ export const EditCharacter: React.FC<EditCharProps> = ({gameId, columnDefs, univ
 
   /*
      TODO: currently (as of Jan 23 2023 on v6.0.8), navigating away while the modal is open causes an error from the modal trying to call its onDidDismiss event.
+     Seems to happen with popovers too?
      This is being fixed in upcoming Ionic version, see https://github.com/ionic-team/ionic-framework/pull/26245 and https://github.com/ionic-team/ionic-framework/issues/25775
   */
 
