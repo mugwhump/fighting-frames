@@ -29,7 +29,9 @@ export const LoginProvider: React.FC<LoginProviderProps> = ({children, gameId, s
   const [secObj, setSecObj] = useState<SecObj | null>(null);
   const [roles, setRoles] = useState<string[]>(CompileConstants.DEFAULT_USER_ROLES);
   //const [loginInfo, setLoginInfoUsingFunction] = useState<LoginInfo>(getInitialLoginInfo); //Must use functional updates to not constantly re-set stale state!
-  const loginInfo = useMemo<LoginInfo>(() => {return {currentUser: currentUser, secObj: secObj, roles: roles, setShowModal: setShowModal, logout: logoutCallback}}, [currentUser, secObj]);
+  const loginInfo = useMemo<LoginInfo>(() => {
+    return {currentUser: currentUser, secObj: secObj, roles: roles, setShowModal: setShowModal, logout: logoutCallback}
+  }, [currentUser, secObj, roles, setShowModal, logoutCallback]);
   const loginTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
   const database: PouchDB.Database = usePouch(gameId === "top" ? "remoteTop" : "remote");
   const gameIdRef = useRef<string | null>(null);

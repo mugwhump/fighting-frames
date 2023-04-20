@@ -121,7 +121,7 @@ export const ChangeViewer: React.FC<ChangeViewerProps> = ({gameId, columnDefs, u
   }
 
   if (docState === 'error') {
-    console.error("heckin errorino in Character: " + error?.message);
+    console.error("heckin errorino in ChangeViewer: " + error?.message);
     return (<h1>Error loading changes: {error?.message}</h1>);
   }
   // loading is true even after the doc loads

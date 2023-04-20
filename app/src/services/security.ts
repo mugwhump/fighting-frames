@@ -1,3 +1,5 @@
+//ServerManager and ServerAdmin are for all databases and thus determined by user role rather than presence of user's name in db's secobj
+
 export type SecObj = {
   admins?: {
     names?: string[], //GameAdmins
@@ -10,13 +12,8 @@ export type SecObj = {
     roles?: string[],
   };
   uploaders?: string[]; //Uploaders. 
-  //publicIsWriter?: boolean;
-  //publicCanUploadChanges?: boolean;
-  //publicPerms?: "Reader" | "Uploader" | "Editor"; 
-  //userPerms?: "Reader" | "Uploader" | "Editor"; 
 }
 
-//ServerManager and ServerAdmin are for all databases and thus determined by user role rather than presence of user's name in db's secobj
 export type PermissionLevel = "Reader" | "Uploader" | "Editor" | "GameAdmin" | "ServerManager" | "ServerAdmin";
 export const permissionList = ["Reader", "Uploader", "Editor", "GameAdmin", "ServerManager", "ServerAdmin"] as const;
 
@@ -69,10 +66,10 @@ export function userIsEditorOrHigher (user?: string, roles?: string[], secObj?: 
 }
 export function userIsGameAdminOrHigher(user?: string, roles?: string[], secObj?: SecObj): boolean {
   if(!user) return false;
-  return secObj?.admins?.names && secObj?.admins.names.includes(user) || userIsServerManagerOrHigher(user, roles, secObj);
+  return (secObj?.admins?.names && secObj?.admins.names.includes(user)) || userIsServerManagerOrHigher(user, roles, secObj);
 }
 export function userIsServerManagerOrHigher(user?: string, roles?: string[], secObj?: SecObj): boolean {
-  return roles && roles.includes("server-manager") || userIsServerAdmin(user, roles, secObj);
+  return (roles && roles.includes("server-manager")) || userIsServerAdmin(user, roles, secObj);
 }
 export function userIsServerAdmin(user?: string, roles?: string[], secObj?: SecObj): boolean {
   return !!roles && roles.includes("_admin");
@@ -80,4 +77,15 @@ export function userIsServerAdmin(user?: string, roles?: string[], secObj?: SecO
 
 function isSLUser(roles?: string[]) {
   return !!roles && roles.includes("user");
+}
+
+//Useful for UI to tell users about functionality that can only be used with an account
+export function anySLUserHasPerms(permissions: "Uploader" | "Editor", secObj: SecObj | null | undefined): boolean {
+  if(!secObj) return false;
+  return userHasPerms({secObj: secObj, currentUser: "user", roles: ["user"]}, permissions);
+  //if(permissions === "Uploader") {
+    //if(secObj?.uploaders?.includes('user')) return true;
+  //}
+  //if(permissions === "Editor") {
+  //}
 }

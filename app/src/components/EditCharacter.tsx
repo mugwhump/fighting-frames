@@ -8,11 +8,10 @@ import { getChangeListMoveOrder, keys, updateMoveOrPropChanges, getDateString, u
 import { getDefsAndData } from '../services/renderUtil';
 import * as security from '../services/security';
 import { useMyToast } from '../services/hooks';
-//import MoveOrUniversalProps from './MoveOrUniversalProps';
-//import CategoryAndChildRenderer  from './CategoryAndChildRenderer';
 import MoveEditModal from './MoveEditModal';
 import MoveOrdererModal from './MoveOrdererModal';
 import CharacterRenderer from './CharacterRenderer';
+import NeedPermissions from './NeedPermissions';
 import { State, EditAction, useCharacterDispatch, useTrackedCharacterState, useCharacterSelector, useMiddleware, selectMoveOrder } from '../services/CharacterReducer';
 import { useLoginInfoContext } from './LoginProvider';
 import styles from '../theme/Character.module.css';
@@ -110,31 +109,6 @@ export const EditCharacter: React.FC<EditCharProps> = ({gameId, columnDefs, univ
   useMiddleware("EditCharacter", {addMove: addMoveCallback, tryUndoUniversalPropChanges: tryUndoUniversalPropChangesCallback});
 
 
-  // Present Alert
-  //TODO: reducer actions to accept moveORder change, and to unset promptForMoveOrder either way
-  //useEffect(() => {
-    //if(promptForMoveOrder) {
-      //presentAlert(
-        //{
-          //header: "Reorder move",
-          //message: "Would you like to reorder this move?",
-          //buttons: [
-            //{ text: 'No', role: 'cancel' },
-            //{ text: 'Yes', handler: presentMoveOrder }
-          //], 
-          ////onDidDismiss: (e) => { 
-            ////if(popOver.current) {
-              ////popOver.current.dismiss();
-            ////}
-          ////},
-        //}
-      //);
-    //}
-    //else {
-      //dismissAlert();
-    //}
-  //}, [promptForMoveOrder]);
-
   //prompt for changelist metadata
   function promptUploadChangeList() {
     if(!changeList) throw new Error("Cannot upload with no changes");
@@ -145,7 +119,6 @@ export const EditCharacter: React.FC<EditCharProps> = ({gameId, columnDefs, univ
       { text: 'Cancel', role: 'cancel' },
       { text: 'Upload', handler: submit },
     ]; 
-    //
     if(canPublish) buttons.push({ text: 'Upload & Publish', handler: (opts)=>(submit(opts, true))})
 
     presentAlert(
@@ -301,6 +274,32 @@ export const EditCharacter: React.FC<EditCharProps> = ({gameId, columnDefs, univ
           originalChanges={moveToEdit === "universalProps" ? changeList?.universalPropChanges : changeList?.moveChanges?.[moveToEdit!]} 
         />
       </IonModal>
+      {!security.userHasPerms(loginInfo, "Editor") && (
+          security.userHasPerms(loginInfo, "Uploader")
+            ? <IonItem color="warning">
+                <IonLabel class="ion-text-wrap">You have permission to upload changes for this game, but 
+                  {security.anySLUserHasPerms("Editor", loginInfo.secObj) ? " you will need to log in" : " someone with Editor permissions will need"} to apply those changes.
+                </IonLabel>
+              </IonItem>
+            : <IonItem color="warning">
+                <IonLabel class="ion-text-wrap">You do not have permission to upload changes for this game! 
+                  {security.anySLUserHasPerms("Uploader", loginInfo.secObj) ? " You can log in to upload changes." : " Contact a game admin for upload permissions."}
+                </IonLabel>
+              </IonItem>
+        )
+      }
+      {/*<NeedPermissions permissions="Editor" ifYes={(<></>)} ifNo={(*/}
+        {/*<NeedPermissions permissions="Uploader" ifYes={(*/}
+          {/*<IonItem color="warning">*/}
+            {/*<IonLabel class="ion-text-wrap">You have permission to upload changes, but someone with Editor permissions will need to apply those changes.</IonLabel>*/}
+          {/*</IonItem>*/}
+        {/*)} */}
+        {/*ifNo={(*/}
+          {/*<IonItem color="warning">*/}
+            {/*<IonLabel class="ion-text-wrap"></IonLabel>*/}
+          {/*</IonItem>*/}
+        {/*)} />*/}
+      {/*)} />*/}
       <CharacterRenderer charDoc={charDoc} columnDefs={columnDefs} universalPropDefs={universalPropDefs} 
         editingEnabled={true} changes={changeList} highlightChanges={true} highlightConflicts={true} >
         {hasConflicts && 
@@ -320,31 +319,5 @@ export const EditCharacter: React.FC<EditCharProps> = ({gameId, columnDefs, univ
     </>
   );
 };
-
-      //<IonGrid>
-        //<IonRow>
-          //<IonItem>
-            //<p>{charDoc.charName} is the character (DB)</p><br />
-            //<p>{JSON.stringify(charDoc)}</p>
-          //</IonItem>
-        //</IonRow>
-        //<MoveOrUniversalProps moveName="universalProps" columns={charDoc.universalProps} columnDefs={universalPropDefs} 
-          //editMove={true} changes={changeList?.universalPropChanges} moveConflictsToHighlight={changeList?.conflictList?.universalProps} />
-        //{moveOrder.map((moveOrCat: MoveOrder) => { 
-          //const {name, isCategory, indent} = {...moveOrCat};
-          //let moveCols = charDoc.moves[name];
-          //let moveChanges = changeList?.moveChanges?.[name];
-          //return (
-            //<CategoryAndChildRenderer key={name} name={name} isCategory={isCategory} >
-            //{!(moveCols === undefined && moveChanges === undefined)
-              //? <MoveOrUniversalProps moveName={name} indentLevel={indent} columns={moveCols} columnDefs={columnDefs} 
-                 //editMove={true} changes={changeList?.moveChanges?.[name]} moveConflictsToHighlight={changeList?.conflictList?.[name]} />
-              //: <div>No data for move {name}</div>
-            //}
-            //</CategoryAndChildRenderer> 
-          //);
-          //[>TODO: for debugging, good idea to point out moves that have data but are missing from moveOrder<]
-          //})}
-      //</IonGrid>
 
 export default EditCharacter;

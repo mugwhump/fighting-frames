@@ -505,7 +505,7 @@ export function insertByNeighbor(insertName: string, targetMap: Map<string, T.Mo
       }
     }
   }
-  console.log("No shared neighbors found, inserting "+insertName+" at end");
+  //console.log("No shared neighbors found, inserting "+insertName+" at end");
   targetMap.set(insertName, insertItem);
   targetArray.push(insertItem);
   return targetArray.length;
@@ -521,7 +521,7 @@ export function addMissingMoves(targetMap: Map<string, T.MoveOrder>, targetArray
     const name = item.name;
     if(item.isCategory) continue;
     if(!targetMap.has(name)) {
-      console.log("Adding "+name+" to preferred from nonpreferred");
+      //console.log("Adding "+name+" to preferred from nonpreferred");
       //Came from resolved if rebasing, present in yours if merging. So always in nonpreferred.
       if(!sourceMap.has(name)) throw new Error(`Item ${name} not in target OR source`);
       const insertResult = insertByNeighbor(name, targetMap, targetArray, sourceMap, sourceArray);
