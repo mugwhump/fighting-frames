@@ -60,7 +60,7 @@ const config: Config = {
     defaultRoles: ['user', 'read'], //I keep user in case superlogin expects it
     //Other options about login lockout, session life, etc
     sessionLife: 3700, //50 seconds for testaroonis
-    forwardErrors: true, //if true couch-auth forwards errors to node err handler instead of sending response, test with requireAuth failures
+    forwardErrors: false, //if true couch-auth forwards errors to node err handler instead of sending response, test with requireAuth failures
   },
   local: { //settings for couchAuth's internal user registration (aka when not signing in with google, FB, etc)
     emailUsername: false, // store the username in the database instead of an auto-generated key
