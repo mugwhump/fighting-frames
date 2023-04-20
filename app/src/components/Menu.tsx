@@ -16,7 +16,7 @@ import React, { useEffect } from 'react';
 import { useLocation } from 'react-router-dom';
 import { cloudDoneOutline, cloudDownloadOutline, cloudOfflineOutline, skullOutline } from 'ionicons/icons';
 import { CreateAnimation, Animation } from '@ionic/react';
-//import './Menu.css'; //doesn't look much different, and this styling trickles down to child components like login modals
+import './Menu.css'; //doesn't look much different, and this styling trickles down to child components like login modals
 import { useDoc, usePouch } from 'use-pouchdb'
 import { useDocumentLocalRemoteSwitching } from '../services/pouch';
 import { DBListDoc, DBListDocItem } from '../types/characterTypes';

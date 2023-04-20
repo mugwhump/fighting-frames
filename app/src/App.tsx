@@ -42,7 +42,7 @@ const App: React.FC = () => {
         <LocalProvider>
             <IonSplitPane contentId="main-top"> 
             {/* Menu must be immediate child */}
-              <IonMenu side="start" menuId="top" contentId="main-top" type="overlay" disabled={false}>
+              <IonMenu class="styled-menu" side="start" menuId="top" contentId="main-top" type="overlay" disabled={false}>
                 <Switch> {/* Renders only the first matching pattern instead of every matching route */}
                   <Route path="/game/:gameId">
                     <GameMenu />
