@@ -59,9 +59,9 @@ const Menu: React.FC<MenuProps> = ({usingLocal}) => {
   return (
     <>
       <IonContent>
-        <IonList id="inbox-list">
+        <IonList id="top-list">
           <IonListHeader>Select Game</IonListHeader>
-          <IonNote>not tekken tho</IonNote>
+          {/*<IonNote>not tekken tho</IonNote>*/}
           {doc!.dbs.map((dbListItem, index) => {
             return (
               <WrappedMenuItem dbListItem={dbListItem} key={index} path={location.pathname} />

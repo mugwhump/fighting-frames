@@ -1,15 +1,15 @@
-import { IonContent, IonIcon, IonItem, IonLabel, IonList, IonListHeader, IonMenu, IonMenuToggle, IonNote, } from '@ionic/react';
+import { IonContent, IonGrid, IonRow, IonCol, IonIcon, IonItem, IonLabel, IonList, IonListHeader, IonMenu, IonMenuToggle, IonNote, IonAccordionGroup, IonAccordion } from '@ionic/react';
 
 import React, { useEffect, useState, ReactNode } from 'react';
 import { useLocation } from 'react-router-dom';
-import { bookmarkOutline, bookmarkSharp } from 'ionicons/icons';
+import { homeOutline, homeSharp, discOutline } from 'ionicons/icons';
 //import './Menu.css'; //doesn't look much different, and this styling trickles down to child components like login modals
 //import PouchDB from 'pouchdb';
 import { useView, usePouch } from 'use-pouchdb'
 import { useDocumentLocalRemoteSwitching } from '../services/pouch';
 import { CharDocWithMeta } from '../types/characterTypes';
-import type { ListCharactersViewRow } from '../types/utilTypes'; //==
-import { getCharacterUrl, getGameUrl } from '../services/util';
+import { ListCharactersViewRow, SegmentUrl } from '../types/utilTypes'; //==
+import { getCharacterUrl, getGameUrl, getSegmentUrl } from '../services/util';
 import LoginButton from './LoginButton';
 import { withGameContext, useGameDispatch, Action as GameAction } from './GameProvider';
 import { useGameContext } from './GameProvider';
@@ -45,14 +45,39 @@ const GameMenu: React.FC = () => {
     menuContent = (
       <>
         {rows!.map((row, index) => {
-          let url: string = getCharacterUrl(gameId, row.key);
+          const url: string = getCharacterUrl(gameId, row.key);
+          const selected: boolean = location.pathname.includes(url);
+          const editUrl: string = getSegmentUrl(gameId, row.key, SegmentUrl.Edit);
+          const editSelected: boolean = location.pathname.includes(editUrl);
+          const changeUrl: string = getSegmentUrl(gameId, row.key, SegmentUrl.Changes);
+          const changeSelected: boolean = location.pathname.includes(changeUrl);
+          //return (
+            //<IonAccordion key={index}>
+              //<IonItem slot="header" className={location.pathname.includes(url) ? 'selected' : ''} routerLink={url} routerDirection="forward" lines="none" detail={false}>
+                //[><IonIcon slot="start" ios={bookmarkOutline} md={bookmarkSharp} /><]
+                //<IonLabel>{row.value}</IonLabel>
+              //</IonItem>
+            //<IonList slot="content">
+              //<IonItem>hey</IonItem>
+              //<IonItem>hoo</IonItem>
+            //</IonList>
+            //</IonAccordion>
+          //);
           return (
+            <>
             <IonMenuToggle key={index} autoHide={false}>
-              <IonItem className={location.pathname === url ? 'selected' : ''} routerLink={url} routerDirection="forward" lines="none" detail={false}>
-                <IonIcon slot="start" ios={bookmarkOutline} md={bookmarkSharp} />
+              <IonItem className={selected ? 'selected' : ''} routerLink={url} routerDirection="forward" lines="none" detail={false}>
+                {/*<IonIcon slot="start" ios={bookmarkOutline} md={bookmarkSharp} />*/}
                 <IonLabel>{row.value}</IonLabel>
               </IonItem>
             </IonMenuToggle>
+            {selected &&
+              <IonList className="char-submenu">
+                <IonItem className={editSelected ? 'selected' : ''} routerLink={editUrl} routerDirection="forward" >Edit</IonItem>
+                <IonItem className={changeSelected ? 'selected' : ''} routerLink={changeUrl} routerDirection="forward" >Changes</IonItem>
+              </IonList>
+            }
+            </>
           );
         })}
       </>
@@ -61,25 +86,30 @@ const GameMenu: React.FC = () => {
 
   return (
       <IonContent>
-        <IonList id="inbox-list">
+        <IonList id="top-list">
           <IonListHeader>Select Character</IonListHeader>
-          <IonNote>ky is dishonest</IonNote>
+          {/*<IonNote>ky is dishonest</IonNote>*/}
 
+          {/*<IonAccordionGroup multiple>*/}
           {menuContent}
-          {(gameId !== null) && <LoginButton />}
-          {/* Wrap each link with menu toggle to close the menu when clicked */}
+          {/*</IonAccordionGroup>*/}
+
+          {/* Wrap each link with menu toggle to close the menu when clicked 
+            TODO: extract game link here + in top menu to its own component with download icons and functionality */}
           <IonMenuToggle key="game-page" autoHide={false}>
-            <IonItem routerLink={getGameUrl(gameId)} routerDirection="back" lines="none" detail={false}>
-              <IonIcon slot="start" ios={bookmarkOutline} md={bookmarkSharp} />
+            <IonItem className={location.pathname === (getGameUrl(gameId)) ? 'selected' : ''} routerLink={getGameUrl(gameId)} routerDirection="back" lines="none" detail={false}>
+              <IonIcon slot="start" icon={discOutline} />
               <IonLabel>{gameDisplayName} Main Page</IonLabel>
             </IonItem>
           </IonMenuToggle>
           <IonMenuToggle key="home" autoHide={false}>
             <IonItem routerLink={CompileConstants.HOME_PATH} routerDirection="back" lines="none" detail={false}>
-              <IonIcon slot="start" ios={bookmarkOutline} md={bookmarkSharp} />
+              <IonIcon slot="start" ios={homeOutline} md={homeSharp} />
               <IonLabel>Home</IonLabel>
             </IonItem>
           </IonMenuToggle>
+
+          {(gameId !== null) && <LoginButton />}
 
         </IonList>
 

@@ -12,6 +12,13 @@ ion-menu.styled-menu.md ion-content {
   --padding-bottom: 20px;
 }
 
+ion-menu.styled-menu ion-list ion-list.char-submenu {
+  padding: 0px 0px 0px 30px;
+}
+ion-menu.styled-menu ion-list.char-submenu ion-item {
+  --min-height: 30px;
+}
+
 ion-menu.styled-menu.md ion-list {
   padding: 20px 0;
 }
@@ -24,11 +31,11 @@ ion-menu.styled-menu.md ion-list-header, ion-menu.styled-menu.md ion-note {
   padding-left: 10px;
 }
 
-ion-menu.styled-menu.md ion-list#inbox-list {
+ion-menu.styled-menu.md ion-list#top-list {
   border-bottom: 1px solid var(--ion-color-step-150, #d7d8da);
 }
 
-ion-menu.styled-menu.md ion-list#inbox-list ion-list-header {
+ion-menu.styled-menu.md ion-list#top-list ion-list-header {
   font-size: 22px;
   font-weight: 600;
   min-height: 20px;
