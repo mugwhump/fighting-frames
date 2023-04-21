@@ -1,12 +1,15 @@
-import { IonContent, IonButton, IonMenu, IonRouterOutlet, IonSplitPane } from '@ionic/react';
+import { IonContent, IonButton, IonMenu } from '@ionic/react';
 import React, { useEffect, useState, useMemo, useCallback } from 'react';
-import { Route, useRouteMatch } from 'react-router-dom';
+import { Route, Switch, useRouteMatch } from 'react-router-dom';
 //import PouchDB from 'pouchdb';
 import { useDocumentLocalRemoteSwitching } from '../services/pouch';
 import { useDoc } from 'use-pouchdb';
-import * as myPouch from '../services/pouch';
-import { Character } from '../components/Character';
-import CharacterSegments  from '../components/CharacterSegments';
+//import * as myPouch from '../services/pouch';
+//import CharacterSegments  from '../components/CharacterSegments';
+import Character from './Character';
+import EditCharacter from './EditCharacter';
+import ChangeBrowser from './ChangeBrowser';
+import ChangeViewer from './ChangeViewer';
 import { CharacterDocAccess } from '../components/CharacterDocAccess';
 import { CharacterContextProvider, MiddlewareContext, MiddlewareSetterContext, Middleware } from '../services/CharacterReducer';
 import { useGameContext, useGameDispatch, Action as GameAction } from '../components/GameProvider';
@@ -18,7 +21,7 @@ import DefEditor from '../pages/DefEditor';
 import AddCharacter from '../pages/AddCharacter';
 import DeleteCharacters from '../pages/DeleteCharacters';
 import * as T from '../types/characterTypes';
-import { cloneDeep } from 'lodash';
+//import { cloneDeep } from 'lodash';
 import CompileConstants from '../constants/CompileConstants';
 import NeedPermissions from '../components/NeedPermissions';
 
@@ -75,7 +78,7 @@ const Game: React.FC<GameProps> = () => {
   return (
     <>
         <Route exact path={"/game/" + gameId } >
-          <HeaderPage title={gameId + "is the game id"}>
+          <HeaderPage title={displayName ?? gameId}>
             <IonContent fullscreen>
             DUHHHH DIS IS GAME PAGE
             {JSON.stringify(doc)}
@@ -90,7 +93,7 @@ const Game: React.FC<GameProps> = () => {
         </Route>
 
         {/*Keep in mind router params stop at slashes, so /character/bob/local-edit just has bob as the character*/}
-        <Route path={[CompileConstants.SEGMENT_MATCH, CompileConstants.CHARACTER_MATCH]} >
+        {/*<Route path={[CompileConstants.SEGMENT_MATCH, CompileConstants.CHARACTER_MATCH]} >
           <HeaderPage title={gameId + "is the game id"}>
             <MiddlewareSetterContext.Provider value={setMiddleware}>
               <MiddlewareContext.Provider value={middleware}>
@@ -102,6 +105,36 @@ const Game: React.FC<GameProps> = () => {
               </MiddlewareContext.Provider>
             </MiddlewareSetterContext.Provider>
           </HeaderPage>
+        </Route>*/}
+
+        <Route path={CompileConstants.CHARACTER_MATCH} >
+            <MiddlewareSetterContext.Provider value={setMiddleware}>
+              <MiddlewareContext.Provider value={middleware}>
+                <CharacterContextProvider>
+                  <CharacterDocAccess gameId={gameId}>
+                    <Switch>
+
+                      <Route path={CompileConstants.EDIT_MATCH} >
+                        <EditCharacter gameId={gameId} columnDefs={modifiedColumnDefs} universalPropDefs={modifiedUniversalPropDefs} />
+                      </Route>
+
+                      <Route path={CompileConstants.CHANGE_MATCH} >
+                        <ChangeViewer gameId={gameId} columnDefs={modifiedColumnDefs} universalPropDefs={modifiedUniversalPropDefs} />
+                      </Route>
+
+                      <Route path={CompileConstants.CHANGES_MATCH} exact >
+                        <ChangeBrowser gameId={gameId} />
+                      </Route>
+
+                      <Route path={CompileConstants.CHARACTER_MATCH} exact >
+                        <Character columnDefs={modifiedColumnDefs} universalPropDefs={modifiedUniversalPropDefs} /> 
+                      </Route>
+
+                    </Switch>
+                  </CharacterDocAccess>
+                </CharacterContextProvider>
+              </MiddlewareContext.Provider>
+            </MiddlewareSetterContext.Provider>
         </Route>
 
         <Route path={CompileConstants.CONFIGURATION_MATCH} >

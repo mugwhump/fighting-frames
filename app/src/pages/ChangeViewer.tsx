@@ -7,8 +7,9 @@ import { State, useCharacterDispatch, useTrackedCharacterState, EditAction } fro
 import { useQuery, useChangeDocOrReversion } from '../services/hooks';
 import * as T from '../types/characterTypes';
 import * as util from '../services/util';
-import CharacterRenderer from './CharacterRenderer';
-import NeedPermissions from './NeedPermissions';
+import CharacterRenderer from '../components/CharacterRenderer';
+import NeedPermissions from '../components/NeedPermissions';
+import HeaderPage from '../components/HeaderPage';
 
 type ChangeViewerProps = {
   gameId: string;
@@ -28,6 +29,7 @@ export const ChangeViewer: React.FC<ChangeViewerProps> = ({gameId, columnDefs, u
   //Could potentially alter charDoc into one representing its state before change was applied to show how change DID change things instead of how it WOULD change things if published
   const charDoc = state.charDoc; 
   const characterId = state.characterId;
+  const charDisplayName = charDoc.universalProps.characterDisplayName;
   const userChangeList = state.editChanges;
   const changeDocId = util.getChangeId(characterId, changeTitle);
   //const { doc: changeDoc, loading, state: docState, error } = useDoc<T.ChangeDocServer>(changeDocId); 
@@ -37,57 +39,51 @@ export const ChangeViewer: React.FC<ChangeViewerProps> = ({gameId, columnDefs, u
   const popOver = useRef<HTMLIonPopoverElement>(null); 
   let changeType: 'history' | 'recent' | 'outdated' | null = null;
   let changeInfoText: string = '';
+  let pageTitle: string = '';
   let distanceFromLatest: number = 0;
-  //const [changeInfoText, setChangeInfoText] = useState<string>('');
-  //const [changeInfoClickFn, setChangeInfoClickFn] = useState<undefined | (()=>void)>(undefined);
 
-  /* TODO: Check if change in history, say "this is the xth most recent change in [character]'s history, click here to see how [character] looked before this change"
-     revert in query shows at top "previewing reversion of [character] to how they looked x changes ago, before change [title]"
-     Up-to-date changes show "previewing change [title] based on latest version of [character]"
-     Outdated changes show "previewing change based on [character] from x changes ago and how it would look if applied to [character]'s latest version"
-     */
 
-  //useEffect(() => {
-    const charDisplayName = charDoc.universalProps.characterDisplayName;
-    if(charDoc.changeHistory.includes(changeTitle)) {
-      changeType = 'history';
-      distanceFromLatest = charDoc.changeHistory.length - charDoc.changeHistory.indexOf(changeTitle); //1 if most recent
-      if(isRevert) {
-        changeInfoText = `Previewing ${charDisplayName} as they looked ${distanceFromLatest} changes ago, before change "${changeTitle}" was applied. Click here to view change "${changeTitle}" if it were to be re-applied to ${charDisplayName}'s latest version.`;
-        const url = util.getChangeUrl(gameId, characterId, changeTitle, false);
-        //setChangeInfoClickFn(() => history.push(url));
-      }
-      else {
-        changeInfoText = `This is an already-applied change from ${charDisplayName}'s history, ${distanceFromLatest} changes ago. Click here to see how this character looked before change "${changeTitle}" was applied.`;
-        const url = util.getChangeUrl(gameId, characterId, changeTitle, true);
-        //setChangeInfoClickFn(() => history.push(url));
-      }
+  if(charDoc.changeHistory.includes(changeTitle)) {
+    changeType = 'history';
+    distanceFromLatest = charDoc.changeHistory.length - charDoc.changeHistory.indexOf(changeTitle); //1 if most recent
+
+    if(isRevert) {
+      changeInfoText = `Previewing ${charDisplayName} as they looked ${distanceFromLatest} changes ago, before change "${changeTitle}" was applied. Click here to view change "${changeTitle}" if it were to be re-applied to ${charDisplayName}'s latest version.`;
+      pageTitle = `${charDisplayName} before change ${changeTitle}`
     }
-    else if(changeDoc) {
-      //setChangeInfoClickFn(undefined);
-      if(changeDoc.baseRevision === charDoc._id) {
-        changeType = 'recent';
-        changeInfoText = `Previewing change "${changeTitle}" based on latest version of ${charDisplayName}.`;
-      }
-      else {
-        distanceFromLatest = changeDoc.previousChange 
-          ? (charDoc.changeHistory.length - charDoc.changeHistory.indexOf(changeDoc.previousChange)) 
-          : charDoc.changeHistory.length; // if this was based on initial, empty charDoc
-        changeInfoText = `Previewing change "${changeTitle}" based on version of ${charDisplayName} from ${distanceFromLatest} changes ago and how it would look if applied to the latest version of ${charDisplayName}.`;
-        changeType = 'outdated';
-      }
-    }
+
     else {
-      changeType = null;
-      changeInfoText = '';
-      //setChangeInfoClickFn(undefined);
+      changeInfoText = `This is an already-applied change from ${charDisplayName}'s history, ${distanceFromLatest} changes ago. Click here to see how this character looked before change "${changeTitle}" was applied.`;
+      pageTitle = `${charDisplayName}'s applied change ${changeTitle}`
     }
-    console.log(`changeType ${changeType}, tesxt ${changeInfoText}`);
-  //}, [charDoc, changeTitle, isRevert, gameId, characterId, history, changeDoc]);
+  }
+
+  else if(changeDoc) {
+    pageTitle = `${charDisplayName}'s unapplied change ${changeTitle}`
+
+    if(changeDoc.baseRevision === charDoc._id) {
+      changeType = 'recent';
+      changeInfoText = `Previewing change "${changeTitle}" based on latest version of ${charDisplayName}.`;
+    }
+
+    else {
+      distanceFromLatest = changeDoc.previousChange 
+        ? (charDoc.changeHistory.length - charDoc.changeHistory.indexOf(changeDoc.previousChange)) 
+        : charDoc.changeHistory.length; // if this was based on initial, empty charDoc
+      changeInfoText = `Previewing change "${changeTitle}" based on version of ${charDisplayName} from ${distanceFromLatest} changes ago and how it would look if applied to the latest version of ${charDisplayName}.`;
+      changeType = 'outdated';
+    }
+  }
+
+  else {
+    changeType = null;
+    changeInfoText = '';
+  }
+
 
   useEffect(() => {
-    console.log(`query = ${JSON.stringify(query.get('revert'))}, previewRevert=${isRevert}`);
     return () => {
+      //doesn't work, popovers stay open when navigating away
       dismissPopOver();
       dismissAlert();
     }
@@ -154,19 +150,20 @@ export const ChangeViewer: React.FC<ChangeViewerProps> = ({gameId, columnDefs, u
     </>
   )
 
-  console.log("2A is being " + changeDoc.moveChanges?.['2A']?.moveName?.type);
 
   return (
-    <>
-      {changeFAB}
-      <IonItem button={changeType === 'history'} color="primary" onClick={changeType === 'history' ? (e) => {
-          console.log('cloocked, histype is '+changeType);
-          history.push(util.getChangeUrl(gameId, characterId, changeTitle, !isRevert));
-        } : undefined}>
-        <IonLabel class="ion-text-wrap">{changeInfoText}</IonLabel>
-      </IonItem>
-      <CharacterRenderer charDoc={charDoc} columnDefs={columnDefs} universalPropDefs={universalPropDefs} changes={changeDoc} highlightChanges={true}/>
-    </>
+    <HeaderPage title={pageTitle}>
+      <IonContent fullscreen>
+        {changeFAB}
+        <IonItem button={changeType === 'history'} color="primary" onClick={changeType === 'history' ? (e) => {
+            console.log('cloocked, histype is '+changeType);
+            history.push(util.getChangeUrl(gameId, characterId, changeTitle, !isRevert));
+          } : undefined}>
+          <IonLabel class="ion-text-wrap">{changeInfoText}</IonLabel>
+        </IonItem>
+        <CharacterRenderer charDoc={charDoc} columnDefs={columnDefs} universalPropDefs={universalPropDefs} changes={changeDoc} highlightChanges={true}/>
+      </IonContent>
+    </HeaderPage>
   )
 
 };

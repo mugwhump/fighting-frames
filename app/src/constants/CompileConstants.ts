@@ -1,5 +1,9 @@
 import { Credentials } from '../types/utilTypes';
 
+const charMatch = "/game/:gameId/character/:characterId";
+const changesMatch = charMatch+"/changes";
+const changeMatch = charMatch+"/changes/:changeTitle";
+
 export let CompileConstants = {
   DEFAULT_PREFER_LOCAL: false,
   DEFAULT_LOCAL_ENABLED: true,
@@ -7,8 +11,11 @@ export let CompileConstants = {
 
   //URLs
   GAME_MATCH: "/game/:gameId",
-  CHARACTER_MATCH: "/game/:gameId/character/:character",
-  SEGMENT_MATCH: "/game/:gameId/character/:character/:segment",
+  CHARACTER_MATCH: charMatch,
+  SEGMENT_MATCH: "/game/:gameId/character/:characterId/:segment", //TODO: nuke it
+  EDIT_MATCH: charMatch+"/local-edit",
+  CHANGES_MATCH: charMatch+"/changes",
+  CHANGE_MATCH: changeMatch,
   CONFIGURATION_MATCH: "/game/:gameId/game-configuration",
   ADD_CHARACTER_MATCH: "/game/:gameId/add-character",
   DELETE_CHARACTER_MATCH: "/game/:gameId/delete-character",
@@ -16,9 +23,8 @@ export let CompileConstants = {
   HOME_PATH: "/page/Inbox",
   CONFIRMATION_PATH: "/page/confirmed", //TODO: make an env var so couch-auth can use it... although frontend currently isn't dockerized
 
-  API_CHANGE_MATCH: "/game/:gameId/character/:characterId/changes/:changeTitle", //PUT. Would be POST if it ended at changes/. Using PUT since idempotent.
-  API_CHARACTER_MATCH: "/game/:gameId/character/:characterId", // PATCH with body of change title, since PUT replaces entire resource, patch also used for instructions. Also DELETE.
-  //API_DELETE_CHARACTER_MATCH: "/game/:gameId/character/:characterId", //DELETE
+  API_CHANGE_MATCH: changeMatch, //PUT. Would be POST if it ended at changes/. Using PUT since idempotent.
+  API_CHARACTER_MATCH: charMatch, // PATCH with body of change title, since PUT replaces entire resource, patch also used for instructions. Also DELETE.
   API_CHARACTERS_MATCH: "/game/:gameId/character", //POST to create new char. Body contains charName and displayName.
   API_CONFIG_MATCH: "/game/:gameId/_design/columns", //PUT new ddoc
   //API_PUBLISH_CHANGE_MATCH: "/game/:gameId/character/:characterId/changes/:changeTitle/publish", //PUT. Would be more RESTFUL to end at :characterId and have changeTitle as body

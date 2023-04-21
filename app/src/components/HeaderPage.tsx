@@ -7,7 +7,7 @@ type HeaderPageProps  = {
 
 const HeaderPage: React.FC<HeaderPageProps > = ({title, children}) => {
   useIonViewDidEnter(() => {
-    //console.log("HeaderPage IonViewDidEnter fired");
+    console.log("HeaderPage IonViewDidEnter fired");
   });
 
   return (

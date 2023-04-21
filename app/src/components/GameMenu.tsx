@@ -9,7 +9,7 @@ import { useView, usePouch } from 'use-pouchdb'
 import { useDocumentLocalRemoteSwitching } from '../services/pouch';
 import { CharDocWithMeta } from '../types/characterTypes';
 import { ListCharactersViewRow, SegmentUrl } from '../types/utilTypes'; //==
-import { getCharacterUrl, getGameUrl, getSegmentUrl } from '../services/util';
+import { getCharacterUrl, getGameUrl, getEditUrl, getChangesUrl } from '../services/util';
 import LoginButton from './LoginButton';
 import { withGameContext, useGameDispatch, Action as GameAction } from './GameProvider';
 import { useGameContext } from './GameProvider';
@@ -47,9 +47,9 @@ const GameMenu: React.FC = () => {
         {rows!.map((row, index) => {
           const url: string = getCharacterUrl(gameId, row.key);
           const selected: boolean = location.pathname.includes(url);
-          const editUrl: string = getSegmentUrl(gameId, row.key, SegmentUrl.Edit);
+          const editUrl: string = getEditUrl(gameId, row.key);
           const editSelected: boolean = location.pathname.includes(editUrl);
-          const changeUrl: string = getSegmentUrl(gameId, row.key, SegmentUrl.Changes);
+          const changeUrl: string = getChangesUrl(gameId, row.key);
           const changeSelected: boolean = location.pathname.includes(changeUrl);
           //return (
             //<IonAccordion key={index}>

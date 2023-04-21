@@ -31,7 +31,7 @@ const AddCharacter: React.FC<AddCharacterProps> = ({gameId}) => {
       presentAlert(resp.message, [ {text: 'OK', role: 'cancel'},
         {text: 'View Character', handler: () => {
         //navigate to newly created character
-        let url = util.getSegmentUrl(gameId, charName, SegmentUrl.Base);
+        let url = util.getCharacterUrl(gameId, charName);
         history.push(url); 
       }}]);
     }).catch((err) => {

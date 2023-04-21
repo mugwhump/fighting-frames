@@ -8,15 +8,16 @@ import { getChangeListMoveOrder, keys, updateMoveOrPropChanges, getDateString, u
 import { getDefsAndData } from '../services/renderUtil';
 import * as security from '../services/security';
 import { useMyToast } from '../services/hooks';
-import MoveEditModal from './MoveEditModal';
-import MoveOrdererModal from './MoveOrdererModal';
-import CharacterRenderer from './CharacterRenderer';
-import NeedPermissions from './NeedPermissions';
+import MoveEditModal from '../components/MoveEditModal';
+import MoveOrdererModal from '../components/MoveOrdererModal';
+import CharacterRenderer from '../components/CharacterRenderer';
+import NeedPermissions from '../components/NeedPermissions';
 import { State, EditAction, useCharacterDispatch, useTrackedCharacterState, useCharacterSelector, useMiddleware, selectMoveOrder } from '../services/CharacterReducer';
-import { useLoginInfoContext } from './LoginProvider';
+import { useLoginInfoContext } from '../components/LoginProvider';
 import styles from '../theme/Character.module.css';
 import { cloneDeep } from 'lodash';
 import CompileConstants from '../constants/CompileConstants';
+import HeaderPage from '../components/HeaderPage';
 
 
 type EditCharProps = {
@@ -263,60 +264,63 @@ export const EditCharacter: React.FC<EditCharProps> = ({gameId, columnDefs, univ
   /*
      TODO: currently (as of Jan 23 2023 on v6.0.8), navigating away while the modal is open causes an error from the modal trying to call its onDidDismiss event.
      Seems to happen with popovers too?
+     UPDATE: after moving away from segments and making each segment its own ionic page, overlayed alerts/popovers just stay open instead of crashing. Progress?
      This is being fixed in upcoming Ionic version, see https://github.com/ionic-team/ionic-framework/pull/26245 and https://github.com/ionic-team/ionic-framework/issues/25775
   */
 
   return (
-    <>
-      {editFAB}
-      <IonModal isOpen={moveToEdit !== undefined} onDidDismiss={() => dispatch({actionType: 'closeMoveEditModal'})}>
-        <MoveEditModal moveName={moveToEdit!} getDefsAndData={getModalDefsAndData}
-          originalChanges={moveToEdit === "universalProps" ? changeList?.universalPropChanges : changeList?.moveChanges?.[moveToEdit!]} 
-        />
-      </IonModal>
-      {!security.userHasPerms(loginInfo, "Editor") && (
-          security.userHasPerms(loginInfo, "Uploader")
-            ? <IonItem color="warning">
-                <IonLabel class="ion-text-wrap">You have permission to upload changes for this game, but 
-                  {security.anySLUserHasPerms("Editor", loginInfo.secObj) ? " you will need to log in" : " someone with Editor permissions will need"} to apply those changes.
-                </IonLabel>
-              </IonItem>
-            : <IonItem color="warning">
-                <IonLabel class="ion-text-wrap">You do not have permission to upload changes for this game! 
-                  {security.anySLUserHasPerms("Uploader", loginInfo.secObj) ? " You can log in to upload changes." : " Contact a game admin for upload permissions."}
-                </IonLabel>
-              </IonItem>
-        )
-      }
-      {/*<NeedPermissions permissions="Editor" ifYes={(<></>)} ifNo={(*/}
-        {/*<NeedPermissions permissions="Uploader" ifYes={(*/}
-          {/*<IonItem color="warning">*/}
-            {/*<IonLabel class="ion-text-wrap">You have permission to upload changes, but someone with Editor permissions will need to apply those changes.</IonLabel>*/}
-          {/*</IonItem>*/}
-        {/*)} */}
-        {/*ifNo={(*/}
-          {/*<IonItem color="warning">*/}
-            {/*<IonLabel class="ion-text-wrap"></IonLabel>*/}
-          {/*</IonItem>*/}
-        {/*)} />*/}
-      {/*)} />*/}
-      <CharacterRenderer charDoc={charDoc} columnDefs={columnDefs} universalPropDefs={universalPropDefs} 
-        editingEnabled={true} changes={changeList} highlightChanges={true} highlightConflicts={true} >
-        {hasConflicts && 
-          (hasUnresolvedConflicts ?
-            <IonItem color="danger">
-              <IonIcon color="warning" slot="start" md={warningOutline} />
-              <IonLabel class="ion-text-wrap">Your edits have one or more conflicts with {changeList?.rebaseSource ? "this character's latest update" : "your imported change"}. Swipe a column right or left to prefer <span className={styles.textYours}>your data</span> or <span className={styles.textTheirs}>theirs</span>.</IonLabel>
-            </IonItem>
-          : 
-            <IonItem color="success" button onClick={() => dispatch({actionType: "applyResolutions"})}>
-              <IonIcon slot="start" md={checkmarkOutline} />
-              <IonLabel class="ion-text-wrap">All conflicts resolved! Click here to apply these resolutions.</IonLabel>
-            </IonItem>
+    <HeaderPage title={"Editing " + state.characterDisplayName}>
+      <IonContent fullscreen>
+        {editFAB}
+        <IonModal isOpen={moveToEdit !== undefined} onDidDismiss={() => dispatch({actionType: 'closeMoveEditModal'})}>
+          <MoveEditModal moveName={moveToEdit!} getDefsAndData={getModalDefsAndData}
+            originalChanges={moveToEdit === "universalProps" ? changeList?.universalPropChanges : changeList?.moveChanges?.[moveToEdit!]} 
+          />
+        </IonModal>
+        {!security.userHasPerms(loginInfo, "Editor") && (
+            security.userHasPerms(loginInfo, "Uploader")
+              ? <IonItem color="warning">
+                  <IonLabel class="ion-text-wrap">You have permission to upload changes for this game, but 
+                    {security.anySLUserHasPerms("Editor", loginInfo.secObj) ? " you will need to log in" : " someone with Editor permissions will need"} to apply those changes.
+                  </IonLabel>
+                </IonItem>
+              : <IonItem color="warning">
+                  <IonLabel class="ion-text-wrap">You do not have permission to upload changes for this game! 
+                    {security.anySLUserHasPerms("Uploader", loginInfo.secObj) ? " You can log in to upload changes." : " Contact a game admin for upload permissions."}
+                  </IonLabel>
+                </IonItem>
           )
         }
-      </CharacterRenderer>
-    </>
+        {/*<NeedPermissions permissions="Editor" ifYes={(<></>)} ifNo={(*/}
+          {/*<NeedPermissions permissions="Uploader" ifYes={(*/}
+            {/*<IonItem color="warning">*/}
+              {/*<IonLabel class="ion-text-wrap">You have permission to upload changes, but someone with Editor permissions will need to apply those changes.</IonLabel>*/}
+            {/*</IonItem>*/}
+          {/*)} */}
+          {/*ifNo={(*/}
+            {/*<IonItem color="warning">*/}
+              {/*<IonLabel class="ion-text-wrap"></IonLabel>*/}
+            {/*</IonItem>*/}
+          {/*)} />*/}
+        {/*)} />*/}
+        <CharacterRenderer charDoc={charDoc} columnDefs={columnDefs} universalPropDefs={universalPropDefs} 
+          editingEnabled={true} changes={changeList} highlightChanges={true} highlightConflicts={true} >
+          {hasConflicts && 
+            (hasUnresolvedConflicts ?
+              <IonItem color="danger">
+                <IonIcon color="warning" slot="start" md={warningOutline} />
+                <IonLabel class="ion-text-wrap">Your edits have one or more conflicts with {changeList?.rebaseSource ? "this character's latest update" : "your imported change"}. Swipe a column right or left to prefer <span className={styles.textYours}>your data</span> or <span className={styles.textTheirs}>theirs</span>.</IonLabel>
+              </IonItem>
+            : 
+              <IonItem color="success" button onClick={() => dispatch({actionType: "applyResolutions"})}>
+                <IonIcon slot="start" md={checkmarkOutline} />
+                <IonLabel class="ion-text-wrap">All conflicts resolved! Click here to apply these resolutions.</IonLabel>
+              </IonItem>
+            )
+          }
+        </CharacterRenderer>
+      </IonContent>
+    </HeaderPage>
   );
 };
 

@@ -1,4 +1,4 @@
-import { IonAccordion, IonAccordionGroup, IonRouterLink, useIonAlert, IonIcon, IonLabel, IonList, IonButton, IonItem, IonGrid, IonRow, IonCol } from '@ionic/react';
+import { IonContent, IonAccordion, IonAccordionGroup, IonRouterLink, useIonAlert, IonIcon, IonLabel, IonList, IonButton, IonItem, IonGrid, IonRow, IonCol } from '@ionic/react';
 import { thumbsUpOutline, arrowUndoOutline, arrowUndoSharp } from 'ionicons/icons';
 import React, { useEffect, useCallback }from 'react';
 import { useView, useDoc } from 'use-pouchdb'
@@ -7,8 +7,8 @@ import * as util from '../services/util';
 import type { ChangeDocWithMeta } from '../types/characterTypes';
 import type { ListChangesViewRow, ListChangesViewRowValue } from '../types/utilTypes'; //==
 import { State, useCharacterDispatch, EditAction, useTrackedCharacterState } from '../services/CharacterReducer';
-import { useLoginInfoContext, LoginInfo } from './LoginProvider';
-import ChangeViewer from './ChangeViewer';
+import { useLoginInfoContext, LoginInfo } from '../components/LoginProvider';
+import HeaderPage from '../components/HeaderPage';
 
 type ChangeBrowserProps = {
   gameId: string
@@ -93,49 +93,53 @@ export const ChangeBrowser: React.FC<ChangeBrowserProps> = ({gameId}) => {
 
   //TODO: show published changes (w/ button to revert), up-to-date (w/ button to publish), outdated (w/ button to import). Click any to go to changeviewer.
   return (
-    <IonAccordionGroup>
+    <HeaderPage title={"Changes for " + state.characterDisplayName}>
+      <IonContent fullscreen>
+        <IonAccordionGroup>
 
-      <IonAccordion>
-        <IonItem slot="header" color="light">
-          <IonLabel>Change History</IonLabel>
-        </IonItem>
+          <IonAccordion>
+            <IonItem slot="header" color="light">
+              <IonLabel>Change History</IonLabel>
+            </IonItem>
 
-        <div slot="content">
-          {publishedChangeRows.length === 0 
-            ? <IonItem color={"primary"}>No changes have been applied for this character. If there are submitted changes below, 
-                they can be applied by someone with Editor permissions.</IonItem>
-            : <ChangeGrid rows={publishedChangeRows} type="history" gameId={gameId} characterId={characterId} />
-          }
-        </div>
-      </IonAccordion>
+            <div slot="content">
+              {publishedChangeRows.length === 0 
+                ? <IonItem color={"primary"}>No changes have been applied for this character. If there are submitted changes below, 
+                    they can be applied by someone with Editor permissions.</IonItem>
+                : <ChangeGrid rows={publishedChangeRows} type="history" gameId={gameId} characterId={characterId} />
+              }
+            </div>
+          </IonAccordion>
 
-      <IonAccordion>
-        <IonItem slot="header" color="light">
-          <IonLabel>Recent Unapplied Changes</IonLabel>
-        </IonItem>
+          <IonAccordion>
+            <IonItem slot="header" color="light">
+              <IonLabel>Recent Unapplied Changes</IonLabel>
+            </IonItem>
 
-        <div slot="content">
-          {recentChangeRows.length === 0 
-            ? <IonItem color={"primary"}>This character has no changes that are based on the latest version.
-                Go to the Edit section to submit changes.</IonItem>
-            : <ChangeGrid rows={recentChangeRows} type="recent" gameId={gameId} characterId={characterId} />
-          }
-        </div>
-      </IonAccordion>
+            <div slot="content">
+              {recentChangeRows.length === 0 
+                ? <IonItem color={"primary"}>This character has no changes that are based on the latest version.
+                    Go to the Edit section to submit changes.</IonItem>
+                : <ChangeGrid rows={recentChangeRows} type="recent" gameId={gameId} characterId={characterId} />
+              }
+            </div>
+          </IonAccordion>
 
-      <IonAccordion>
-        <IonItem slot="header" color="light">
-          <IonLabel>Older Unapplied Changes</IonLabel>
-        </IonItem>
+          <IonAccordion>
+            <IonItem slot="header" color="light">
+              <IonLabel>Older Unapplied Changes</IonLabel>
+            </IonItem>
 
-        <div slot="content">
-          {outdatedChangeRows.length === 0 
-            ? <IonItem color={"primary"}>This character has no changes that are based on the older versions.</IonItem>
-            : <ChangeGrid rows={outdatedChangeRows} type="recent" gameId={gameId} characterId={characterId} />
-          }
-        </div>
-      </IonAccordion>
-    </IonAccordionGroup>
+            <div slot="content">
+              {outdatedChangeRows.length === 0 
+                ? <IonItem color={"primary"}>This character has no changes that are based on the older versions.</IonItem>
+                : <ChangeGrid rows={outdatedChangeRows} type="recent" gameId={gameId} characterId={characterId} />
+              }
+            </div>
+          </IonAccordion>
+        </IonAccordionGroup>
+      </IonContent>
+    </HeaderPage>
   );
   /*
   return (

@@ -20,33 +20,33 @@ type CharProviderProps = {
 
 
 export const CharacterDocAccess: React.FC<CharProviderProps> = ({children, gameId}) => {
-  const { character } = useParams<{ character: string; }>(); //router has its own props
+  const { characterId } = useParams<{ characterId: string; }>(); //router has its own props
   //TODO: just use existing local db with no revisions or conflict? Need some changes to Local Provider then... and can't sync in future... use conflicty one??
   const remoteDatabase: PouchDB.Database = usePouch('remote'); 
   const localPersonalDatabase: PouchDB.Database = usePouch('localPersonal'); 
-  const { doc, loading, state: docState, error } = useDoc<T.CharDoc>(util.getCharDocId(character)); 
+  const { doc, loading, state: docState, error } = useDoc<T.CharDoc>(util.getCharDocId(characterId)); 
   const state = useTrackedCharacterState();
   const dispatch = useCharacterDispatch();
   const history = useHistory();
   const [presentMyToast, dismissToast] = useMyToast(); 
   const [presentAlert, dismissAlert] = useIonAlert(); 
-  const docEditId = util.getDocEditId(gameId, character);
+  const docEditId = util.getDocEditId(gameId, characterId);
 
   //Initialization, start loading local edits (charDoc automatically starts reloading due to the hook)
   //Also called when switching characters.
   useEffect(() => {
     if(state.initialized) {
-      console.log("Character "+character+" uninitialized. Loading character docs");
-      dispatch({actionType:'deinitialize', characterId: character});
+      console.log("Character "+characterId+" uninitialized. Loading character docs");
+      dispatch({actionType:'deinitialize', characterId: characterId});
     }
     localPersonalDatabase.get<T.ChangeDoc>(docEditId).then((doc)=> {
-      console.log("Loaded edit doc for "+character);
+      console.log("Loaded edit doc for "+characterId);
       dispatch({actionType:'loadEditsFromLocal', editChanges: doc});
     }).catch((err) => {
-      console.log(`Edit doc for ${character} loading error: ${err.message}`);
+      console.log(`Edit doc for ${characterId} loading error: ${err.message}`);
       dispatch({actionType:'loadEditsFromLocal', editChanges: undefined});
     });
-  }, [character, docEditId]);
+  }, [characterId, docEditId]);
 
   // Write edit doc if changed
   useEffect(() => {
@@ -71,10 +71,10 @@ export const CharacterDocAccess: React.FC<CharProviderProps> = ({children, gameI
   async function writeChangeList() {
     //TODO: only do if local enabled. Also hide segments if not.
     if(!state.initialized) {
-      console.error(`Docs for ${character} not yet initialized, cannot write changes.`);
+      console.error(`Docs for ${characterId} not yet initialized, cannot write changes.`);
     }
     if(!state.editChanges) {
-      console.error(`${character} does not have changes to write.`); 
+      console.error(`${characterId} does not have changes to write.`); 
       return;
     }
     //TODO: This is NOT a copy, same in-memory JSON obj. changeList now has a runtime _id field (though typescript won't let you use it)
@@ -195,7 +195,7 @@ export const CharacterDocAccess: React.FC<CharProviderProps> = ({children, gameI
       //TODO: if this change was submitted by a user without write perms and current user is admin, prompt for whether to give author write perms
       console.log("Response: "+JSON.stringify(res));
       presentMyToast(res.message, 'success');
-      let url = util.getSegmentUrl(gameId, state.characterId, SegmentUrl.Base); 
+      let url = util.getCharacterUrl(gameId, state.characterId); 
       //TODO: getting error about "Node to be removed is not a child of this node," can I access history here? If so, close any alerts/popovers first.
       history.push(url);
     }).catch((err) => {
@@ -227,7 +227,7 @@ export const CharacterDocAccess: React.FC<CharProviderProps> = ({children, gameI
           [ {text: 'Cancel', role: 'cancel'},
             {text: 'Yes', handler: () => {
               dispatch({actionType: "importChanges", changes: action.changes});
-              let url = util.getSegmentUrl(gameId, state.characterId, SegmentUrl.Edit); 
+              let url = util.getEditUrl(gameId, state.characterId); 
               history.push(url);
             }},
           ]);
@@ -250,7 +250,7 @@ export const CharacterDocAccess: React.FC<CharProviderProps> = ({children, gameI
     console.error("heckin errorino in CharacterDocAccess: " + JSON.stringify(error));
     if(error?.status && error.status === 404) {
       const deletedString = (error.reason === "deleted") ? "(Deleted)" : "";
-      return (<div>Character {character} does not exist {deletedString}</div>);
+      return (<div>Character {characterId} does not exist {deletedString}</div>);
     }
     return (<span>Error loading character: {error?.message}</span>);
   }

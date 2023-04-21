@@ -4,10 +4,10 @@ import { Route, Switch, useParams, useHistory, useLocation, useRouteMatch } from
 import { SegmentChangeEventDetail, SegmentCustomEvent } from '@ionic/core';
 //import PouchDB from 'pouchdb';
 import { useTrackedCharacterState  } from '../services/CharacterReducer';
-import Character from '../components/Character';
-import EditCharacter from '../components/EditCharacter';
-import ChangeBrowser from '../components/ChangeBrowser';
-import ChangeViewer from '../components/ChangeViewer';
+import Character from '../pages/Character';
+import EditCharacter from '../pages/EditCharacter';
+import ChangeBrowser from '../pages/ChangeBrowser';
+import ChangeViewer from '../pages/ChangeViewer';
 import { DesignDoc, ColumnDefs } from '../types/characterTypes';
 import * as util from '../services/util';
 import { SegmentUrl } from '../types/utilTypes';
@@ -21,9 +21,9 @@ type CharacterSegmentsProps = {
 
 
 const CharacterSegments: React.FC<CharacterSegmentsProps> = ({ gameId, columnDefs, universalPropDefs }) => {
-  const { character, segment } = useParams<{ character: string; segment: string }>(); 
+  const { characterId, segment } = useParams<{ characterId: string; segment: string }>(); 
   const state = useTrackedCharacterState ();
-  const baseUrl = util.getSegmentUrl(gameId, character, SegmentUrl.Base);
+  const baseUrl = util.getSegmentUrl(gameId, characterId, SegmentUrl.Base);
   const history = useHistory();
   //const location: string = useLocation().pathname;
   //const currentSegment: SegmentUrl = segmentFromUrl(location);
@@ -49,7 +49,7 @@ const CharacterSegments: React.FC<CharacterSegmentsProps> = ({ gameId, columnDef
   //}
   function clickedSegment(e: MouseEvent<HTMLIonSegmentButtonElement>) {
     //let url = baseUrl + (e?.currentTarget?.value || '');
-    let url = util.getSegmentUrl(gameId, character, segmentFromParam(e?.currentTarget?.value));
+    let url = util.getSegmentUrl(gameId, characterId, segmentFromParam(e?.currentTarget?.value));
     history.push(url);
   }
 
@@ -59,19 +59,19 @@ const CharacterSegments: React.FC<CharacterSegmentsProps> = ({ gameId, columnDef
     <>
     <IonContent fullscreen>
       <Switch>
-        <Route path={util.getSegmentUrl(gameId, character, SegmentUrl.Edit)} >
+        <Route path={util.getSegmentUrl(gameId, characterId, SegmentUrl.Edit)} >
           <EditCharacter gameId={gameId} columnDefs={columnDefs} universalPropDefs={universalPropDefs} />
         </Route>
-        <Route path={util.getSegmentUrl(gameId, character, SegmentUrl.Changes)+'/:changeTitle'} >
+        <Route path={util.getSegmentUrl(gameId, characterId, SegmentUrl.Changes)+'/:changeTitle'} >
           <ChangeViewer gameId={gameId} columnDefs={columnDefs} universalPropDefs={universalPropDefs} />
         </Route>
-        <Route path={util.getSegmentUrl(gameId, character, SegmentUrl.Changes)} >
+        <Route path={util.getSegmentUrl(gameId, characterId, SegmentUrl.Changes)} >
           <ChangeBrowser gameId={gameId} />
         </Route>
         {/*<Route path={util.getSegmentUrl(gameId, character, SegmentUrl.History)} >*/}
           {/*<div>History not yet implemented</div>*/}
         {/*</Route>*/}
-        <Route path={util.getSegmentUrl(gameId, character, SegmentUrl.Base)} >
+        <Route path={util.getSegmentUrl(gameId, characterId, SegmentUrl.Base)} >
           <Character columnDefs={columnDefs} universalPropDefs={universalPropDefs} /> 
         </Route>
       </Switch>

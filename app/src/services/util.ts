@@ -163,15 +163,22 @@ export function trimStringProperties(record: Record<string, unknown>) {
 export function getGameUrl(gameId: string): string {
   return generatePath(CompileConstants.GAME_MATCH, {gameId: gameId});
 }
-export function getCharacterUrl(gameId: string, character: string): string {
-  return generatePath(CompileConstants.CHARACTER_MATCH, {gameId: gameId, character: character});
+export function getCharacterUrl(gameId: string, characterId: string): string {
+  return generatePath(CompileConstants.CHARACTER_MATCH, {gameId: gameId, characterId: characterId});
 }
-export function getSegmentUrl(gameId: string, character: string, segment: SegmentUrl): string {
-  if(segment === SegmentUrl.Base) return getCharacterUrl(gameId, character); //generatePath doesn't let segment be empty
-  return generatePath(CompileConstants.SEGMENT_MATCH, {gameId: gameId, character: character, segment: segment});
+export function getSegmentUrl(gameId: string, characterId: string, segment: SegmentUrl): string { //TODO: nuke
+  if(segment === SegmentUrl.Base) return getCharacterUrl(gameId, characterId); //generatePath doesn't let segment be empty
+  return generatePath(CompileConstants.SEGMENT_MATCH, {gameId: gameId, characterId: characterId, segment: segment});
 }
-export function getChangeUrl(gameId: string, character: string, changeTitle: string, revert?: boolean): string {
-  const url = getSegmentUrl(gameId, character, SegmentUrl.Changes) + '/' + changeTitle;
+export function getEditUrl(gameId: string, characterId: string): string {
+  return generatePath(CompileConstants.EDIT_MATCH, {gameId: gameId, characterId: characterId});
+}
+export function getChangesUrl(gameId: string, characterId: string): string {
+  return generatePath(CompileConstants.CHANGES_MATCH, {gameId: gameId, characterId: characterId});
+}
+export function getChangeUrl(gameId: string, characterId: string, changeTitle: string, revert?: boolean): string {
+  //const url = getSegmentUrl(gameId, characterId, SegmentUrl.Changes) + '/' + changeTitle;
+  const url = generatePath(CompileConstants.API_CHANGE_MATCH, {gameId: gameId, characterId: characterId, changeTitle: changeTitle});
   return revert ? url + '?revert=true' : url;
 }
 export function getConfigurationUrl(gameId: string): string {
@@ -210,8 +217,9 @@ export function getCharDocId(character: string): string {
 export function getChangeId(character: string, changeTitle: string): string {
   return `character/${character}/changes/${changeTitle}`;
 }
-export function getDocEditId(gameId: string, character: string): string {
-  return getSegmentUrl(gameId, character, SegmentUrl.Edit);
+export function getDocEditId(gameId: string, characterId: string): string {
+  //return getSegmentUrl(gameId, character, SegmentUrl.Edit);
+  return getCharacterUrl(gameId, characterId);
 }
 
 // Gets current time in alphabetically sortable ISO UTC format YYYY-MM-DDTHH:mm:ss.sssZ
