@@ -42,7 +42,7 @@ const Menu: React.FC<MenuProps> = ({usingLocal}) => {
   const location = useLocation(); //access current page url and update when it changes
   const topDB: string = usingLocal ? "localTop" : "remoteTop";
   const currentPouch: PouchDB.Database = usePouch(topDB);
-  const { doc, loading, state, error } = useDoc<PouchDB.Core.Document<DBListDoc>>("top/list", {db: topDB}); 
+  const { doc, loading, state, error } = useDoc<PouchDB.Core.Document<DBListDoc>>("game-list", {db: topDB}); 
   useDocumentLocalRemoteSwitching(state, error, 'Menu', currentPouch);
   const gameDispatch = useGameDispatch();
 
