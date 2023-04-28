@@ -1,0 +1,8 @@
+{
+  "couchdb-configure(section)": {
+    "foo(key)": "bar(value)"
+  },
+  "vendor": {
+    "testing-couchdb-configure-merge": "merge this key/val with existing pair (name: The Apache Software Foundation)"
+  }
+}
