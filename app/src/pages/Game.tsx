@@ -6,24 +6,26 @@ import { useDocumentLocalRemoteSwitching } from '../services/pouch';
 import { useDoc } from 'use-pouchdb';
 //import * as myPouch from '../services/pouch';
 //import CharacterSegments  from '../components/CharacterSegments';
-import Character from './Character';
-import EditCharacter from './EditCharacter';
-import ChangeBrowser from './ChangeBrowser';
-import ChangeViewer from './ChangeViewer';
-import { CharacterDocAccess } from '../components/CharacterDocAccess';
 import { CharacterContextProvider, MiddlewareContext, MiddlewareSetterContext, Middleware } from '../services/CharacterReducer';
 import { useGameContext, useGameDispatch, Action as GameAction } from '../components/GameProvider';
 import { calculateHideBreakpoints } from '../services/renderUtil';
 import * as util from '../services/util';
-import { insertDefsSortGroupsCompileRegexes   } from '../services/columnUtil';
-import HeaderPage from '../components/HeaderPage';
-import DefEditor from '../pages/DefEditor';
-import AddCharacter from '../pages/AddCharacter';
-import DeleteCharacters from '../pages/DeleteCharacters';
 import * as T from '../types/characterTypes';
 //import { cloneDeep } from 'lodash';
+import { insertDefsSortGroupsCompileRegexes   } from '../services/columnUtil';
+import { CharacterDocAccess } from '../components/CharacterDocAccess';
+import Character from './Character';
+import EditCharacter from './EditCharacter';
+import ChangeBrowser from './ChangeBrowser';
+import ChangeViewer from './ChangeViewer';
+import HeaderPage from '../components/HeaderPage';
+import DefEditor from './DefEditor';
+import AddCharacter from './AddCharacter';
+import DeleteCharacters from './DeleteCharacters';
+import AuthorizedUsers from './AuthorizedUsers';
 import CompileConstants from '../constants/CompileConstants';
 import NeedPermissions from '../components/NeedPermissions';
+import AuthorizedUserss from './AuthorizedUsers';
 
 type GameProps = {
 }
@@ -151,7 +153,7 @@ const Game: React.FC<GameProps> = () => {
         </Route>
 
         <Route path={CompileConstants.AUTHORIZED_USERS_MATCH} >
-          <div>Under Construction</div>
+          <div><AuthorizedUserss gameId={gameId} /></div>
         </Route>
     </>
   );

@@ -32,6 +32,7 @@ const config = {
   host: '0.0.0.0',
 };
 
+//imports, require statements, top-level variables etc are run once when server starts and persist between requests.
 app.listen(config.port, config.host, ()=> {
   logger.info(`*glomp* uwu ${config.name} running on ${config.host}:${config.port}`);
 });

@@ -7,6 +7,7 @@ echo "Generating schema..."
 # TODO: check if I need --strictNullChecks
 npx typescript-json-schema ./tsconfig.json ChangeDocServer -o schema/ChangeDocServer.json --include shared/types/characterTypes.ts --required --noExtraProps
 npx typescript-json-schema ./tsconfig.json DesignDoc -o schema/DesignDoc.json --include shared/types/characterTypes.ts --required --noExtraProps
+npx typescript-json-schema ./tsconfig.json SecObj -o schema/SecObj.json --include shared/services/security.ts --required --noExtraProps
 
 # when an optional property has never as its type, schema generator chokes and says its type is undefined, which ajv rejects.
 # Instead set that property to false in the schema using json editor.
@@ -19,6 +20,7 @@ jq '(.. | select(.type == "undefined")?) |= false' schema/ChangeDocServer.json >
 echo "Generating validators..."
 npx ajv compile -s schema/ChangeDocServer.json -o schema/ChangeDocServer-validator.js --allowUnionTypes --all-errors
 npx ajv compile -s schema/DesignDoc.json -o schema/DesignDoc-validator.js --allowUnionTypes --all-errors
+npx ajv compile -s schema/SecObj.json -o schema/SecObj-validator.js --allowUnionTypes --all-errors
 
 #npx ajv compile -s schema/CharDoc.json -o schema/CharDoc-validator.js
 #npx ajv compile -s schema/ChangeDocServer.json -o ../couchdb/game-template/_design/validate/lib/ChangeDocServer-validator.js --allowUnionTypes

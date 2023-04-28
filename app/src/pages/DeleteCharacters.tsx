@@ -16,7 +16,7 @@ type DeleteCharactersProps = {
 }
 
 const DeleteCharacters: React.FC<DeleteCharactersProps> = ({gameId}) => {
-  const { rows, loading, state, error } = useView<ListCharactersViewRow, CharDocWithMeta>("list/list-chars"); 
+  const { rows, loading, state, error } = useView<ListCharactersViewRow, CharDocWithMeta>("list/list-chars", {db: "remote"}); 
   const [serverErr, setServerErr] = useState<string | null>(null); 
   const [presentAlert, dismissAlert] = useIonAlert(); 
 

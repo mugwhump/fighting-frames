@@ -5,12 +5,13 @@ import logger from '../util/logger';
 import * as Security from '../shared/services/security';
 import { secrets } from "docker-secret";
 import couchAuth from './couchauth';
-import { adminNano, TypedRequest, getSuccessObject, sendSuccess, getErrorObject, sendError, needsPermissions, getUser } from '../util/expressUtil';
+import { adminNano, TypedRequest, getSuccessObject, sendSuccess, getErrorObject, sendError, needsPermissions, getUser, mySleep } from '../util/expressUtil';
 import * as CouchAuthTypes from '@perfood/couch-auth/lib/types/typings';
-import { cloneDeep, isEqual } from 'lodash';
+import { cloneDeep, isEqual, set } from 'lodash';
 import * as Nano from 'nano';
 import type * as T from '../shared/types/characterTypes'; //= //not included in runtime buildo
-import type { ApiResponse, PublishChangeBody, CreateCharacterBody, ListChangesViewRow, ListChangesViewRowValue } from '../shared/types/utilTypes'; //= 
+import type { ApiResponse, PublishChangeBody, CreateCharacterBody, CreateGameBody, ListChangesViewRow, ListChangesViewRowValue } from '../shared/types/utilTypes'; //= 
+import { findSharedElements } from '../util/helper';
 import * as intCols from '../shared/constants/internalColumns';
 import * as colUtil from '../shared/services/columnUtil';
 import * as util from '../shared/services/util';
@@ -20,25 +21,96 @@ import CompileConstants from '../shared/constants/CompileConstants';
 
 const DesignDocValidator = require('../schema/DesignDoc-validator').default;
 const ChangeDocValidator = require('../schema/ChangeDocServer-validator').default;
+const SecObjValidator = require('../schema/SecObj-validator').default;
 
 const router = express.Router();
 const testUser = 'joesmith2';
 
+const testObject = {val: 1};
+
 //TODO: make custom error handler for nonexistent endpoint or method, right now express returns html
+
+
+router.post(CompileConstants.API_CREATE_GAME_MATCH ,// needsPermissions("ServerManager"), TODO: TESTING
+           async (req: TypedRequest<{}, CreateGameBody>, res) => {
+  try {
+    const gameId = req.body.gameId;
+    let displayName = req.body.displayName;
+
+    if(typeof gameId !== 'string' || typeof displayName !== 'string') {
+      return sendError(res, `game ID and displayed name must be strings`, 400);
+    }
+
+    //validate gameId
+    let validId = CompileConstants.ALLOWED_GAME_ID_REGEX.test(gameId);
+    if(!validId) {
+      return sendError(res, `Invalid game ID ${gameId}`, 400);
+    }
+
+    //trim displayName, reject if doesn't pass regex
+    displayName = displayName.trim();
+    let validDisplayName = CompileConstants.ALLOWED_GAME_DISPLAY_NAME_REGEX.test(displayName);
+    if(!validDisplayName) {
+      return sendError(res, `Invalid game display name ${displayName}`, 400);
+    }
+
+    //TODO: check db doesn't exist
+    let allDBs = await adminNano.db.list();
+    if(allDBs.includes(gameId)) {
+      return sendError(res, `Database for ${gameId} already exists`, 409);
+    }
+
+    return sendSuccess(res, `TESTING ---------------- stopping w/o creating`);
+
+    //call replicator update func to create replication document which makes db
+    //request body must contain username, password, id. (uname/pw should be the replication user, make sure to do separate catch so creds not sent in err msgs).
+    //Request headers.Host should be like http://localhost:5984 (no trailing slash)
+    const replicatorDB = adminNano.use('_replicator');
+
+    try {
+      //TODO: import from secrets!
+      const body = {username: 'replication-guy', password: 'RE2catlmao', id: gameId};
+      //const body = {username: 'fakecreds', password: 'errortime', id: gameId};
+      //const body = {username: 'fakecreds', id: gameId};
+      const updateResponseMsg = await replicatorDB.updateWithHandler('replicate_from_template', 'create', gameId, body); 
+      // If doc was successfully created in _replicator but, say, creds are bad, the db will silently fail to be created. Check for success.
+      await mySleep(2000); //wait a bit so replicator has time to make db
+      allDBs = await adminNano.db.list();
+      if(!allDBs.includes(gameId)) {
+        //clean up replication document
+        //TODO: this is risky, can result in DB created by replication doc deleted. Let's just log an error.
+        //const createdReplicationDoc = await replicatorDB.get(gameId);
+        //await replicatorDB.destroy(gameId, createdReplicationDoc._rev);
+        //return sendError(res, `DB for ${gameId} was not created, cleaning up`, 409);
+        logger.error(`Created replication doc for ${gameId}, but database seemingly missing`);
+      }
+    }
+    catch(err: any) {
+      return sendError(res, `Error inserting replication document, ${err}`, err.status ?? 500);
+    }
+
+    //TODO: modify top list
+    const topDB = adminNano.use('top');
+
+    //TODO: make _design/columns
+    //TODO: update _security w read role
+    return sendSuccess(res, `Created database for game`);
+  }
+  catch(err: any) {
+    return sendError(res, `Error creating game, ${err}`, err.status ?? 500);
+  }
+});
 
 
 /**
  * PUT. Upload new configuration which defines a game's columns, their restrictions, the game's displayed name, etc.
  * Body contains configuration document.
+ * TODO: check if game displayName has changed; if so, modify its entry in top/list
  */
-router.put(CompileConstants.API_CONFIG_MATCH, needsPermissions("GameAdmin"), //couchAuth.requireAuth, couchAuth.requireRole("user") as any,
+router.put(CompileConstants.API_CONFIG_MATCH, needsPermissions("GameAdmin"), 
            async (req: Request<{gameId:string}>, res) => {
   try {
-    //const user: CouchAuthTypes.SlRequestUser = req.user!;
     const db = adminNano.use(req.params.gameId);
-    //const sec = await db.get("_security") as Security.SecObj;
-    //const isGameAdmin = Security.userIsGameAdminOrHigher(user._id, user.roles, sec);
-    //if(!isGameAdmin) return sendError(res, "Game Admin permissions required to change game config", 403); 
 
     const newDesignDoc: T.DesignDoc = req.body;
     if(newDesignDoc._id !== '_design/columns') {
@@ -59,7 +131,7 @@ router.put(CompileConstants.API_CONFIG_MATCH, needsPermissions("GameAdmin"), //c
       logger.info('Type validation successful');
     }
     else {
-      logger.warn('Validation result: '+JSON.stringify(DesignDocValidator.errors)+' for design doc '+JSON.stringify(newDesignDoc.universalPropDefs));
+      logger.warn('Validation result: '+JSON.stringify(DesignDocValidator.errors)+' for design doc '+JSON.stringify(newDesignDoc));
       return sendError(res, "Type validation failed", 400);
     }
     //trim whitespace in strings, remove unused properties, then check validation errors
@@ -83,6 +155,77 @@ router.put(CompileConstants.API_CONFIG_MATCH, needsPermissions("GameAdmin"), //c
 
 
 /**
+ * PUT. Upload new _security document. Only applies given admins.names, members.names, and uploaders. 
+ * Body contains SecObj document.
+ * TODO: should Game Admins be allowed to remove Game Admins?
+ */
+router.put(CompileConstants.API_AUTHORIZED_USERS_MATCH, needsPermissions("GameAdmin"), 
+           async (req: TypedRequest<{gameId:string}, Security.SecObj>, res) => {
+  try {
+    const {gameId} = req.params;
+    const submittedSecObj: Security.SecObj = req.body;
+    const gameDb = adminNano.use(gameId);
+    const couchAuthDb = adminNano.use('sl-users');
+
+    logger.info("Submitting new SecObj "+JSON.stringify(submittedSecObj));
+
+    // fetch current doc
+    const currentSecObj = await gameDb.get('_security') as Security.SecObj;
+
+    //check that no public/user in admins. Wouldn't do anything but it's confusing.
+    if(submittedSecObj.admins?.names?.includes('public') || submittedSecObj.admins?.names?.includes('user')) {
+      return sendError(res, "Cannot include public or user in game admins", 400);
+    }
+
+    //user should only be in one of admins/members/uploaders. 
+    //OK to be server manager and also something else, otherwise would need to remove them from all db perms upon giving manager role
+    const sharedElements = findSharedElements([submittedSecObj.admins?.names ?? [], submittedSecObj.members?.names ?? [], submittedSecObj.uploaders ?? []]);
+    if(sharedElements.length > 0) {
+      return sendError(res, "Error, users "+sharedElements.join(", ")+" are present in multiple roles. Only include users in the highest role you want them to have.", 400);
+    }
+
+    //type validation
+    let typeValidationResult = SecObjValidator(submittedSecObj);
+    if(typeValidationResult) {
+      logger.info('SecObj Type validation successful');
+    }
+    else {
+      logger.warn('Validation result: '+JSON.stringify(SecObjValidator.errors)+' for _security doc '+JSON.stringify(submittedSecObj));
+      return sendError(res, "Type validation failed", 400);
+    }
+
+    //check that right names are either "public", "user", or a SL user
+    //TODO: write custom view that only returns verified accounts? Even if they get perms, non-verified accounts still get rejected by credential middleware
+    const allUsers: Nano.DocumentViewResponse<null, unknown> = await couchAuthDb.view('auth', 'key');
+    let submittedUsers = [...submittedSecObj.admins?.names ?? [], ...submittedSecObj.members?.names ?? [], ...submittedSecObj.uploaders ?? []];
+    submittedUsers = [...new Set(submittedUsers)];
+    const realUsers = allUsers.rows.map((row) => row.key);
+    const fakeSubmittedUsers = submittedUsers.filter((submitted) => submitted !== 'public' && submitted !== 'user' && !realUsers.includes(submitted));
+    if(fakeSubmittedUsers.length > 0) {
+      return sendError(res, "Users '"+fakeSubmittedUsers.join("', '")+"' do not exist. Please double-check spelling and enter their username, not their email.", 400);
+    }
+
+    //merge submitted names onto current doc
+    if(submittedSecObj.admins?.names) set(currentSecObj, 'admins.names', submittedSecObj.admins.names);
+    if(submittedSecObj.members?.names) set(currentSecObj, 'members.names', submittedSecObj.members.names);
+    if(submittedSecObj.uploaders) currentSecObj.uploaders = submittedSecObj.uploaders;
+
+    //upload new _security doc
+    try {
+      const putResult = await gameDb.insert(currentSecObj as Nano.MaybeDocument, '_security'); 
+    }
+    catch(err: any) {
+      return sendError(res, "Error updating authorized users: " + err, err.statusCode);
+    }
+
+    return sendSuccess(res, "Successfully updated authorized users");
+  }
+  catch(err) {
+    return sendError(res, `Server Error to ${req.url}, ${err}`);
+  }
+});
+
+/**
  * PUT. Upload new changes for given character. Body contains change document.
  * Not applied to character until this change is published.
  */
@@ -102,9 +245,7 @@ async function uploadChange(req: Request<{gameId:string, characterId:string, cha
     const changeDoc: T.ChangeDocServer = req.body;
 
     //trim strings, fix keys for added/deleted moves
-      logger.info("changeDoc before sanitization "+JSON.stringify(changeDoc));
     util.sanitizeChangeDoc(changeDoc);
-      logger.info("changeDoc right after sanitization "+JSON.stringify(changeDoc));
 
     //type validation
     //changeDoc.moveChanges!.AA = {'not-a-real-col': {type: 'modify', new: 69, old: 420}}; //rejected by inversion check
@@ -118,7 +259,6 @@ async function uploadChange(req: Request<{gameId:string, characterId:string, cha
     //failDoc.hoopla = 'banan'; //caught with --noExtraProps
     //failDoc.moveChanges[0] = 'poop'; //caught
     let typeValidationResult = ChangeDocValidator(changeDoc); //NOTE: this mutates changeDoc by removing additional properties!
-      logger.info("changeDoc right after running schema validator "+JSON.stringify(changeDoc));
     if(typeValidationResult) {
       logger.info('Type validation successful');
     }
@@ -176,8 +316,8 @@ async function uploadChange(req: Request<{gameId:string, characterId:string, cha
     merging.applyChangeDoc(newCharDoc, invertedChanges);
     if(!isEqual(charDoc, newCharDoc)) {
       const diffString = util.recursiveCompare('', charDoc, newCharDoc);
-      logger.info("Before >> "+JSON.stringify(charDoc));
-      logger.info("After >> "+JSON.stringify(newCharDoc));
+      //logger.info("Before >> "+JSON.stringify(charDoc));
+      //logger.info("After >> "+JSON.stringify(newCharDoc));
       return getErrorObject("charDoc is not same after changes are applied then unapplied. Differences >> "+diffString);
     }
 
@@ -458,6 +598,12 @@ router.get('/signup', function(req, res, next) {
     res.send('you made a creation booboo, '+err.message);
   });
 });
+
+//router.get('/gettest', function(req, res, next) {
+  //testObject.val++;
+  ////return sendSuccess(res, `test val = ${testObject.val}, imported val = ${testModuleObj.val} now incrementing`);
+  //return sendSuccess(res, `Stringified nano ` + JSON.stringify(adminNano));
+//});
 
 router.get('/getjoe', function(req, res, next) {
   const joe = couchAuth.getUser(testUser).then((joe) => {

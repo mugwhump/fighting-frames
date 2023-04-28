@@ -210,6 +210,9 @@ export function getApiAddCharacterUrl(gameId: string): [string, HttpMethod] {
 export function getApiDeleteCharacterUrl(gameId: string, characterId: string): [string, HttpMethod] {
   return [generatePath(CompileConstants.API_CHARACTER_MATCH, {gameId: gameId, characterId: characterId}), "DELETE"];
 }
+export function getApiAuthorizedUsersUrl(gameId: string): [string, HttpMethod] {
+  return [generatePath(CompileConstants.API_AUTHORIZED_USERS_MATCH, {gameId: gameId}), "PUT"];
+}
 
 export function getCharDocId(character: string): string {
   return 'character/'+character;

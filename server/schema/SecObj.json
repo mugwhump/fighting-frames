@@ -1,0 +1,50 @@
+{
+    "$schema": "http://json-schema.org/draft-07/schema#",
+    "additionalProperties": false,
+    "properties": {
+        "admins": {
+            "additionalProperties": false,
+            "properties": {
+                "names": {
+                    "items": {
+                        "type": "string"
+                    },
+                    "type": "array"
+                },
+                "roles": {
+                    "items": {
+                        "type": "string"
+                    },
+                    "type": "array"
+                }
+            },
+            "type": "object"
+        },
+        "members": {
+            "additionalProperties": false,
+            "properties": {
+                "names": {
+                    "items": {
+                        "type": "string"
+                    },
+                    "type": "array"
+                },
+                "roles": {
+                    "items": {
+                        "type": "string"
+                    },
+                    "type": "array"
+                }
+            },
+            "type": "object"
+        },
+        "uploaders": {
+            "items": {
+                "type": "string"
+            },
+            "type": "array"
+        }
+    },
+    "type": "object"
+}
+

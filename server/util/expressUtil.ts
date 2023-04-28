@@ -1,6 +1,7 @@
 import express, { Express, Request, Response, NextFunction } from 'express';
 import logger from './logger';
 import * as Security from '../shared/services/security';
+import http from 'http';
 import { secrets } from "docker-secret";
 import couchAuth from '../routes/couchauth';
 import * as CouchAuthTypes from '@perfood/couch-auth/lib/types/typings';
@@ -11,14 +12,23 @@ import type { ApiResponse, PublishChangeBody } from '../shared/types/utilTypes';
 
 const admin = secrets.couch_admin;
 const password = secrets.couch_password;
-export const adminNano = Nano.default(`http://${admin}:${password}@`+process.env.COUCHDB_URL); //can configure http pool size, by default has infinite active connections
+//This object persists between requests, so don't modify its configuration
+//TODO: test if 2 different reqs at same time use different dbs? I'd guess adminNano.use() returns a new DocumentScope object
+export const adminNano = Nano.default(`http://${admin}:${password}@`+process.env.COUCHDB_URL); 
+//Do NOT stringify this object in any error messages! It will give away credentials!
+(adminNano as any).toJSON = () => "Not stringifying nano object";
+
+//can configure http pool size, by default has infinite active connections
+//const myagent = new http.Agent({
+  //keepAlive: true,
+  //maxSockets: 25
+//})
+//export const adminNano = Nano.default({url: `http://${admin}:${password}@`+process.env.COUCHDB_URL, requestDefaults: {agent: myagent}}); 
+
+export const testModuleObj = {val: 10}; //initialized once, persists between multiple requests. 
 
 //Express doesn't normally expose Request
-//export interface TypedRequest<T extends Query, U> extends Express.Request {
-    //body: U,
-    //query: T
-//}
-export interface TypedRequest<Params, ReqBody> extends Express.Request {
+export interface TypedRequest<Params, ReqBody> extends express.Request<Params> {
     body: ReqBody,
     params: Params
 }
@@ -55,8 +65,9 @@ export function needsPermissions(perms: Security.PermissionLevel) {
   //TODO: debug occasional empty responses w/ "failed to fetch" message. 
   return async function(req: Request, res: Response, next: NextFunction) { //actual middleware
     try {
-      const db = adminNano.use(req.params.gameId);
-      const sec = await db.get("_security") as Security.SecObj;
+      //for manager/admin operations that aren't on specific games (eg adding a game), there's no db or secObj
+      const db = req.params?.gameId ? adminNano.use(req.params.gameId) : null;
+      const sec = db ? await db.get("_security") as Security.SecObj : null;
 
       if(req.headers.authorization?.startsWith('Bearer ')) {
         couchAuth.requireAuth(req, res, () => { //this is the next() function I'm giving to couchAuth that it calls upon success
@@ -90,4 +101,8 @@ export function needsPermissions(perms: Security.PermissionLevel) {
 // If this request went through couchAuth authentication, it attached user to request object. If no user, request was made as public.
 export function getUser<Params, ReqBody>(req: TypedRequest<Params, ReqBody>): CouchAuthTypes.SlRequestUser | undefined {
   return req.user;
+}
+
+export async function mySleep(ms: number) {
+  return new Promise((resolve) =>setTimeout(resolve, ms));
 }

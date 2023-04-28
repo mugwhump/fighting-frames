@@ -20,6 +20,7 @@ type CharacterSegmentsProps = {
 }
 
 
+// DEPRECATED. No longer using this component for navigation.
 const CharacterSegments: React.FC<CharacterSegmentsProps> = ({ gameId, columnDefs, universalPropDefs }) => {
   const { characterId, segment } = useParams<{ characterId: string; segment: string }>(); 
   const state = useTrackedCharacterState ();

@@ -1,5 +1,6 @@
 import { Credentials } from '../types/utilTypes';
 
+//TODO: make everything plural. games, characters, not game or character
 const charMatch = "/game/:gameId/character/:characterId";
 const changesMatch = charMatch+"/changes";
 const changeMatch = charMatch+"/changes/:changeTitle";
@@ -27,8 +28,8 @@ export let CompileConstants = {
   API_CHARACTER_MATCH: charMatch, // PATCH with body of change title, since PUT replaces entire resource, patch also used for instructions. Also DELETE.
   API_CHARACTERS_MATCH: "/game/:gameId/character", //POST to create new char. Body contains charName and displayName.
   API_CONFIG_MATCH: "/game/:gameId/_design/columns", //PUT new ddoc
-  //API_PUBLISH_CHANGE_MATCH: "/game/:gameId/character/:characterId/changes/:changeTitle/publish", //PUT. Would be more RESTFUL to end at :characterId and have changeTitle as body
-  //API_UPLOAD_AND_PUBLISH_CHANGE_MATCH: "/game/:gameId/character/:characterId/changes/:changeTitle/upload-publish", //PUT
+  API_AUTHORIZED_USERS_MATCH: "/game/:gameId/_security", //PUT new ddoc
+  API_CREATE_GAME_MATCH: "/game", //POST to create new game
 
   //Auth
   AUTH_TIMEOUT_SECONDS: 3600,
@@ -39,7 +40,9 @@ export let CompileConstants = {
   TEXT_AREA_CHARACTERS: 80, //string columns get a textarea input if maxSize is >= this value
 
   //game and char ids completely url-safe, lowercase-only. Nothing can start with underscore. Discordbot will use ; as separator, rarely used in notations.
-  FORBIDDEN_GAME_ID_REGEX: /^(?:_)|[^a-z0-9\-\._~]/, 
+  //FORBIDDEN_GAME_ID_REGEX: /^(?:_)|[^a-z0-9\-\._~]/, 
+  ALLOWED_GAME_ID_REGEX: /^(?!_|local|character)[a-z0-9\-\._~]{1,20}$/, //can't start with _, local, or character
+  ALLOWED_GAME_DISPLAY_NAME_REGEX: /^[^\t\n]{2,35}$/, 
   ALLOWED_CHARACTER_ID_REGEX: /^(?!_)[a-z0-9\-\._~]{1,25}$/,
   ALLOWED_CHARACTER_DISPLAY_NAME_REGEX: /^[^\t\n]{1,35}$/, //TODO: has colDef now so remove this and just remove tabs/returns during validation
   ALLOWED_CHANGE_TITLE_REGEX: /^[\w-.~]{3,25}$/, //uppercase permitted

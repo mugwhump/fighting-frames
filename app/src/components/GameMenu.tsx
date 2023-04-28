@@ -64,20 +64,20 @@ const GameMenu: React.FC = () => {
             //</IonAccordion>
           //);
           return (
-            <>
-            <IonMenuToggle key={index} autoHide={false}>
-              <IonItem className={selected ? 'selected' : ''} routerLink={url} routerDirection="forward" lines="none" detail={false}>
-                {/*<IonIcon slot="start" ios={bookmarkOutline} md={bookmarkSharp} />*/}
-                <IonLabel>{row.value}</IonLabel>
-              </IonItem>
-            </IonMenuToggle>
-            {selected &&
-              <IonList className="char-submenu">
-                <IonItem className={editSelected ? 'selected' : ''} routerLink={editUrl} routerDirection="forward" >Edit</IonItem>
-                <IonItem className={changeSelected ? 'selected' : ''} routerLink={changeUrl} routerDirection="forward" >Changes</IonItem>
-              </IonList>
-            }
-            </>
+            <React.Fragment key={index} >
+              <IonMenuToggle autoHide={false}>
+                <IonItem className={selected ? 'selected' : ''} routerLink={url} routerDirection="forward" lines="none" detail={false}>
+                  {/*<IonIcon slot="start" ios={bookmarkOutline} md={bookmarkSharp} />*/}
+                  <IonLabel>{row.value}</IonLabel>
+                </IonItem>
+              </IonMenuToggle>
+              {selected &&
+                <IonList className="char-submenu">
+                  <IonItem className={editSelected ? 'selected' : ''} routerLink={editUrl} routerDirection="forward" >Edit</IonItem>
+                  <IonItem className={changeSelected ? 'selected' : ''} routerLink={changeUrl} routerDirection="forward" >Changes</IonItem>
+                </IonList>
+              }
+            </React.Fragment>
           );
         })}
       </>

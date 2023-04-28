@@ -1,4 +1,6 @@
 //ServerManager and ServerAdmin are for all databases and thus determined by user role rather than presence of user's name in db's secobj
+//uhhh what does a SL server admin even do
+//Note that SuperLogin users in the "names" list only have priveleges via the API; from couch's perspective their username is a random string.
 
 export type SecObj = {
   admins?: {
