@@ -156,8 +156,8 @@ export type MoveList = {
 }
 
 export type DBListDocItem = {
-  id: string,
-  name: string 
+  gameId: string,
+  displayName: string 
 }
 export type DBListDoc = {
   dbs: DBListDocItem[]

@@ -79,7 +79,7 @@ const Menu: React.FC<MenuProps> = ({usingLocal}) => {
 interface MenuItemProps {dbListItem: DBListDocItem, key: number, status: DBStatus, path: string}
 const MenuItem: React.FC<MenuItemProps> = ({dbListItem, key, status, path}) => {
   const localDispatch = useLocalDispatch();
-  const url: string = "/game/"+dbListItem.id;
+  const url: string = "/game/"+dbListItem.gameId;
   const isWanted: boolean = status.userWants;
   const transition: DBTransitionState = status.currentTransition;
   const playAnimation: boolean = transition === 'downloading' || transition === 'deleting';
@@ -93,7 +93,7 @@ const MenuItem: React.FC<MenuItemProps> = ({dbListItem, key, status, path}) => {
   function setUserWants(event: any, wants: boolean) {
     event.preventDefault();
     event.stopPropagation();
-    const action: LocalAction = {actionType: 'setUserWants', db: dbListItem.id, userWants: wants};
+    const action: LocalAction = {actionType: 'setUserWants', db: dbListItem.gameId, userWants: wants};
     localDispatch(action);
   }
   //TODO: disable button if local not enabled
@@ -111,7 +111,7 @@ const MenuItem: React.FC<MenuItemProps> = ({dbListItem, key, status, path}) => {
       </IonButton> 
       {localErrorIcon}
       {remoteErrorIcon}
-      <IonLabel>{dbListItem.name}</IonLabel>
+      <IonLabel>{dbListItem.displayName}</IonLabel>
     {/*</IonMenuToggle> */} 
     </IonItem>
   );
