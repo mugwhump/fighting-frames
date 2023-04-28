@@ -14,7 +14,7 @@ export const remoteWithBasicCreds: string = `http://${CompileConstants.DEFAULT_C
 export const remoteWithTestAdminCreds: string = 'http://admin:password@localhost:5984/';
 //TODO: turn all of these into environment variables, they need to change in production.
 export const remote: string = 'http://localhost:5984/';
-export const apiUrl: string = 'http://localhost:3000/api';
+export const apiUrl: string = 'http://localhost:3000/api/v1';
 PouchDB.plugin(PouchAuth);
 
 superlogin.configure({
@@ -68,7 +68,7 @@ export function makeApiCall(url: string, method: HttpMethod, body?: Object): Pro
     //authHeader = {'Authorization': 'Bearer _admin:madeUpPassword'}; //SL middleware rejects fake creds
     //authHeader = {'Authorization': 'Bearer public:passward'}; //SL middleware rejects non-SL users
   }
-  if(url.indexOf("http") !== -1) throw new Error("Only include the part of the address after website.com/api");
+  if(url.indexOf("http") !== -1) throw new Error("Only include the part of the address after website.com/api/v#");
   if(url.indexOf("/") !== 0) throw new Error("Address must start with a slash (/). Given url: "+url);
 
   const response = fetch(apiUrl + url, {

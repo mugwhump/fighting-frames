@@ -23,7 +23,7 @@ app.use(express.static(path.join(__dirname, 'public')));
 app.use(cors());
 
 app.use('/', indexRouter);
-app.use('/api', apiRouter);
+app.use('/api/v1', apiRouter);
 app.use('/auth', couchAuth.router);
 
 const config = {

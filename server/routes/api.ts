@@ -19,6 +19,7 @@ import * as metaDefs from '../shared/constants/metaDefs';
 import * as merging from '../shared/services/merging';
 import CompileConstants from '../shared/constants/CompileConstants';
 
+//TODO: what if multiple requests use these objects at once?
 const DesignDocValidator = require('../schema/DesignDoc-validator').default;
 const ChangeDocValidator = require('../schema/ChangeDocServer-validator').default;
 const SecObjValidator = require('../schema/SecObj-validator').default;

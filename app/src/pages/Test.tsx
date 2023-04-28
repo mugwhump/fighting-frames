@@ -116,7 +116,7 @@ const Test: React.FC<TestProps> = ({propNum, propStr}) => {
   }
 
   async function apiTest() {
-    let fetchPromise = myPouch.makeRequest("http://localhost:3000/api/test", 'admin', 'password', "GET");
+    let fetchPromise = myPouch.makeRequest("http://localhost:3000/api/v1/test", 'admin', 'password', "GET");
     fetchPromise.then((response) => {
       if (!response.ok) {
         throw new Error(`HTTP error! Status: ${response.status}`);
