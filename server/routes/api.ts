@@ -32,6 +32,10 @@ const testObject = {val: 1};
 //TODO: make custom error handler for nonexistent endpoint or method, right now express returns html
 
 
+/**
+ * POST. Creates a new game. Non-atomic operation; partial failure allows users to retry.
+ * Successful once entry is created in top/game-list
+ */
 router.post(CompileConstants.API_CREATE_GAME_MATCH ,// needsPermissions("ServerManager"), TODO: TESTING
            async (req: TypedRequest<{}, CreateGameBody>, res) => {
   try {
@@ -55,19 +59,18 @@ router.post(CompileConstants.API_CREATE_GAME_MATCH ,// needsPermissions("ServerM
       return sendError(res, `Invalid game display name ${displayName}`, 400);
     }
 
+    const allDBs = await adminNano.db.list();
+    const replicatorDB = adminNano.use('_replicator');
+    const topDB = adminNano.use('top');
+
     //TODO: check db doesn't exist
-    let allDBs = await adminNano.db.list();
     if(allDBs.includes(gameId)) {
       return sendError(res, `Database for ${gameId} already exists`, 409);
     }
 
-    return sendSuccess(res, `TESTING ---------------- stopping w/o creating`);
-
     //call replicator update func to create replication document which makes db
     //request body must contain username, password, id. (uname/pw should be the replication user, make sure to do separate catch so creds not sent in err msgs).
     //Request headers.Host should be like http://localhost:5984 (no trailing slash)
-    const replicatorDB = adminNano.use('_replicator');
-
     try {
       //TODO: import from secrets!
       const body = {username: 'replication-guy', password: 'RE2catlmao', id: gameId};
@@ -90,11 +93,12 @@ router.post(CompileConstants.API_CREATE_GAME_MATCH ,// needsPermissions("ServerM
       return sendError(res, `Error inserting replication document, ${err}`, err.status ?? 500);
     }
 
-    //TODO: modify top list
-    const topDB = adminNano.use('top');
-
     //TODO: make _design/columns
     //TODO: update _security w read role
+
+    //TODO: modify top list
+    const updateResponseMsg = await topDB.updateWithHandler('update_list', 'add_game', 'game-list', req.body); 
+
     return sendSuccess(res, `Created database for game`);
   }
   catch(err: any) {

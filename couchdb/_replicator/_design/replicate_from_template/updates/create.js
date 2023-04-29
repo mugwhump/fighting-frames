@@ -6,10 +6,10 @@ function(doc, req){
   let password = data.password;
   if(!doc && !data.id) {
     // No existing doc and no id in request
-    return [null, 'Error, request must contain "id" field, too bad. Req:' + JSON.stringify(req)]
+    return [null, 'Error, request must contain "id" field']
   }
   if(!username || !password) {
-    return [null, 'Error, request body must contain username and password fields to authorize continuous replication. Req:' + JSON.stringify(req)]
+    return [null, 'Error, request body must contain username and password fields to authorize continuous replication.']
   }
 
   const id = data.id || doc.id;

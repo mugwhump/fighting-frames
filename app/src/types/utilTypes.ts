@@ -69,6 +69,7 @@ export type CreateCharacterBody = {
   displayName: string;
 }
 
+//same body passed to add-game update function of top db
 export type CreateGameBody = {
   gameId: string;
   displayName: string;

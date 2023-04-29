@@ -25,10 +25,10 @@ export let CompileConstants = {
   CONFIRMATION_PATH: "/page/confirmed", //TODO: make an env var so couch-auth can use it... although frontend currently isn't dockerized
 
   API_CHANGE_MATCH: changeMatch, //PUT. Would be POST if it ended at changes/. Using PUT since idempotent.
-  API_CHARACTER_MATCH: charMatch, // PATCH with body of change title, since PUT replaces entire resource, patch also used for instructions. Also DELETE.
+  API_CHARACTER_MATCH: charMatch, // PATCH with body of change title, since PUT replaces entire resource, patch also used for instructions, diffs. Also DELETE.
   API_CHARACTERS_MATCH: "/game/:gameId/character", //POST to create new char. Body contains charName and displayName.
-  API_CONFIG_MATCH: "/game/:gameId/_design/columns", //PUT new ddoc
-  API_AUTHORIZED_USERS_MATCH: "/game/:gameId/_security", //PUT new ddoc
+  API_CONFIG_MATCH: "/game/:gameId/_design/columns", //PUT new ddoc TODO: can rename this, it's not just columns, and doesn't need to be a design doc... but I'm calling it a design doc everywhere
+  API_AUTHORIZED_USERS_MATCH: "/game/:gameId/_security", //PUT new security doc
   API_CREATE_GAME_MATCH: "/game", //POST to create new game
 
   //Auth
