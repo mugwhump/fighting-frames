@@ -1,4 +1,5 @@
-version: "3.7" # TODO: should be updating this
+version: "3.7" # Compose version. 3.7 is for docker engine 18.06.0+. 
+
 # Compose file for production. dev environment overrides go in docker-dompose.override.yml
 # TODO: might be better to have this be dev file and use overrides for production and staging?
 
@@ -13,16 +14,21 @@ services:
             - ~/ff/couchmounts/config:/opt/couchdb/etc/local.d
             # must enable logging in config
             - ~/ff/couchmounts/logs:/opt/couchdb/log
-        #environment:
-            #COUCHDB_USER: admin
-            #COUCHDB_PASSWORD: password #specify this differently for committing
         ports:
             - 5984:5984
         networks: # helps API talk to couch
             - backend
-        secrets:
-            - couch_admin
-            - couch_password
+        # TODO: the couch image does not normally check files in /run/secrets/couch_admin, it only checks env vars,
+        # must either set up admin and replicator manually, or write build file to add them to ini
+        #environment: 
+            #COUCHDB_USER: admin
+            #COUCHDB_PASSWORD: password #specify this differently for committing
+        #secrets: 
+            #- couch_admin
+            #- couch_password
+            #- couch_replicator_user
+            #- couch_replicator_password
+
     #ionic:
         #build: app/
         # not sure if need volumes, but what ports in container to map?
@@ -70,6 +76,8 @@ services:
         secrets:
             - couch_admin
             - couch_password
+            - couch_replicator_user
+            - couch_replicator_password
             - mail_from_address
             - mail_api_key
     #shell access to server with something like docker-compose run --rm web-cli maybe
@@ -125,6 +133,10 @@ secrets: # available in containers in /run/secrets/secret_name. Long notation ca
         file: ./secrets/couch_admin.txt
     couch_password:
         file: ./secrets/couch_password.txt
+    couch_replicator_user:
+        file: ./secrets/couch_replicator_user.txt
+    couch_replicator_password:
+        file: ./secrets/couch_replicator_password.txt
     mail_from_address:
         file: ./secrets/mail_from_address_test.txt
     mail_api_key:

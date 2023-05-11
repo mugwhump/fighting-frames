@@ -1,15 +1,26 @@
 //executed with a call to _replicator/_design/replicate_from_template/_update/create to create new doc. Add "/existing_id" at end to update replication doc.
 //Creates a document for continuous replication from game-template db to a new db (created if necessary)
 function(doc, req){
+  //return [null, {'code': 400, // nano parses this to err object's statusCode
+    //'json': {'error': 'missed',
+      //'reason': 'no document to update'}}]; //TEST
+  
+  function getResponse(errorMessage, errorCode) {
+    if(errorMessage || errorCode) {
+      return {'code': errorCode || 500, 'json': {'reason': errorMessage || "Unspecified update function error"}};
+    }
+    return {'code': 200, 'json': {'ok': true}};
+  }
+
   let data = JSON.parse(req.body);
   let username = data.username;
   let password = data.password;
   if(!doc && !data.id) {
     // No existing doc and no id in request
-    return [null, 'Error, request must contain "id" field']
+    return [null, getResponse('Error, request must contain "id" field', 400)];
   }
   if(!username || !password) {
-    return [null, 'Error, request body must contain username and password fields to authorize continuous replication.']
+    return [null, getResponse('Error, request body must contain username and password fields to authorize continuous replication.', 401)];
   }
 
   const id = data.id || doc.id;
@@ -32,13 +43,15 @@ function(doc, req){
     },
     create_target: true,
     continuous: true
-  }
+  };
 
   if (!doc){
-    return [newDoc, 'Creating new replication and database for ' + id];
+    //return [newDoc, 'Creating new replication and database for ' + id];
+    return [newDoc, getResponse()];
   }
   else { //doc already exists
-    newDoc._rev = doc._rev
-    return [newDoc, 'Edited replication doc for ' + id];
+    newDoc._rev = doc._rev;
+    //return [newDoc, 'Edited replication doc for ' + id];
+    return [newDoc, getResponse()];
   }
 }

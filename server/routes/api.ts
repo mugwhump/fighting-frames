@@ -19,6 +19,10 @@ import * as metaDefs from '../shared/constants/metaDefs';
 import * as merging from '../shared/services/merging';
 import CompileConstants from '../shared/constants/CompileConstants';
 
+
+const couch_replicator_user = secrets.couch_replicator_user;
+const couch_replicator_password = secrets.couch_replicator_password;
+
 //TODO: what if multiple requests use these objects at once?
 const DesignDocValidator = require('../schema/DesignDoc-validator').default;
 const ChangeDocValidator = require('../schema/ChangeDocServer-validator').default;
@@ -59,44 +63,86 @@ router.post(CompileConstants.API_CREATE_GAME_MATCH ,// needsPermissions("ServerM
       return sendError(res, `Invalid game display name ${displayName}`, 400);
     }
 
-    const allDBs = await adminNano.db.list();
+    let allDBs = await adminNano.db.list();
     const replicatorDB = adminNano.use('_replicator');
-    const topDB = adminNano.use('top');
+    const topDB = adminNano.use<T.DBListDoc>('top');
 
-    //TODO: check db doesn't exist
+    //check db doesn't exist.
     if(allDBs.includes(gameId)) {
-      return sendError(res, `Database for ${gameId} already exists`, 409);
+      const gameList = await topDB.get('game-list');
+      const topDbs = gameList.dbs.map((item: T.DBListDocItem) => item.gameId);
+      if(topDbs.includes(gameId)) {
+        return sendError(res, `Database for ${gameId} already exists`, 409);
+      }
+      else {
+        // Possible user is re-attempting to complete creation of a db that didn't finish; log a warning
+        logger.error(`Trying to add game ${gameId} which already has a database but isn't in top/game-list; proceeding with future steps`)
+      }
     }
 
     //call replicator update func to create replication document which makes db
     //request body must contain username, password, id. (uname/pw should be the replication user, make sure to do separate catch so creds not sent in err msgs).
     //Request headers.Host should be like http://localhost:5984 (no trailing slash)
     try {
-      //TODO: import from secrets!
-      const body = {username: 'replication-guy', password: 'RE2catlmao', id: gameId};
+      const body = {username: couch_replicator_user, password: couch_replicator_password, id: gameId};
       //const body = {username: 'fakecreds', password: 'errortime', id: gameId};
       //const body = {username: 'fakecreds', id: gameId};
       const updateResponseMsg = await replicatorDB.updateWithHandler('replicate_from_template', 'create', gameId, body); 
+      logger.info(`replication doc resp msg is ${JSON.stringify(updateResponseMsg)}`);
+      logger.info(`replication doc resp okayness is ${updateResponseMsg.ok}`);
+      if(!updateResponseMsg.ok) throw new Error(nodeUtil.inspect(updateResponseMsg));
+
       // If doc was successfully created in _replicator but, say, creds are bad, the db will silently fail to be created. Check for success.
-      await mySleep(2000); //wait a bit so replicator has time to make db
-      allDBs = await adminNano.db.list();
+      const retryTimeMs = 2000;
+      //const maxTimeMs = 20000; //TODO: switch back once done testing
+      const maxTimeMs = 5000;
+      const startTime = (new Date).getTime();
+
+      do {
+        await mySleep(retryTimeMs); 
+        //wait a bit so replicator has time to make db
+        allDBs = await adminNano.db.list(); 
+        logger.info(`Checking for creation of db ${gameId}`)
+      }
+      while (!allDBs.includes(gameId) && (new Date).getTime() - startTime < maxTimeMs);
+
       if(!allDBs.includes(gameId)) {
-        //clean up replication document
-        //TODO: this is risky, can result in DB created by replication doc deleted. Let's just log an error.
-        //const createdReplicationDoc = await replicatorDB.get(gameId);
-        //await replicatorDB.destroy(gameId, createdReplicationDoc._rev);
-        //return sendError(res, `DB for ${gameId} was not created, cleaning up`, 409);
-        logger.error(`Created replication doc for ${gameId}, but database seemingly missing`);
+        return sendError(res, `Timed out waiting for database creation for game ${gameId}`, 500);
       }
     }
     catch(err: any) {
-      return sendError(res, `Error inserting replication document, ${err}`, err.status ?? 500);
+      return sendError(res, `Error inserting replication document, ${err}`, err.statusCode || (err.status ?? 500));
     }
 
-    //TODO: make _design/columns
-    //TODO: update _security w read role
+    //make _design/columns. Catch 409, that indicates retrying after partial success
+    const configDoc: Omit<T.DesignDoc, '_rev'> = {
+      _id: '_design/columns',
+      displayName: displayName,
+      universalPropDefs: {},
+      columnDefs: {},
+    }
+    const createdDB = adminNano.use(gameId);
+    try {
+      const insertResult = await createdDB.insert(configDoc);
+    }
+    catch(err: any) {
+      if(err.status === 409) {
+        logger.error(`Error creating db ${gameId}, _design/columns already exists. Proceeding.`);
+      }
+      else {
+        return sendError(res, `Error creating db ${gameId}, _design/columns could not be created. ${err.message}`, err.status || 400);
+      }
+    }
 
-    //TODO: modify top list
+    //update _security w read role. Only incomplete dbs not in top make it to this step, so won't overwrite customized perms.
+    const secDoc: Security.SecObj = {
+      admins: { names: [], roles: ['_admin'] },
+      members: { names: [], roles: ['read'] },
+      uploaders: [],
+    }
+    const putResult = await createdDB.insert(secDoc as Nano.MaybeDocument, '_security'); 
+
+    //modify top list
     const updateResponseMsg = await topDB.updateWithHandler('update_list', 'add_game', 'game-list', req.body); 
 
     return sendSuccess(res, `Created database for game`);

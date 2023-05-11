@@ -1,10 +1,6 @@
 couchmounts
-secrets/couch_admin.txt
-secrets/couch_password.txt
-secrets/mail_from_address.txt
-secrets/mail_api_key.txt
-secrets/mail_from_address_test.txt
-secrets/mail_api_key_test.txt
+secrets/*
+!secrets/PUT_SECRETS_HERE.txt
 app/my-typings/
 app/src/schema
 couchdb/test
