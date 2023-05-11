@@ -40,7 +40,7 @@ const testObject = {val: 1};
  * POST. Creates a new game. Non-atomic operation; partial failure allows users to retry.
  * Successful once entry is created in top/game-list
  */
-router.post(CompileConstants.API_CREATE_GAME_MATCH ,// needsPermissions("ServerManager"), TODO: TESTING
+router.post(CompileConstants.API_CREATE_GAME_MATCH , needsPermissions("ServerManager"), 
            async (req: TypedRequest<{}, CreateGameBody>, res) => {
   try {
     const gameId = req.body.gameId;
@@ -82,20 +82,14 @@ router.post(CompileConstants.API_CREATE_GAME_MATCH ,// needsPermissions("ServerM
 
     //call replicator update func to create replication document which makes db
     //request body must contain username, password, id. (uname/pw should be the replication user, make sure to do separate catch so creds not sent in err msgs).
-    //Request headers.Host should be like http://localhost:5984 (no trailing slash)
+    //Request headers.Host should be like http://localhost:5984 (no trailing slash). Nano adds it.
     try {
       const body = {username: couch_replicator_user, password: couch_replicator_password, id: gameId};
-      //const body = {username: 'fakecreds', password: 'errortime', id: gameId};
-      //const body = {username: 'fakecreds', id: gameId};
       const updateResponseMsg = await replicatorDB.updateWithHandler('replicate_from_template', 'create', gameId, body); 
-      logger.info(`replication doc resp msg is ${JSON.stringify(updateResponseMsg)}`);
-      logger.info(`replication doc resp okayness is ${updateResponseMsg.ok}`);
-      if(!updateResponseMsg.ok) throw new Error(nodeUtil.inspect(updateResponseMsg));
 
       // If doc was successfully created in _replicator but, say, creds are bad, the db will silently fail to be created. Check for success.
       const retryTimeMs = 2000;
-      //const maxTimeMs = 20000; //TODO: switch back once done testing
-      const maxTimeMs = 5000;
+      const maxTimeMs = 20000; 
       const startTime = (new Date).getTime();
 
       do {
@@ -126,11 +120,12 @@ router.post(CompileConstants.API_CREATE_GAME_MATCH ,// needsPermissions("ServerM
       const insertResult = await createdDB.insert(configDoc);
     }
     catch(err: any) {
-      if(err.status === 409) {
+      const status = err.statusCode || err.status;
+      if(status === 409) {
         logger.error(`Error creating db ${gameId}, _design/columns already exists. Proceeding.`);
       }
       else {
-        return sendError(res, `Error creating db ${gameId}, _design/columns could not be created. ${err.message}`, err.status || 400);
+        return sendError(res, `Error creating db ${gameId}, _design/columns could not be created. ${err.message}`, status || 400);
       }
     }
 
@@ -148,7 +143,7 @@ router.post(CompileConstants.API_CREATE_GAME_MATCH ,// needsPermissions("ServerM
     return sendSuccess(res, `Created database for game`);
   }
   catch(err: any) {
-    return sendError(res, `Error creating game, ${err}`, err.status ?? 500);
+    return sendError(res, `Error creating game, ${err}`, err.statusCode || (err.status ?? 500));
   }
 });
 

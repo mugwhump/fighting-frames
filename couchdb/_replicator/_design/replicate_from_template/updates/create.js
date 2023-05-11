@@ -1,13 +1,10 @@
 //executed with a call to _replicator/_design/replicate_from_template/_update/create to create new doc. Add "/existing_id" at end to update replication doc.
 //Creates a document for continuous replication from game-template db to a new db (created if necessary)
 function(doc, req){
-  //return [null, {'code': 400, // nano parses this to err object's statusCode
-    //'json': {'error': 'missed',
-      //'reason': 'no document to update'}}]; //TEST
   
   function getResponse(errorMessage, errorCode) {
-    if(errorMessage || errorCode) {
-      return {'code': errorCode || 500, 'json': {'reason': errorMessage || "Unspecified update function error"}};
+    if(errorMessage || errorCode) { //code becomes statusCode in err obj. json.ok tells nano whether to throw error.
+      return {'code': errorCode || 500, 'json': {'ok': false, 'reason': errorMessage || "Unspecified update function error"}};
     }
     return {'code': 200, 'json': {'ok': true}};
   }
