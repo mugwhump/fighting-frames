@@ -1,4 +1,5 @@
-// Adds a game to game-list
+// Adds a game to game-list. If game with given gameId already present, modifies its displayName.
+// Gives error if trying to give two games same displayName.
 // Body: {gameId: string, displayName: string}
 function(doc, req){
   
@@ -21,7 +22,23 @@ function(doc, req){
 
   let newDbs = doc.dbs;
   if(Array.isArray(newDbs)) {
-    newDbs.push({gameId: gameId, displayName: displayName});
+    const itemWithGameId = newDbs.find((item) => item.gameId === gameId);
+    const itemWithDisplayName = newDbs.find((item) => item.displayName === displayName);
+
+    //check that displayName is unique, whether adding or updating item
+    if(itemWithDisplayName) {
+      return [null, getResponse(`Error, game ${itemWithDisplayName.gameId} already has name ${displayName}`)];
+    }
+
+    //update displayName of existing game
+    if(itemWithGameId) {
+      itemWithGameId.displayName = displayName;
+    }
+    //add new game
+    else {
+      newDbs.push({gameId: gameId, displayName: displayName});
+    }
+
     //Sort alphabetically by displayName
     newDbs.sort((a, b) => {
       if(a.displayName < b.displayName) return -1;

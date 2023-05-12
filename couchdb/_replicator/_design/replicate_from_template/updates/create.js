@@ -32,7 +32,7 @@ function(doc, req){
       url: host+'/'+id,
       auth: { basic: { username: username, password: password } }
     },
-    // copy all design documents
+    // copy all design documents. Design docs deleted from game-template will also be deleted from target.
     "selector": {
       "_id": {
         "$regex": "^_design/"

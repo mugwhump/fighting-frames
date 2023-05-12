@@ -40,7 +40,7 @@ const testObject = {val: 1};
  * POST. Creates a new game. Non-atomic operation; partial failure allows users to retry.
  * Successful once entry is created in top/game-list
  */
-router.post(CompileConstants.API_CREATE_GAME_MATCH , needsPermissions("ServerManager"), 
+router.post(CompileConstants.API_CREATE_GAME_MATCH, //needsPermissions("ServerManager"), TODO: testing
            async (req: TypedRequest<{}, CreateGameBody>, res) => {
   try {
     const gameId = req.body.gameId;
@@ -108,25 +108,29 @@ router.post(CompileConstants.API_CREATE_GAME_MATCH , needsPermissions("ServerMan
       return sendError(res, `Error inserting replication document, ${err}`, err.statusCode || (err.status ?? 500));
     }
 
-    //make _design/columns. Catch 409, that indicates retrying after partial success
-    const configDoc: Omit<T.DesignDoc, '_rev'> = {
-      _id: '_design/columns',
+    const createdDB = adminNano.use(gameId);
+
+    //make _design/columns. Can put new one with different displayName in case top rejected previous attempt due to duplicate displayName
+    const configDoc: T.DesignDoc = {
+      _id: CompileConstants.CONFIG_DOC_ID,
+      _rev: '', //set to undefined if creating new doc, overwritten otherwise
       displayName: displayName,
       universalPropDefs: {},
       columnDefs: {},
     }
-    const createdDB = adminNano.use(gameId);
+
     try {
-      const insertResult = await createdDB.insert(configDoc);
+      const existingConfigDoc = await createdDB.get(CompileConstants.CONFIG_DOC_ID);
+      configDoc._rev = existingConfigDoc._rev;
+    }
+    catch(err) {}
+
+    try {
+      const insertResult = await createdDB.insert({...configDoc, _rev: (configDoc._rev || undefined)});
     }
     catch(err: any) {
       const status = err.statusCode || err.status;
-      if(status === 409) {
-        logger.error(`Error creating db ${gameId}, _design/columns already exists. Proceeding.`);
-      }
-      else {
-        return sendError(res, `Error creating db ${gameId}, _design/columns could not be created. ${err.message}`, status || 400);
-      }
+      return sendError(res, `Error creating db ${gameId}, _design/columns could not be created. ${err.message}`, status || 400);
     }
 
     //update _security w read role. Only incomplete dbs not in top make it to this step, so won't overwrite customized perms.
@@ -151,7 +155,7 @@ router.post(CompileConstants.API_CREATE_GAME_MATCH , needsPermissions("ServerMan
 /**
  * PUT. Upload new configuration which defines a game's columns, their restrictions, the game's displayed name, etc.
  * Body contains configuration document.
- * TODO: check if game displayName has changed; if so, modify its entry in top/list
+ * TODO: check if game displayName has changed; if so, modify its entry in top/list via update func
  */
 router.put(CompileConstants.API_CONFIG_MATCH, needsPermissions("GameAdmin"), 
            async (req: Request<{gameId:string}>, res) => {
@@ -159,7 +163,7 @@ router.put(CompileConstants.API_CONFIG_MATCH, needsPermissions("GameAdmin"),
     const db = adminNano.use(req.params.gameId);
 
     const newDesignDoc: T.DesignDoc = req.body;
-    if(newDesignDoc._id !== '_design/columns') {
+    if(newDesignDoc._id !== CompileConstants.CONFIG_DOC_ID) {
       return sendError(res, `Incorrect _id ${newDesignDoc._id}`, 400);
     }
 
@@ -186,12 +190,17 @@ router.put(CompileConstants.API_CONFIG_MATCH, needsPermissions("GameAdmin"),
       return sendError(res, err, 400);
     }
 
+    // Check if displayName has changed, update top/list if necessary TODO: finish this stuff.
+    const currentSecObj = await db.get(CompileConstants.CONFIG_DOC_ID) as T.DesignDoc;
+
     try {
       const putResult = await db.insert(newDesignDoc); 
     }
     catch(err: any) {
       return sendError(res, "Error inserting document: " + err, err.statusCode);
     }
+
+
     return sendSuccess(res, JSON.stringify(newDesignDoc));
   }
   catch(err) {
@@ -326,7 +335,7 @@ async function uploadChange(req: Request<{gameId:string, characterId:string, cha
     }
 
     //fetch config ddoc, insert builtin and mandatory defs for validation
-    const designDoc = await db.get('_design/columns') as T.DesignDoc; 
+    const designDoc = await db.get(CompileConstants.CONFIG_DOC_ID) as T.DesignDoc; 
     designDoc.universalPropDefs = colUtil.insertDefsSortGroupsCompileRegexes(designDoc.universalPropDefs, true, true, false, false);
     designDoc.columnDefs = colUtil.insertDefsSortGroupsCompileRegexes(designDoc.columnDefs, false, true, false, false);
 
@@ -457,7 +466,7 @@ async function publishChange(req: TypedRequest<{gameId:string, characterId:strin
 
     //make sure updated doc passes validation
     //if(!justUploaded) {
-      const designDoc = await db.get('_design/columns') as T.DesignDoc;
+      const designDoc = await db.get(CompileConstants.CONFIG_DOC_ID) as T.DesignDoc;
       const errors = colUtil.getCharDocErrors(charDoc, designDoc, true); //skips moveName checks
       if(errors) {
         return getErrorObject("Errors validating, "+JSON.stringify(errors), 400);

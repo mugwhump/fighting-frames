@@ -4,6 +4,8 @@ import { Credentials } from '../types/utilTypes';
 const charMatch = "/game/:gameId/character/:characterId";
 const changesMatch = charMatch+"/changes";
 const changeMatch = charMatch+"/changes/:changeTitle";
+//TODO: can rename this, it's not just columns, and doesn't need to be a design doc... but I'm calling it a design doc everywhere
+const configDocId = '_design/columns';
 
 export let CompileConstants = {
   DEFAULT_PREFER_LOCAL: false,
@@ -27,7 +29,7 @@ export let CompileConstants = {
   API_CHANGE_MATCH: changeMatch, //PUT. Would be POST if it ended at changes/. Using PUT since idempotent.
   API_CHARACTER_MATCH: charMatch, // PATCH with body of change title, since PUT replaces entire resource, patch also used for instructions, diffs. Also DELETE.
   API_CHARACTERS_MATCH: "/game/:gameId/character", //POST to create new char. Body contains charName and displayName.
-  API_CONFIG_MATCH: "/game/:gameId/_design/columns", //PUT new ddoc TODO: can rename this, it's not just columns, and doesn't need to be a design doc... but I'm calling it a design doc everywhere
+  API_CONFIG_MATCH: "/game/:gameId/"+configDocId, //PUT new ddoc 
   API_AUTHORIZED_USERS_MATCH: "/game/:gameId/_security", //PUT new security doc
   API_CREATE_GAME_MATCH: "/game", //POST to create new game
 
@@ -39,9 +41,12 @@ export let CompileConstants = {
   //UI
   TEXT_AREA_CHARACTERS: 80, //string columns get a textarea input if maxSize is >= this value
 
+  //DOC IDS
+  CONFIG_DOC_ID: configDocId,
+
   //game and char ids completely url-safe, lowercase-only. Nothing can start with underscore. Discordbot will use ; as separator, rarely used in notations.
   //FORBIDDEN_GAME_ID_REGEX: /^(?:_)|[^a-z0-9\-\._~]/, 
-  ALLOWED_GAME_ID_REGEX: /^(?!_|local|character)[a-z0-9\-\._~]{1,20}$/, //can't start with _, local, or character
+  ALLOWED_GAME_ID_REGEX: /^(?!_|local|character|sl_user|top|game-template|config|internal)[a-z0-9\-\._~]{1,20}$/, //can't start with _, local, character, or internal db names
   ALLOWED_GAME_DISPLAY_NAME_REGEX: /^[^\t\n]{2,35}$/, 
   ALLOWED_CHARACTER_ID_REGEX: /^(?!_)[a-z0-9\-\._~]{1,25}$/,
   ALLOWED_CHARACTER_DISPLAY_NAME_REGEX: /^[^\t\n]{1,35}$/, //TODO: has colDef now so remove this and just remove tabs/returns during validation
