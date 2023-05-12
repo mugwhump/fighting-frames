@@ -7,7 +7,7 @@ import * as myPouch from '../services/pouch';
 import * as Update from 'pouchdb-update';
 import * as E from '../constants/exampleData';
 import { reduceChanges, resolveMoveOrder, rebaseChangeDoc, mergeChangeDocs, getMergeConflicts, getRebaseConflicts, applyResolutions, autoResolveConflicts } from '../services/merging';
-import { remote, getDB, pullDB, pushDB, deleteDBWhichOutdatesDBReferences, remoteWithBasicCreds } from '../services/pouch';
+import { remote, getDB, pullDB, pushDB, remoteWithBasicCreds } from '../services/pouch';
 //import { ColumnChange, Modify, Changes, Conflict, ConflictMoveOrder, ConflictMoveOrderMergeBothChange, ConflictMoveOrderMergeTheyChange, ConflictMoveOrderRebaseBothChange, MoveChanges, MoveChangeList, ChangeDoc, ColumnData, MoveOrder, CharDoc } from '../types/characterTypes';
 import type * as T from '../types/characterTypes'; //==
 import * as util from '../services/util';
@@ -220,12 +220,12 @@ const Test: React.FC<TestProps> = ({propNum, propStr}) => {
     console.log("Session = " + JSON.stringify(user));
   }
 
-  async function deleteTest() {
-    await deleteDBWhichOutdatesDBReferences("test");
+  //async function deleteTest() {
+    //await deleteDBWhichOutdatesDBReferences("test");
     //deletion invalidates the old db reference, must make new one
     //db = getDB('local-test');
-    console.log("Baleet ACTUALLY finito");
-  }
+    //console.log("Baleet ACTUALLY finito");
+  //}
 
   async function loginTest() {
     //logging into one DB object that initially used basic auth will cause all DB objects for the same remote DB to use session auth

@@ -1,4 +1,4 @@
-import { groupList, ColumnDef, DesignDoc, Breakpoint, SizeBreakpoint, BPList, ColumnDefRestrictions, ColumnDefDisplayText, ColumnDefs, ColumnData, DataType } from '../types/characterTypes'; 
+import { groupList, ColumnDef, ConfigDoc, Breakpoint, SizeBreakpoint, BPList, ColumnDefRestrictions, ColumnDefDisplayText, ColumnDefs, ColumnData, DataType } from '../types/characterTypes'; 
 import { keys, keyVals, trimStringProperties } from '../services/util';
 import { forbiddenNames, specialDefs, isMandatory } from './internalColumns';
 import * as colUtil from '../services/columnUtil';
@@ -202,7 +202,7 @@ export function getPropertyAsColumnData(columnDef: ColumnDef, defProperty: MetaD
 
 //run by server. Builds error msg for server to return. Also removes unused props and trims whitespace.
 //result contains tags to be displayed in IonicSafeString (make sure to sanitize)
-export function getDesignDocErrorMessageAndClean(doc: Readonly<DesignDoc>): string | false {
+export function getConfigDocErrorMessageAndClean(doc: Readonly<ConfigDoc>): string | false {
   let errorMsg: string = "";
   for(const isUniversalProps of [true, false]) {
     const path = isUniversalProps ? "universalPropDefs" : "columnDefs";

@@ -3,9 +3,9 @@ import { ItemReorderEventDetail } from '@ionic/core';
 import { swapVerticalOutline, swapVerticalSharp, chevronForward, chevronBack, trash } from 'ionicons/icons';
 //delete these 2
 import React, { useState, useEffect, useRef } from 'react';
-import { DefGroup, groupList , DesignDoc, ColumnDefs, ColumnDef, ColumnData, DataType } from '../types/characterTypes';
+import { DefGroup, groupList, ConfigDoc, ColumnDefs, ColumnDef, ColumnData, DataType } from '../types/characterTypes';
 import { specialDefs } from '../constants/internalColumns';
-import { DesignDocChanges, DefEditObj } from '../pages/DefEditor';  
+import { ConfigDocChanges, DefEditObj } from '../pages/DefEditor';  
 import { keys } from '../services/util';
 import { cloneDeep, isEqual, set } from 'lodash';
 import { HelpPopup } from './HelpPopup';
@@ -13,8 +13,8 @@ import characterStyles from '../theme/Character.module.css';
 
 
 type DefAddProps  = {
-  doc: Readonly<DesignDoc>; //current working definitions in proper order
-  docChanges: Readonly<DesignDocChanges>;
+  doc: Readonly<ConfigDoc>; //current working definitions in proper order
+  docChanges: Readonly<ConfigDocChanges>;
   isUniversalProps: boolean;
   setDefToEditCallback: (editObj: DefEditObj)=>void; 
   dismissModalCallback: ()=>void;

@@ -7,14 +7,14 @@ import { calculateHideBreakpoints, } from '../services/renderUtil';
 import { groupDescriptions, specialDefs, isMandatory as getIsMandatory } from '../constants/internalColumns';
 import { cloneDeep, groupBy, set } from 'lodash';
 import ColumnHeaders from './ColumnHeaders';
-import { DesignDocChanges, DefEditObj } from '../pages/DefEditor';
+import { ConfigDocChanges, DefEditObj } from '../pages/DefEditor';
 import { HelpPopup } from './HelpPopup';
 import characterStyles from '../theme/Character.module.css';
 import styles from '../theme/DefEditor.module.css';
 
 type DefEditCollection = {
-  doc: T.DesignDoc,
-  docChanges: DesignDocChanges,
+  doc: T.ConfigDoc,
+  docChanges: ConfigDocChanges,
   isUniversalProps: boolean,
   previewBreakpoint?: T.Breakpoint,
   itemClicked: (editObj: DefEditObj) => void,

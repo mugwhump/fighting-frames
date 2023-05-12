@@ -29,7 +29,7 @@ export let CompileConstants = {
   API_CHANGE_MATCH: changeMatch, //PUT. Would be POST if it ended at changes/. Using PUT since idempotent.
   API_CHARACTER_MATCH: charMatch, // PATCH with body of change title, since PUT replaces entire resource, patch also used for instructions, diffs. Also DELETE.
   API_CHARACTERS_MATCH: "/game/:gameId/character", //POST to create new char. Body contains charName and displayName.
-  API_CONFIG_MATCH: "/game/:gameId/"+configDocId, //PUT new ddoc 
+  API_CONFIG_MATCH: "/game/:gameId/"+configDocId, //PUT new config doc 
   API_AUTHORIZED_USERS_MATCH: "/game/:gameId/_security", //PUT new security doc
   API_CREATE_GAME_MATCH: "/game", //POST to create new game
 

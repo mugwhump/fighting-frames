@@ -6,6 +6,7 @@ type DBProviderProps = {
   children: React.ReactNode
 }
 
+//UNUSED
 const DBProvider: React.FC<DBProviderProps > = ({db, children}) => {
   const localDb : PouchDB.Database = myPouch.getDB("local-" + db);
   const remoteDb : PouchDB.Database = myPouch.getDB(myPouch.remote + db);

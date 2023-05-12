@@ -22,7 +22,7 @@ import styles from '../theme/DefEditor.module.css';
 import PouchDB from 'pouchdb'; //TODO: testing, delete
 import { useDoc } from 'use-pouchdb';
 
-export type DesignDocChanges = Partial<T.DesignDoc> & {
+export type ConfigDocChanges = Partial<T.ConfigDoc> & {
   //if order is changed, it's shown here. Additions are added but deletions aren't removed.
   //These are differences compared to the cloned doc, which has mandatory defs added if missing, and defs sorted by group if they were out of place.
   changedOrders?: {
@@ -39,13 +39,11 @@ export type DefEditObj = {defName: string, isUniversalProp: boolean, propOrColPa
 
 type DefEditorProps = {
   gameId: string;
-  designDoc: T.DesignDoc; //does NOT contain modified definitions, they're straight from DB
+  configDoc: T.ConfigDoc; //does NOT contain modified definitions, they're straight from DB
 }
-const DefEditor: React.FC<DefEditorProps> = ({gameId, designDoc}) => {
-  //const gameDispatch = useGameDispatch();
-  //const { doc: designDoc, loading, state, error } = useDoc<T.DesignDoc>("_design/columns"); 
-  const [docChanges, setDocChanges] = useState<DesignDocChanges>({}); 
-  const [clonedDoc, setClonedDoc] = useState<T.DesignDoc>(cloneDesignDocStripMetaAddMandatory);
+const DefEditor: React.FC<DefEditorProps> = ({gameId, configDoc}) => {
+  const [docChanges, setDocChanges] = useState<ConfigDocChanges>({}); 
+  const [clonedDoc, setClonedDoc] = useState<T.ConfigDoc>(cloneConfigDocStripMetaAddMandatory);
   const [defToEdit, setDefToEdit] = useState<DefEditObj | null>(null); //null when not editing, defName is empty string when adding new def
   const [showReorderModal, setShowReorderModal] = useState<'props' | 'cols' | null>(null);
   const [showAddDefModal, setShowAddDefModal] = useState<'props' | 'cols' | null>(null);
@@ -56,23 +54,9 @@ const DefEditor: React.FC<DefEditorProps> = ({gameId, designDoc}) => {
   if(defToEdit && defToEdit.defName !== "") {
     defObjBeingEdited = docChanges?.[defToEdit.propOrColPath]?.[defToEdit.defName] || clonedDoc[defToEdit.propOrColPath]?.[defToEdit.defName];
   }
-  //const testPouch = usePouch('remote');
 
-  //useEffect(() => {
-    //testPouch.changes({include_docs:true, live: true, since: 'now', doc_ids: ['_design/columns', 'character/voldo']}).on('change', (change) => {
-      //console.log("Change received: "+JSON.stringify(change));
-    //}).on('error', (err) => {
-      //console.log("WTF CHANGE FEED ERROR??: "+JSON.stringify(err));
-    //});
-  //}, [testPouch])
-
-  //useEffect(() => {
-    //console.log('test listeners: '+testPouch.listenerCount('change'));
-    //testPouch.info().then((info) => console.log("info = "+JSON.stringify(info)));
-  //}, [docChanges]);
-
-  function cloneDesignDocStripMetaAddMandatory(): T.DesignDoc {
-    let newDoc = cloneDeep<T.DesignDoc>(designDoc);
+  function cloneConfigDocStripMetaAddMandatory(): T.ConfigDoc {
+    let newDoc = cloneDeep<T.ConfigDoc>(configDoc);
     //strip out definitions with "meta" group. There shouldn't be any of those in the DB document, though... probably.
     for(const [key, def] of keyVals(newDoc.universalPropDefs)) {
       if(def?.group === "meta") {
@@ -100,24 +84,24 @@ const DefEditor: React.FC<DefEditorProps> = ({gameId, designDoc}) => {
   // handle conflicting changes to document
   useEffect(() => {
     // if editing def, can finish and close the modal
-    if(defToEdit === null && designDoc._rev !== clonedDoc._rev) {
+    if(defToEdit === null && configDoc._rev !== clonedDoc._rev) {
       //Can close these modals without losing anything. Reorderer in particular can bug out if you finish a reorder when defs were added/deletd on the server.
       setShowReorderModal(null);
       setShowAddDefModal(null);
 
       if(keys(docChanges).length === 0) {
-        setClonedDoc(cloneDeep<T.DesignDoc>(designDoc));
+        setClonedDoc(cloneDeep<T.ConfigDoc>(configDoc));
         presentMyToast("Loaded updated configuration from server", undefined, 7000);
       }
       else {
         //Catch order conflicts. Conflict if you changed, they changed, and theirs != yours
         let propOrderConflict, colOrderConflict = false;
-        if(docChanges.changedOrders?.universalPropDefs && !isEqual(keys(clonedDoc.universalPropDefs), keys(designDoc.universalPropDefs)) 
-           && !isEqual(docChanges.changedOrders.universalPropDefs, keys(designDoc.universalPropDefs))) {
+        if(docChanges.changedOrders?.universalPropDefs && !isEqual(keys(clonedDoc.universalPropDefs), keys(configDoc.universalPropDefs)) 
+           && !isEqual(docChanges.changedOrders.universalPropDefs, keys(configDoc.universalPropDefs))) {
           propOrderConflict = true;
         }
-        if(docChanges.changedOrders?.columnDefs && !isEqual(keys(clonedDoc.columnDefs), keys(designDoc.columnDefs)) 
-           && !isEqual(docChanges.changedOrders.columnDefs, keys(designDoc.columnDefs))) {
+        if(docChanges.changedOrders?.columnDefs && !isEqual(keys(clonedDoc.columnDefs), keys(configDoc.columnDefs)) 
+           && !isEqual(docChanges.changedOrders.columnDefs, keys(configDoc.columnDefs))) {
           colOrderConflict = true;
         }
 
@@ -127,12 +111,12 @@ const DefEditor: React.FC<DefEditorProps> = ({gameId, designDoc}) => {
         let yourChangedOrDeletedProps  = new Set<string>([...docChanges?.deletedDefs?.universalPropDefs || [], ...keys(docChanges?.universalPropDefs || [])]);
         let yourChangedOrDeletedCols  = new Set<string>([...docChanges?.deletedDefs?.columnDefs || [], ...keys(docChanges?.columnDefs || [])]);
         for(const key of yourChangedOrDeletedProps ) {
-          if(!isEqual(designDoc.universalPropDefs?.[key], clonedDoc.universalPropDefs?.[key])) {
+          if(!isEqual(configDoc.universalPropDefs?.[key], clonedDoc.universalPropDefs?.[key])) {
             conflictingProps.push(key);
           }
         }
         for(const key of yourChangedOrDeletedCols ) {
-          if(!isEqual(designDoc.columnDefs?.[key], clonedDoc.columnDefs?.[key])) {
+          if(!isEqual(configDoc.columnDefs?.[key], clonedDoc.columnDefs?.[key])) {
             conflictingCols.push(key);
           }
         }
@@ -147,9 +131,9 @@ const DefEditor: React.FC<DefEditorProps> = ({gameId, designDoc}) => {
               header: "Game configuration has been updated!",
               message: new IonicSafeString("While you were working, someone else updated this game's configuration."+changedMessage+".<br>You can choose whose changes to keep."),
               buttons: [
-                { text: 'Discard their changes', handler: () => {setClonedDoc({...clonedDoc, _rev: designDoc._rev})} },
+                { text: 'Discard their changes', handler: () => {setClonedDoc({...clonedDoc, _rev: configDoc._rev})} },
                 { text: 'Discard your changes', handler: () => {
-                    setClonedDoc(cloneDeep<T.DesignDoc>(designDoc));
+                    setClonedDoc(cloneDeep<T.ConfigDoc>(configDoc));
                     setDocChanges({});
                 } },
                 { text: 'Merge, preferring yours', role: "cancel", handler: () => {
@@ -157,8 +141,8 @@ const DefEditor: React.FC<DefEditorProps> = ({gameId, designDoc}) => {
 
                   //Repair order, using adds/dels from new doc. If you changed order, will slap your defs in to keep your additions (so it doesn't think doc deleted them).
                   //Will have your+their additions, keep your deletions in (as it should), and strip their deletions
-                  setClonedDoc(cloneDeep<T.DesignDoc>(designDoc));
-                  const repairedChanges = repairChangedOrders(designDoc, true);
+                  setClonedDoc(cloneDeep<T.ConfigDoc>(configDoc));
+                  const repairedChanges = repairChangedOrders(configDoc, true);
                   setDocChanges(repairedChanges);
                 } },
               ], 
@@ -168,17 +152,17 @@ const DefEditor: React.FC<DefEditorProps> = ({gameId, designDoc}) => {
         else { //Definition changes do not conflict. If you changed some other setting, don't care, just take yours.
           //must repair order if you changed order and they made a group change that didn't cause an order change
           //must repair order if THEY changed order and YOU made a group change that didn't cause an order change
-          setClonedDoc(cloneDeep<T.DesignDoc>(designDoc));
-          const repairedChanges = repairChangedOrders(designDoc, false);
+          setClonedDoc(cloneDeep<T.ConfigDoc>(configDoc));
+          const repairedChanges = repairChangedOrders(configDoc, false);
           setDocChanges(repairedChanges);
           presentMyToast("Loaded and merged updated configuration from server; no conflicts found", undefined, 8000);
         }
       }
     }
-  }, [designDoc, clonedDoc, docChanges, defToEdit]);
+  }, [configDoc, clonedDoc, docChanges, defToEdit]);
 
-  // used when merging a newly-loaded design doc
-  function repairChangedOrders(newDoc: Readonly<T.DesignDoc>, additionsDeletionsFromDoc: boolean): DesignDocChanges {
+  // used when merging a newly-loaded config doc
+  function repairChangedOrders(newDoc: Readonly<T.ConfigDoc>, additionsDeletionsFromDoc: boolean): ConfigDocChanges {
     let newChanges = {...docChanges};
     for(const propOrColPath of ['universalPropDefs', 'columnDefs']) {
       const path = propOrColPath as 'universalPropDefs' | 'columnDefs';
@@ -187,7 +171,7 @@ const DefEditor: React.FC<DefEditorProps> = ({gameId, designDoc}) => {
 
       const repairedOrder = repairDefOrder(changedOrder ?? keys(newDoc[path]), defs, additionsDeletionsFromDoc, additionsDeletionsFromDoc);
       set(newChanges, `changedOrders.${path}`, repairedOrder);
-      if(isEqual(repairedOrder, keys(designDoc[path]))) { // use designDoc because sometimes newDoc is a merged one just used to get defs in right groups
+      if(isEqual(repairedOrder, keys(configDoc[path]))) { // use configDoc because sometimes newDoc is a merged one just used to get defs in right groups
         delete newChanges.changedOrders?.[path];
       }
     }
@@ -195,17 +179,10 @@ const DefEditor: React.FC<DefEditorProps> = ({gameId, designDoc}) => {
   }
 
   function uploadDoc() {
-    let newDesignDoc: T.DesignDoc = getUpdatedDoc(clonedDoc, docChanges);
+    let newConfigDoc: T.ConfigDoc = getUpdatedDoc(clonedDoc, docChanges);
 
-    //newDesignDoc.universalPropDefs.Bio!.displayName = ' Bio   ';
-    //newDesignDoc.universalPropDefs.Bio!.allowedValues = [' spaceu   ', '   a'];
-    //newDesignDoc.universalPropDefs.Bio!.allowedValuesHints = {'spaceu': ' bombamna  '};
-    //newDesignDoc.universalPropDefs.Bio!.forbiddenValues = ['f1', 'f3'];
-    //let testErr = checkInvalid(newDesignDoc.universalPropDefs.Bio!.forbiddenValues!, getMetaDef('forbiddenValues')!);
-    //let testErr = getErrorsForColumnDef(newDesignDoc.universalPropDefs.Bio!);
-    //console.log(JSON.stringify(newDesignDoc.universalPropDefs));
     const [url, method] = getApiUploadConfigUrl(gameId);
-    makeApiCall(url, method, newDesignDoc).then((res) => {
+    makeApiCall(url, method, newConfigDoc).then((res) => {
       console.log(res.message ?? "Success!");
       presentAlert("Successfully updated config!");
       setDocChanges({});
@@ -223,7 +200,7 @@ const DefEditor: React.FC<DefEditorProps> = ({gameId, designDoc}) => {
     });
   }
 
-  function getUpdatedDoc(doc: Readonly<T.DesignDoc>, changes: Readonly<DesignDocChanges>): T.DesignDoc {
+  function getUpdatedDoc(doc: Readonly<T.ConfigDoc>, changes: Readonly<ConfigDocChanges>): T.ConfigDoc {
     let result = {...doc};
     let newUniversalPropDefs: Record<string, T.ColumnDef> = {};
     let newColumnDefs: Record<string, T.ColumnDef> = {};
@@ -252,7 +229,7 @@ const DefEditor: React.FC<DefEditorProps> = ({gameId, designDoc}) => {
     //console.log("Called updateDef with def " + JSON.stringify(def));
     if(!defToEdit) return "Error finding definition to edit";
     const path = defToEdit.propOrColPath;
-    let newChanges = cloneDeep<DesignDocChanges>(docChanges);
+    let newChanges = cloneDeep<ConfigDocChanges>(docChanges);
     set(newChanges, `${path}.${def.columnName}`, def); 
 
     //return error if trying to give new, non-suggested def a name that's already in use
@@ -292,7 +269,7 @@ const DefEditor: React.FC<DefEditorProps> = ({gameId, designDoc}) => {
   const deleteDefCallback = useCallback((defName: string) => {
     console.log("Called deleteDef for def " + defName);
     if(!defToEdit) return;
-    let newChanges = cloneDeep<DesignDocChanges>(docChanges);
+    let newChanges = cloneDeep<ConfigDocChanges>(docChanges);
     //set(newChanges, `${defToEdit.propOrColPath}.${defName}`, undefined);
     const orderArrayLength = newChanges?.deletedDefs?.[defToEdit.propOrColPath!]?.length ?? 0;
     set(newChanges, `deletedDefs.${defToEdit.propOrColPath}[${orderArrayLength}]`, defName);
@@ -306,7 +283,7 @@ const DefEditor: React.FC<DefEditorProps> = ({gameId, designDoc}) => {
     console.log("Called resetDef for def " + defName);
     if(!defToEdit || !defToEdit.propOrColPath) return;
     const path = defToEdit.propOrColPath;
-    let newChanges = cloneDeep<DesignDocChanges>(docChanges);
+    let newChanges = cloneDeep<ConfigDocChanges>(docChanges);
 
     //If it was deleted, remove from deletions and DON'T reset other changes that might have been made
     if(defToEdit.wasDeleted) {
@@ -342,7 +319,7 @@ const DefEditor: React.FC<DefEditorProps> = ({gameId, designDoc}) => {
   }, [clonedDoc, defToEdit, docChanges]);
 
 
-  const setDocChangesCallback = useCallback((changes: DesignDocChanges) => {
+  const setDocChangesCallback = useCallback((changes: ConfigDocChanges) => {
     setDocChanges(changes);
   }, [docChanges])
 

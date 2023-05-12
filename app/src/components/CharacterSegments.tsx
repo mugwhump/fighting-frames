@@ -8,7 +8,7 @@ import Character from '../pages/Character';
 import EditCharacter from '../pages/EditCharacter';
 import ChangeBrowser from '../pages/ChangeBrowser';
 import ChangeViewer from '../pages/ChangeViewer';
-import { DesignDoc, ColumnDefs } from '../types/characterTypes';
+import { ConfigDoc, ColumnDefs } from '../types/characterTypes';
 import * as util from '../services/util';
 import { SegmentUrl } from '../types/utilTypes';
 import CompileConstants from '../constants/CompileConstants';

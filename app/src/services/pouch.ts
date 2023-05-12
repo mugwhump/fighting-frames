@@ -17,6 +17,7 @@ export const remote: string = 'http://localhost:5984/';
 export const apiUrl: string = 'http://localhost:3000/api/v1';
 PouchDB.plugin(PouchAuth);
 
+
 superlogin.configure({
   serverUrl: 'http://localhost:3000',
   baseUrl: '/auth',
@@ -24,6 +25,7 @@ superlogin.configure({
   noDefaultEndpoint: true, //don't add url bar to list
 });
 export {superlogin};
+
 
 type OptionType = PouchDB.Configuration.LocalDatabaseConfiguration | PouchDB.Configuration.RemoteDatabaseConfiguration;
 export function getDB(name: string, options: OptionType = {}): PouchDB.Database {
@@ -35,10 +37,12 @@ export function getDB(name: string, options: OptionType = {}): PouchDB.Database 
   return db;
 }
 
+
 //check if name is that of a remote db by seeing if it starts with "http"
 export function nameIsRemote(name: string): boolean {
   return name.indexOf("http") === 0;
 }
+
 
 //returns a promise response that must be resolved to another promise via response.json(), response.text(), response.blob() etc
 export function makeRequest(url: string, username: string, password: string, method: "GET" | "PUT" | "POST", body?: Object) {
@@ -55,6 +59,7 @@ export function makeRequest(url: string, username: string, password: string, met
   });
   return response;
 }
+
 
 // Makes API call, sending superlogin session creds if logged in.
 // Most endpoints require a superlogin user, but some are useable as public, depending on db configuration,
@@ -105,6 +110,7 @@ export function makeApiCall(url: string, method: HttpMethod, body?: Object): Pro
   });
 }
 
+
 export function syncDB(db: PouchDB.Database, live: boolean) {
   let options = {
     live: live, // This option makes it continuously push/pull changes
@@ -117,6 +123,7 @@ export function syncDB(db: PouchDB.Database, live: boolean) {
   return db;
 }
 
+
 //validation functions run at replication, so local design docs could reject a pull or have VDU function change mid-pull. 
 //Thus, do not replicate the doc with VDU function
 export async function pullDB(db: string) {
@@ -125,17 +132,21 @@ export async function pullDB(db: string) {
   console.log("Initiating download for "+db);
   return database.replicate.from(remoteWithBasicCreds + db, {selector: {"$not": {"_id": "_design/validate"}}}); //use selector blacklist
 }
-export async function deleteDBWhichOutdatesDBReferences(db: string) {
-  if(db.indexOf("local-") !== -1) throw new Error("Provide only db id with no local- prefix");
-  const database: PouchDB.Database = getDB("local-"+db);
-  console.log("Initiating deletion for "+db);
-  return database.destroy();
-}
+
+// Only for testing
+//export async function deleteDBWhichOutdatesDBReferences(db: string) {
+  //if(db.indexOf("local-") !== -1) throw new Error("Provide only db id with no local- prefix");
+  //const database: PouchDB.Database = getDB("local-"+db);
+  //console.log("Initiating deletion for "+db);
+  //return database.destroy();
+//}
+
 
 export function pushDB(db: PouchDB.Database) {
   db.replicate.to(remote + db.name);
   return db;
 }
+
 
 export function printSession(database: PouchDB.Database) {
   database.getSession().then((response) => {
@@ -144,6 +155,7 @@ export function printSession(database: PouchDB.Database) {
     console.log(`Failed getting current session: ${JSON.stringify(reason)}`);
   });
 }
+
 
 // This hook returns a set of pouchDB references for the given gameID.
 // If gameId="top", it includes localTop, remoteTop, and localPersonal (where personal notes and edits are stored).

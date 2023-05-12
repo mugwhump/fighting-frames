@@ -55,14 +55,14 @@ export function recursiveCompare(propName: string, expected: unknown, actual: un
 //errors for non-delete changes for columns without defs, changes keyed to nonexistent moves, and added moves with invalid names
 //Must do moveName validation here; can't give errors for existing moveNames because they can't be changed.
 //Change inversion catches non-matching changes, eg add for existing stuff, modify/delete for nonexistant stuff, wrong old values, etc
-export function validateChangeDoc(changeDoc: T.ChangeDoc, baseDoc: T.CharDoc, designDoc: T.DesignDoc): string[] | false {
+export function validateChangeDoc(changeDoc: T.ChangeDoc, baseDoc: T.CharDoc, configDoc: T.ConfigDoc): string[] | false {
   let errors: string[] = [];
 
   //Validate that universalPropChanges only add/modify defined columns TODO: alla these gotta account for whether you receive builtin/mandatory cols
   for(const [col, change] of keyVals(changeDoc.universalPropChanges ?? {})) {
     if(!change) continue;
     //Can't have non-delete changes for defless columns
-    const colDef = designDoc.universalPropDefs[col];
+    const colDef = configDoc.universalPropDefs[col];
     if(!colDef && change.type !== 'delete') {
       errors.push(`Cannot ${change.type} undefined column ${col} in universal properties`);
     }
@@ -74,7 +74,7 @@ export function validateChangeDoc(changeDoc: T.ChangeDoc, baseDoc: T.CharDoc, de
     for(const [col, change] of keyVals(moveChanges)) {
       if(!change) continue;
       //Can't have non-delete changes for defless columns
-      const colDef = designDoc.columnDefs[col];
+      const colDef = configDoc.columnDefs[col];
       if(!colDef && change.type !== 'delete') {
         errors.push(`Cannot ${change.type} undefined column ${col} in ${moveKey}`);
       }
@@ -214,6 +214,10 @@ export function getApiAuthorizedUsersUrl(gameId: string): [string, HttpMethod] {
   return [generatePath(CompileConstants.API_AUTHORIZED_USERS_MATCH, {gameId: gameId}), "PUT"];
 }
 
+//TODO: would be nice to switch all db names to game/{gameId}, but have code that doesn't distinguish between top and game database names
+//export function getDatabaseName(gameId: string): string {
+  //return 'game/'+gameId;
+//}
 export function getCharDocId(character: string): string {
   return 'character/'+character;
 }

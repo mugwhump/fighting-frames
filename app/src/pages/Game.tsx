@@ -35,10 +35,10 @@ const Game: React.FC<GameProps> = () => {
   const gameId: string = gameContext.gameId; //TODO: Wrapper component. Note this will update after the provider switches DBs.
   const gameDispatch = useGameDispatch();
   const [middleware, setMiddleware] = useState<Middleware>({});
-  const [previewDoc, setPreviewDoc] = useState<T.DesignDoc | null>(null);
+  const [previewDoc, setPreviewDoc] = useState<T.ConfigDoc | null>(null);
   const configPageMatch = useRouteMatch<{gameId: string}>(CompileConstants.CONFIGURATION_MATCH); //force remote db if on configuration page
-  const { doc: actualDoc, loading, state, error } = useDoc<T.DesignDoc>("_design/columns", {db: !!configPageMatch ? 'remote' : '_default'}); 
-  const doc: T.DesignDoc | null = previewDoc ?? actualDoc;
+  const { doc: actualDoc, loading, state, error } = useDoc<T.ConfigDoc>(CompileConstants.CONFIG_DOC_ID, {db: !!configPageMatch ? 'remote' : '_default'}); 
+  const doc: T.ConfigDoc | null = previewDoc ?? actualDoc;
   useDocumentLocalRemoteSwitching(state, error, 'Game');
   const displayName: string | undefined = doc?.displayName;
 
@@ -58,7 +58,7 @@ const Game: React.FC<GameProps> = () => {
 
   //TODO: would need to give character state info about whether it's a preview doc so players can't save or upload changes based on faulty defs
   //and display a banner saying "you're previewing your definitions"
-  const previewDesignDoc = useCallback((docToPreview: T.DesignDoc) => {
+  const previewConfigDoc = useCallback((docToPreview: T.ConfigDoc) => {
   }, []);
 
   if (state === 'error') {
@@ -140,7 +140,7 @@ const Game: React.FC<GameProps> = () => {
         </Route>
 
         <Route path={CompileConstants.CONFIGURATION_MATCH} >
-          <DefEditor gameId={gameId} designDoc={doc} />
+          <DefEditor gameId={gameId} configDoc={doc} />
         </Route>
 
         <Route path={CompileConstants.ADD_CHARACTER_MATCH} >

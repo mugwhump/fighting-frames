@@ -173,7 +173,7 @@ export function parseNumStrVal(data: string, def: T.ColumnDefRestrictions): numb
   return undefined;
 }
 
-//built once per definition when ddoc loaded
+//built once per definition when config doc loaded
 export function getNumStrColRegex(def: T.ColumnDefRestrictions): RegExp {
   let str = def.allowedValues ?
     // Escape special characters
@@ -330,15 +330,15 @@ export function checkInvalid(data: T.ColumnData | undefined, def: T.ColumnDefRes
 }
 
 
-export function getCharDocErrors(charDoc: T.CharDoc, designDoc: T.DesignDoc, skipMoveNameCheck = false): {[moveName: string]: FieldError[]} | false {
+export function getCharDocErrors(charDoc: T.CharDoc, configDoc: T.ConfigDoc, skipMoveNameCheck = false): {[moveName: string]: FieldError[]} | false {
   let errors: {[moveName: string]: FieldError[]} = {};
 
-  let propErrors = getMoveErrors(charDoc.universalProps, designDoc.universalPropDefs);
+  let propErrors = getMoveErrors(charDoc.universalProps, configDoc.universalPropDefs);
   if(propErrors) errors.universalProps = propErrors;
 
   for(const [moveName, move] of util.keyVals(charDoc.moves)) {
     if(!moveName || !move) continue;
-    let moveErrors = getMoveErrors(move, designDoc.columnDefs, skipMoveNameCheck);
+    let moveErrors = getMoveErrors(move, configDoc.columnDefs, skipMoveNameCheck);
     if(moveErrors) errors[moveName] = moveErrors;
   }
   return (util.keys(errors).length > 0) ? errors : false;

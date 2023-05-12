@@ -24,7 +24,7 @@ const couch_replicator_user = secrets.couch_replicator_user;
 const couch_replicator_password = secrets.couch_replicator_password;
 
 //TODO: what if multiple requests use these objects at once?
-const DesignDocValidator = require('../schema/DesignDoc-validator').default;
+const ConfigDocValidator = require('../schema/DesignDoc-validator').default;
 const ChangeDocValidator = require('../schema/ChangeDocServer-validator').default;
 const SecObjValidator = require('../schema/SecObj-validator').default;
 
@@ -111,7 +111,7 @@ router.post(CompileConstants.API_CREATE_GAME_MATCH, //needsPermissions("ServerMa
     const createdDB = adminNano.use(gameId);
 
     //make _design/columns. Can put new one with different displayName in case top rejected previous attempt due to duplicate displayName
-    const configDoc: T.DesignDoc = {
+    const configDoc: T.ConfigDoc = {
       _id: CompileConstants.CONFIG_DOC_ID,
       _rev: '', //set to undefined if creating new doc, overwritten otherwise
       displayName: displayName,
@@ -162,46 +162,46 @@ router.put(CompileConstants.API_CONFIG_MATCH, needsPermissions("GameAdmin"),
   try {
     const db = adminNano.use(req.params.gameId);
 
-    const newDesignDoc: T.DesignDoc = req.body;
-    if(newDesignDoc._id !== CompileConstants.CONFIG_DOC_ID) {
-      return sendError(res, `Incorrect _id ${newDesignDoc._id}`, 400);
+    const newConfigDoc: T.ConfigDoc = req.body;
+    if(newConfigDoc._id !== CompileConstants.CONFIG_DOC_ID) {
+      return sendError(res, `Incorrect _id ${newConfigDoc._id}`, 400);
     }
 
     //repair mandatory columns, ensure group sorting
     //remember that clients may have outdated versions of mandatory cols, so just repair w/o error
-    colUtil.insertDefsSortGroupsCompileRegexes(newDesignDoc.universalPropDefs, true, false, false);
-    colUtil.insertDefsSortGroupsCompileRegexes(newDesignDoc.columnDefs, false, false, false);
-    logger.info(JSON.stringify(newDesignDoc.universalPropDefs));
+    colUtil.insertDefsSortGroupsCompileRegexes(newConfigDoc.universalPropDefs, true, false, false);
+    colUtil.insertDefsSortGroupsCompileRegexes(newConfigDoc.columnDefs, false, false, false);
+    logger.info(JSON.stringify(newConfigDoc.universalPropDefs));
 
 
     //Cannot have {key: undefined} since undefined not valid json, key gets stripped by pouch
     //check type errors
-    let typeValidationResult = DesignDocValidator(newDesignDoc);
+    let typeValidationResult = ConfigDocValidator(newConfigDoc);
     if(typeValidationResult) {
       logger.info('Type validation successful');
     }
     else {
-      logger.warn('Validation result: '+JSON.stringify(DesignDocValidator.errors)+' for design doc '+JSON.stringify(newDesignDoc));
+      logger.warn('Validation result: '+JSON.stringify(ConfigDocValidator.errors)+' for design doc '+JSON.stringify(newConfigDoc));
       return sendError(res, "Type validation failed", 400);
     }
     //trim whitespace in strings, remove unused properties, then check validation errors
-    const err = metaDefs.getDesignDocErrorMessageAndClean(newDesignDoc);
+    const err = metaDefs.getConfigDocErrorMessageAndClean(newConfigDoc);
     if(err) {
       return sendError(res, err, 400);
     }
 
     // Check if displayName has changed, update top/list if necessary TODO: finish this stuff.
-    const currentSecObj = await db.get(CompileConstants.CONFIG_DOC_ID) as T.DesignDoc;
+    const currentSecObj = await db.get(CompileConstants.CONFIG_DOC_ID) as T.ConfigDoc;
 
     try {
-      const putResult = await db.insert(newDesignDoc); 
+      const putResult = await db.insert(newConfigDoc); 
     }
     catch(err: any) {
       return sendError(res, "Error inserting document: " + err, err.statusCode);
     }
 
 
-    return sendSuccess(res, JSON.stringify(newDesignDoc));
+    return sendSuccess(res, JSON.stringify(newConfigDoc));
   }
   catch(err) {
     return sendError(res, `Server Error to ${req.url}, ${err}`);
@@ -334,13 +334,13 @@ async function uploadChange(req: Request<{gameId:string, characterId:string, cha
       return getErrorObject(`Changes based on outdated character document ${changeDoc.baseRevision}, latest is ${charDoc._rev}, please refresh and update`, 422);
     }
 
-    //fetch config ddoc, insert builtin and mandatory defs for validation
-    const designDoc = await db.get(CompileConstants.CONFIG_DOC_ID) as T.DesignDoc; 
-    designDoc.universalPropDefs = colUtil.insertDefsSortGroupsCompileRegexes(designDoc.universalPropDefs, true, true, false, false);
-    designDoc.columnDefs = colUtil.insertDefsSortGroupsCompileRegexes(designDoc.columnDefs, false, true, false, false);
+    //fetch config doc, insert builtin and mandatory defs for validation
+    const configDoc = await db.get(CompileConstants.CONFIG_DOC_ID) as T.ConfigDoc; 
+    configDoc.universalPropDefs = colUtil.insertDefsSortGroupsCompileRegexes(configDoc.universalPropDefs, true, true, false, false);
+    configDoc.columnDefs = colUtil.insertDefsSortGroupsCompileRegexes(configDoc.columnDefs, false, true, false, false);
 
     //make sure changeDoc is well formed (which includes moveName checks)
-    const changeDocErrors = util.validateChangeDoc(changeDoc, charDoc, designDoc);
+    const changeDocErrors = util.validateChangeDoc(changeDoc, charDoc, configDoc);
     if(changeDocErrors) {
       return getErrorObject(`Errors in submitted changes: ${changeDocErrors.join('\n')}`, 400);  //`
     }
@@ -358,7 +358,7 @@ async function uploadChange(req: Request<{gameId:string, characterId:string, cha
       logger.warn("After >> \n" + JSON.stringify(fixedMoveOrder));
     }
 
-    const charDocErrors = colUtil.getCharDocErrors(newCharDoc, designDoc, true);
+    const charDocErrors = colUtil.getCharDocErrors(newCharDoc, configDoc, true);
     if(charDocErrors) {
       return getErrorObject("Errors validating, "+JSON.stringify(charDocErrors), 400);
     }
@@ -466,8 +466,8 @@ async function publishChange(req: TypedRequest<{gameId:string, characterId:strin
 
     //make sure updated doc passes validation
     //if(!justUploaded) {
-      const designDoc = await db.get(CompileConstants.CONFIG_DOC_ID) as T.DesignDoc;
-      const errors = colUtil.getCharDocErrors(charDoc, designDoc, true); //skips moveName checks
+      const configDoc = await db.get(CompileConstants.CONFIG_DOC_ID) as T.ConfigDoc;
+      const errors = colUtil.getCharDocErrors(charDoc, configDoc, true); //skips moveName checks
       if(errors) {
         return getErrorObject("Errors validating, "+JSON.stringify(errors), 400);
       }

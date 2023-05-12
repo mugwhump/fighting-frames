@@ -99,7 +99,7 @@ export const BPList: Readonly<Breakpoint[]> = ["xs", "sm", "md", "lg", "xl"];
 export type SizeBreakpoint =  `size-${Breakpoint}`;
 
 //columndef editor forces columns in groups to be put next to each other. Also where order determined. no-definition isn't choosable, it's assigned to columns missing a definition.
-//meta column defs aren't in design doc, they're added by the client. Is "meta" not specific enough?
+//meta column defs aren't in config doc, they're added by the client. Is "meta" not specific enough?
 //could have special handling for display, changed display, conflict swiper, edit modal
 //e.g. displayName displayed inline (though kinda special), but banner would be elsewhere
 export type DefGroup = "meta" | "title" | "needsHeader" | "normal" | "defaultHideNeedsHeader" | "defaultHide" | "no-definition";
@@ -159,11 +159,12 @@ export type DBListDocItem = {
   gameId: string,
   displayName: string 
 }
+// document top/game-list
 export type DBListDoc = {
   dbs: DBListDocItem[]
 }
 
-export type DesignDoc = {
+export type ConfigDoc = {
   displayName: string; //for the game. Useful, but duplicated in DBListDocItem.name in top db...
   universalPropDefs: ColumnDefs,
   columnDefs: ColumnDefs,

@@ -36,7 +36,7 @@ export type DBStatus = {
 
 type State = {
   gameId: string,
-  gameDisplayName?: string, //Game component sets this after loading game's design doc
+  gameDisplayName?: string, //Game component sets this after loading game's config doc
   usingLocal: boolean,
   isOnline: boolean | null, //includes network issues and website issues, but not DB-specific or permissions issues
   dbStatuses: DBStatuses, //also includes top. If queried for db it has no info for, initializes it to initialDBStatus

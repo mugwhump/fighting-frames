@@ -3,9 +3,9 @@ import { ItemReorderEventDetail } from '@ionic/core';
 import { swapVerticalOutline, swapVerticalSharp, chevronForward, chevronBack, trash } from 'ionicons/icons';
 //delete these 2
 import React, { useState, useEffect, useRef } from 'react';
-import { DefGroup, groupList , DesignDoc, ColumnDefs, ColumnDef, ColumnData, DataType } from '../types/characterTypes';
+import { DefGroup, groupList, ConfigDoc, ColumnDefs, ColumnDef, ColumnData, DataType } from '../types/characterTypes';
 import { groupDescriptions, predefinedWidths, specialDefs } from '../constants/internalColumns';
-import { DesignDocChanges } from '../pages/DefEditor';  
+import { ConfigDocChanges } from '../pages/DefEditor';  
 import { keys } from '../services/util';
 import { cloneDeep, isEqual, set } from 'lodash';
 import { HelpPopup } from './HelpPopup';
@@ -14,10 +14,10 @@ import styles from '../theme/DefEditor.module.css';
 
 
 type DefOrdererProps  = {
-  doc: Readonly<DesignDoc>; //current working definitions in proper order
-  docChanges: Readonly<DesignDocChanges>;
+  doc: Readonly<ConfigDoc>; //current working definitions in proper order
+  docChanges: Readonly<ConfigDocChanges>;
   isUniversalProps: boolean;
-  changeDefOrder : (changes: DesignDocChanges)=>void; //must return changed definitions in case of group changes
+  changeDefOrder : (changes: ConfigDocChanges)=>void; //must return changed definitions in case of group changes
   dismissModalCallback: ()=>void;
 }
 
@@ -79,7 +79,7 @@ const DefOrdererModal: React.FC<DefOrdererProps > = ({doc, docChanges, changeDef
 
   function submit() {
     //Loop through order, check if they moved and their group changed, add/update changedDefs if so. 
-    let newChanges = cloneDeep<DesignDocChanges>(docChanges);
+    let newChanges = cloneDeep<ConfigDocChanges>(docChanges);
     let currentGroup: DefGroup = groupList[0];
     for(let item of order) {
       if(item.startsWith('group:')) {
