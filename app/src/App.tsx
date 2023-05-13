@@ -5,6 +5,7 @@ import { GameProvider } from './components/GameProvider';
 import Game from './pages/Game';
 import DBProvider from './components/DBProvider';
 import GameMenu from './components/GameMenu';
+import AddGame from './pages/AddGame';
 import { LocalProvider } from './components/LocalProvider';
 import React from 'react';
 import { IonApp, IonMenu, IonItem, IonLabel, IonRouterOutlet, IonSplitPane, setupIonicReact } from '@ionic/react';
@@ -62,6 +63,9 @@ const App: React.FC = () => {
                   <Route path="/page/Test" component={Test} exact /> 
                   <Route path={CompileConstants.CONFIRMATION_PATH} exact >
                     <IonItem><IonLabel>Email confirmed! Your account is now verified.</IonLabel></IonItem>
+                  </Route>
+                  <Route path={CompileConstants.ADD_GAME_PATH} exact >
+                    <AddGame />
                   </Route>
                   <Route path="/page/Inbox" component={Page} exact />
                   {/*<Route path="/game/:gameId" render={({match}) => etc etc to use the match here */}

@@ -213,6 +213,9 @@ export function getApiDeleteCharacterUrl(gameId: string, characterId: string): [
 export function getApiAuthorizedUsersUrl(gameId: string): [string, HttpMethod] {
   return [generatePath(CompileConstants.API_AUTHORIZED_USERS_MATCH, {gameId: gameId}), "PUT"];
 }
+export function getApiAddGameUrl(): [string, HttpMethod] {
+  return [CompileConstants.API_GAMES_MATCH, "POST"];
+}
 
 //TODO: would be nice to switch all db names to game/{gameId}, but have code that doesn't distinguish between top and game database names
 //export function getDatabaseName(gameId: string): string {

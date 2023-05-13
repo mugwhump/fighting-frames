@@ -25,13 +25,14 @@ export let CompileConstants = {
   AUTHORIZED_USERS_MATCH: "/game/:gameId/authorized-users",
   HOME_PATH: "/page/Inbox",
   CONFIRMATION_PATH: "/page/confirmed", //TODO: make an env var so couch-auth can use it... although frontend currently isn't dockerized
+  ADD_GAME_PATH: "/page/add-game",
 
   API_CHANGE_MATCH: changeMatch, //PUT. Would be POST if it ended at changes/. Using PUT since idempotent.
   API_CHARACTER_MATCH: charMatch, // PATCH with body of change title, since PUT replaces entire resource, patch also used for instructions, diffs. Also DELETE.
   API_CHARACTERS_MATCH: "/game/:gameId/character", //POST to create new char. Body contains charName and displayName.
   API_CONFIG_MATCH: "/game/:gameId/"+configDocId, //PUT new config doc 
   API_AUTHORIZED_USERS_MATCH: "/game/:gameId/_security", //PUT new security doc
-  API_CREATE_GAME_MATCH: "/game", //POST to create new game
+  API_GAMES_MATCH: "/game", //POST to create new game
 
   //Auth
   AUTH_TIMEOUT_SECONDS: 3600,
@@ -46,8 +47,8 @@ export let CompileConstants = {
 
   //game and char ids completely url-safe, lowercase-only. Nothing can start with underscore. Discordbot will use ; as separator, rarely used in notations.
   //FORBIDDEN_GAME_ID_REGEX: /^(?:_)|[^a-z0-9\-\._~]/, 
-  ALLOWED_GAME_ID_REGEX: /^(?!_|local|character|sl_user|top|game-template|config|internal)[a-z0-9\-\._~]{1,20}$/, //can't start with _, local, character, or internal db names
-  ALLOWED_GAME_DISPLAY_NAME_REGEX: /^[^\t\n]{2,35}$/, 
+  ALLOWED_GAME_ID_REGEX: /^(?!_|local|character|sl-users|top|game-template|config|internal)[a-z0-9\-\._~]{1,20}$/, //can't start with _, local, character, or internal db names
+  ALLOWED_GAME_DISPLAY_NAME_REGEX: /^[^\t\n]{2,50}$/, 
   ALLOWED_CHARACTER_ID_REGEX: /^(?!_)[a-z0-9\-\._~]{1,25}$/,
   ALLOWED_CHARACTER_DISPLAY_NAME_REGEX: /^[^\t\n]{1,35}$/, //TODO: has colDef now so remove this and just remove tabs/returns during validation
   ALLOWED_CHANGE_TITLE_REGEX: /^[\w-.~]{3,25}$/, //uppercase permitted

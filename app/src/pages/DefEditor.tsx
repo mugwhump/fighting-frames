@@ -1,4 +1,4 @@
-import { IonIcon, IonItem, IonGrid, IonRow, IonCol, IonButton, IonLabel, useIonAlert, useIonToast, IonContent, IonModal, IonSelect, IonSelectOption, IonicSafeString } from '@ionic/react';
+import { IonIcon, IonItem, IonGrid, IonRow, IonCol, IonButton, IonLabel, IonInput, useIonAlert, IonNote, useIonToast, IonContent, IonModal, IonSelect, IonSelectOption, IonicSafeString } from '@ionic/react';
 import React, { useEffect, useState, useCallback } from 'react';
 import { swapVerticalOutline, swapVerticalSharp, warningOutline, warningSharp } from 'ionicons/icons';
 import * as T from '../types/characterTypes';
@@ -44,6 +44,7 @@ type DefEditorProps = {
 const DefEditor: React.FC<DefEditorProps> = ({gameId, configDoc}) => {
   const [docChanges, setDocChanges] = useState<ConfigDocChanges>({}); 
   const [clonedDoc, setClonedDoc] = useState<T.ConfigDoc>(cloneConfigDocStripMetaAddMandatory);
+  //const [gameDisplayName, setGameDisplayName] = useState<string>(configDoc.displayName); 
   const [defToEdit, setDefToEdit] = useState<DefEditObj | null>(null); //null when not editing, defName is empty string when adding new def
   const [showReorderModal, setShowReorderModal] = useState<'props' | 'cols' | null>(null);
   const [showAddDefModal, setShowAddDefModal] = useState<'props' | 'cols' | null>(null);
@@ -205,6 +206,8 @@ const DefEditor: React.FC<DefEditorProps> = ({gameId, configDoc}) => {
     let newUniversalPropDefs: Record<string, T.ColumnDef> = {};
     let newColumnDefs: Record<string, T.ColumnDef> = {};
 
+    result.displayName = changes.displayName ?? result.displayName;
+
     //iterate through in new order, add new def if not in deleted
     for(const propKey of changes.changedOrders?.universalPropDefs ?? keys(doc.universalPropDefs)) {
       const def = changes.universalPropDefs?.[propKey] ?? doc.universalPropDefs[propKey];
@@ -223,6 +226,7 @@ const DefEditor: React.FC<DefEditorProps> = ({gameId, configDoc}) => {
     result.columnDefs = newColumnDefs;
     return result;
   }
+
 
   //returns string if error, false otherwise
   const updateOrAddDefCallback  = useCallback((def: T.ColumnDef) => {
@@ -340,6 +344,14 @@ const DefEditor: React.FC<DefEditorProps> = ({gameId, configDoc}) => {
     setPreviewBreakpoint(e.detail.value !== "undefined" ? e.detail.value as T.Breakpoint : undefined);
   }
 
+  function updateDisplayName(displayName: string) {
+    let newChanges: ConfigDocChanges = {...docChanges, displayName: displayName};
+    if(displayName === configDoc.displayName) {
+      delete newChanges.displayName;
+    }
+    setDocChanges(newChanges);
+  }
+
   const setDefToEditCallback = useCallback((editObj: DefEditObj) => {
     setDefToEdit(editObj);
   }, [clonedDoc, docChanges]);
@@ -401,6 +413,17 @@ const DefEditor: React.FC<DefEditorProps> = ({gameId, configDoc}) => {
         )}
         />
         <IonButton onClick={resetDocChangesCallback} type="reset" expand="full" disabled={keys(docChanges).length === 0} >Undo all changes</IonButton>
+
+
+        <IonItem counter={true}>
+          <IonLabel position="floating">Game Display Name</IonLabel>
+          <IonInput name="displayName" type="text" required={true} maxlength={50} minlength={2} value={docChanges.displayName ?? configDoc.displayName}
+            onIonChange={e => updateDisplayName(e.detail.value!)}
+          ></IonInput>
+          {/*<IonNote slot="error">{charNameErr}</IonNote>*/}
+          <IonNote slot="helper">Name of game as displayed to users</IonNote>
+        </IonItem>
+
 
         <IonSelect interface="action-sheet" placeholder="Screen width preview: Select a size" onIonChange={chooseBreakpoint}
             interfaceOptions={{header: "Preview Screen Width", subHeader: "This lets you see how the columns will be arranged on devices of varying sizes"}}>

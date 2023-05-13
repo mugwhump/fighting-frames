@@ -27,7 +27,7 @@ function(doc, req){
 
     //check that displayName is unique, whether adding or updating item
     if(itemWithDisplayName) {
-      return [null, getResponse(`Error, game ${itemWithDisplayName.gameId} already has name ${displayName}`)];
+      return [null, getResponse(`Error, game ${itemWithDisplayName.gameId} already has name ${displayName}. Please choose a unique display name.`, 422)];
     }
 
     //update displayName of existing game
@@ -41,9 +41,9 @@ function(doc, req){
 
     //Sort alphabetically by displayName
     newDbs.sort((a, b) => {
-      if(a.displayName < b.displayName) return -1;
-      if(a.displayName === b.displayName) return 0;
-      if(a.displayName > b.displayName) return 1;
+      if(a.displayName.toLowerCase() < b.displayName.toLowerCase()) return -1;
+      if(a.displayName.toLowerCase() === b.displayName.toLowerCase()) return 0;
+      if(a.displayName.toLowerCase() > b.displayName.toLowerCase()) return 1;
     });
   }
   else {

@@ -40,7 +40,7 @@ const testObject = {val: 1};
  * POST. Creates a new game. Non-atomic operation; partial failure allows users to retry.
  * Successful once entry is created in top/game-list
  */
-router.post(CompileConstants.API_CREATE_GAME_MATCH, //needsPermissions("ServerManager"), TODO: testing
+router.post(CompileConstants.API_GAMES_MATCH, needsPermissions("ServerManager"),
            async (req: TypedRequest<{}, CreateGameBody>, res) => {
   try {
     const gameId = req.body.gameId;
@@ -190,8 +190,27 @@ router.put(CompileConstants.API_CONFIG_MATCH, needsPermissions("GameAdmin"),
       return sendError(res, err, 400);
     }
 
-    // Check if displayName has changed, update top/list if necessary TODO: finish this stuff.
-    const currentSecObj = await db.get(CompileConstants.CONFIG_DOC_ID) as T.ConfigDoc;
+    // Check if displayName has changed, if so trim+validate it and update top/list TODO: test
+    const newDisplayName = newConfigDoc.displayName.trim();
+    newConfigDoc.displayName = newDisplayName;
+    const existingConfigDoc = await db.get(CompileConstants.CONFIG_DOC_ID) as T.ConfigDoc;
+    if(existingConfigDoc.displayName !== newDisplayName) {
+      //reject if doesn't pass regex
+      let validDisplayName = CompileConstants.ALLOWED_GAME_DISPLAY_NAME_REGEX.test(newDisplayName);
+      if(!validDisplayName) {
+        return sendError(res, `Invalid game display name ${newDisplayName}`, 400);
+      }
+
+      //modify top list
+      const topDB = adminNano.use<T.DBListDoc>('top');
+      const body: CreateGameBody = {gameId: req.params.gameId, displayName: newDisplayName};
+      try {
+        const updateResponseMsg = await topDB.updateWithHandler('update_list', 'add_game', 'game-list', body); 
+      }
+      catch(err: any) {
+        return sendError(res, `${err}`, err.statusCode || err.status);
+      }
+    }
 
     try {
       const putResult = await db.insert(newConfigDoc); 

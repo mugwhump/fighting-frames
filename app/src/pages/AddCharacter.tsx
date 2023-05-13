@@ -5,7 +5,7 @@ import HeaderPage from '../components/HeaderPage';
 import NeedPermissions from '../components/NeedPermissions';
 import * as myPouch from '../services/pouch';
 import * as util from '../services/util';
-import { SegmentUrl, CreateCharacterBody } from '../types/utilTypes';
+import { CreateCharacterBody } from '../types/utilTypes';
 import CompileConstants from '../constants/CompileConstants';
 
 type AddCharacterProps = {
@@ -18,7 +18,7 @@ const AddCharacter: React.FC<AddCharacterProps> = ({gameId}) => {
   const [displayName, setDisplayName] = useState<string>(''); 
   const [displayNameErr, setDisplayNameErr] = useState<string | null>(null); 
   const [serverErr, setServerErr] = useState<string | null>(null); 
-  const [presentAlert, dismissAlert] = useIonAlert(); //used for deletion confirmation, new move conflicts, other
+  const [presentAlert, dismissAlert] = useIonAlert(); 
   const history = useHistory();
   const canSubmit = !(charNameErr || displayNameErr);
 
@@ -55,18 +55,18 @@ const AddCharacter: React.FC<AddCharacterProps> = ({gameId}) => {
         <NeedPermissions permissions={"GameAdmin"}>
           <IonList onKeyPress={(event: any) => {if(canSubmit && event.key === "Enter") submit()}}>
 
-            <IonItem className={charNameErr && charName ? 'ion-invalid' : '' }>
+            <IonItem counter={true} className={charNameErr && charName ? 'ion-invalid' : '' }>
               <IonLabel position="floating">Character ID</IonLabel>
-              <IonInput name="charName" type="text" required={true}
+              <IonInput name="charName" type="text" required={true} maxlength={25}
                 onIonChange={e => setCharName(e.detail.value!)}
               ></IonInput>
               <IonNote slot="error">{charNameErr}</IonNote>
               <IonNote slot="helper">Unique identifier used in URLs and discord commands. Cannot be changed.</IonNote>
             </IonItem>
 
-            <IonItem className={displayNameErr && displayName ? 'ion-invalid' : '' }>
+            <IonItem counter={true} className={displayNameErr && displayName ? 'ion-invalid' : '' }>
               <IonLabel position="floating">Character Display Name</IonLabel>
-              <IonInput name="displayName" type="text" required={true}
+              <IonInput name="displayName" type="text" required={true} maxlength={35}
                 onIonChange={e => setDisplayName(e.detail.value!)}> </IonInput>
               <IonNote slot="helper">Character's name as displayed to users. Can be changed later.</IonNote>
               <IonNote slot="error">{displayNameErr}</IonNote>
