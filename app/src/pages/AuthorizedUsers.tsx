@@ -3,7 +3,7 @@ import { useIonAlert, IonContent, IonFooter, IonToolbar, IonRow, IonList, IonLis
 import { add, remove, informationCircleOutline, informationCircleSharp } from 'ionicons/icons';
 //import { useHistory } from 'react-router';
 import { useDoc, usePouch } from 'use-pouchdb'
-import { useMyToast } from '../services/hooks';
+import { useMyToast, useMyAlert, useLoadingPromise } from '../services/hooks';
 import { useLoginInfoContext } from '../components/LoginProvider';
 import HeaderPage from '../components/HeaderPage';
 import NeedPermissions from '../components/NeedPermissions';
@@ -25,7 +25,8 @@ const AuthorizedUserss: React.FC<AuthorizedUserssProps> = ({gameId}) => {
   const [workingSecObj, setWorkingSecObj] = useState<SecObj | null>(null); //remember to update with shallow copies
   const [serverErr, setServerErr] = useState<string | null>(null); 
   const serverErrRef = useRef<HTMLIonItemElement>(null);
-  const [presentAlert, dismissAlert] = useIonAlert(); 
+  const [presentAlert, dismissAlert] = useMyAlert(); 
+  const [loadingPromiseWrapper, dismissLoading] = useLoadingPromise(); 
   const [presentMyToast, dismissToast] = useMyToast(); 
 
   useEffect(() => {
@@ -35,7 +36,7 @@ const AuthorizedUserss: React.FC<AuthorizedUserssProps> = ({gameId}) => {
     }).catch((err) => {
       setServerErr(err.message);
     });
-  }, [])
+  }, [db])
 
 
   function getNamesIn(key: PermKey, secObj: SecObj): string[] {
@@ -50,26 +51,30 @@ const AuthorizedUserss: React.FC<AuthorizedUserssProps> = ({gameId}) => {
   async function submit() {
     if(!workingSecObj) return;
 
-    try {
-      // First check that _security wasn't updated while working 
-      const result = await db.get<SecObj>('_security');
-      if(!isEqual(serverSecObj, result)) { //isEqual cares about order of array items, but not object properties
-        console.warn("NO MATCHERINO");
-        setServerSecObj(result);
-        setWorkingSecObj(cloneDeep<SecObj>(result));
-        throw new Error("Someone else updated permissions while you were working! Please re-do your changes.");
-      }
+    loadingPromiseWrapper(
+      (async function () {
+        try {
+          // First check that _security wasn't updated while working 
+          const result = await db.get<SecObj>('_security');
+          if(!isEqual(serverSecObj, result)) { //isEqual cares about order of array items, but not object properties
+            console.warn("NO MATCHERINO");
+            setServerSecObj(result);
+            setWorkingSecObj(cloneDeep<SecObj>(result));
+            throw new Error("Someone else updated permissions while you were working! Please re-do your changes.");
+          }
 
-      const [url, method] = util.getApiAuthorizedUsersUrl(gameId);
+          const [url, method] = util.getApiAuthorizedUsersUrl(gameId);
 
-      const apiResult = await myPouch.makeApiCall(url, method, workingSecObj);
-      presentMyToast(apiResult.message, "success");
-      setServerErr(null);
-    }
-    catch(err: any) {
-      setServerErr(err.message);
-      serverErrRef.current?.scrollIntoView({ behavior: "smooth" });
-    }
+          const apiResult = await myPouch.makeApiCall(url, method, workingSecObj);
+          presentMyToast(apiResult.message, "success");
+          setServerErr(null);
+        }
+        catch(err: any) {
+          setServerErr(err.message);
+          serverErrRef.current?.scrollIntoView({ behavior: "smooth" });
+        }
+      })()
+    , {message: "Updating permissions", duration: 10000});
   }
 
 
@@ -104,7 +109,7 @@ const AuthorizedUserss: React.FC<AuthorizedUserssProps> = ({gameId}) => {
           setWorkingSecObj(newSecObj);
         } },
       ]);
-  }, [workingSecObj]);
+  }, [workingSecObj, presentAlert, loginInfo]);
 
 
   const promptAddNameCallback = useCallback((key: PermKey) => {
@@ -155,7 +160,7 @@ const AuthorizedUserss: React.FC<AuthorizedUserssProps> = ({gameId}) => {
             type: 'text',
             name: 'name',
             //attributes: { maxLength: 25 },
-            attributes: { onKeyPress: (e) => { 
+            attributes: { onKeyPress: (e: any) => { 
               if(e.key === "Enter") {
                 if(addName((e?.currentTarget as any)?.value as string || "")) {
                   dismissAlert();
@@ -169,7 +174,7 @@ const AuthorizedUserss: React.FC<AuthorizedUserssProps> = ({gameId}) => {
           {text: 'add', role: 'submit', handler: (opts) => { return addName(opts.name) }},
         ]
       })
-  }, [workingSecObj]);
+  }, [workingSecObj, presentAlert, presentMyToast, dismissAlert]);
 
 
   if (!workingSecObj) {

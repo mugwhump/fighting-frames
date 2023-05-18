@@ -7,19 +7,20 @@ import * as myPouch from '../services/pouch';
 import * as util from '../services/util';
 import { CreateGameBody } from '../types/utilTypes';
 import CompileConstants from '../constants/CompileConstants';
+import { useMyAlert, useLoadingPromise } from '../services/hooks';
 
 //type AddCharacterProps = {
   //gameId: string;
 //}
 
-const AddGame: React.FC<{}> = ({}) => {
+const AddGame: React.FC<{}> = () => {
   const [gameId, setGameId] = useState<string>(''); 
   const [gameIdErr, setGameIdErr] = useState<string | null>(null); 
   const [displayName, setDisplayName] = useState<string>(''); 
   const [displayNameErr, setDisplayNameErr] = useState<string | null>(null); 
   const [serverErr, setServerErr] = useState<string | null>(null); 
-  const [presentAlert, dismissAlert] = useIonAlert(); 
-  const [presentLoading, dismissLoading] = useIonLoading(); 
+  const [presentAlert, dismissAlert] = useMyAlert(); 
+  const [loadingPromiseWrapper, dismissLoading] = useLoadingPromise(); 
   const history = useHistory();
   const canSubmit = !(gameIdErr || displayNameErr);
 
@@ -29,42 +30,30 @@ const AddGame: React.FC<{}> = ({}) => {
     const [url, method] = util.getApiAddGameUrl();
     const body: CreateGameBody = {gameId: gameId, displayName: displayName};
 
-    presentLoading("Creating database for game...", 20000);
-      //presentAlert("one", [ 
-        //{text: 'OK', role: 'cancel'},
-      //]);
-      //presentAlert("two", [ 
-        //{text: 'OK', role: 'cancel'},
-      //]);
-      //return;
+    loadingPromiseWrapper(
+      myPouch.makeApiCall(url, method, body).then((resp) => {
 
-    myPouch.makeApiCall(url, method, body).then((resp) => {
+        presentAlert(resp.message, [ 
+          {text: 'OK', role: 'cancel'},
+          {text: 'View Game', handler: () => {
+            //navigate to newly created game TODO: trigger refresh of top if downloaded
+            let url = util.getGameUrl(gameId);
+            history.push(url); 
+          } }
+        ]);
 
-      dismissLoading();
-
-      presentAlert(resp.message, [ 
-        {text: 'OK', role: 'cancel'},
-        {text: 'View Game', handler: () => {
-          //navigate to newly created game TODO: trigger refresh of top if downloaded
-          let url = util.getGameUrl(gameId);
-          history.push(url); 
-        } }
-      ]);
-    }).catch((err) => {
-      setServerErr(err.message);
-    });
+      }).catch((err) => {
+        setServerErr(err.message);
+      })
+    , {message: "Creating database for game...", duration: 20000});
   }
 
-  useEffect(() => {
-    return(() => {
-      dismissAlert();
-    });
-  }, []);
 
   useEffect(() => {
     let gameNameMatch = CompileConstants.ALLOWED_GAME_ID_REGEX.test(gameId);
     setGameIdErr(gameNameMatch ? null : 'Must be between 1-20 gameacters, which must be lowercase alphanumeric or ~_-. (no spaces). Cannot start with _ or certain reserved words.');
   }, [gameId]);
+
 
   useEffect(() => {
     let displayNameMatch = CompileConstants.ALLOWED_GAME_DISPLAY_NAME_REGEX.test(displayName);

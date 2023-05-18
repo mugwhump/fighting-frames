@@ -7,6 +7,7 @@ import * as myPouch from '../services/pouch';
 import * as util from '../services/util';
 import { CreateCharacterBody } from '../types/utilTypes';
 import CompileConstants from '../constants/CompileConstants';
+import { useMyAlert, useLoadingPromise } from '../services/hooks';
 
 type AddCharacterProps = {
   gameId: string;
@@ -18,7 +19,8 @@ const AddCharacter: React.FC<AddCharacterProps> = ({gameId}) => {
   const [displayName, setDisplayName] = useState<string>(''); 
   const [displayNameErr, setDisplayNameErr] = useState<string | null>(null); 
   const [serverErr, setServerErr] = useState<string | null>(null); 
-  const [presentAlert, dismissAlert] = useIonAlert(); 
+  const [presentMyAlert, dismissAlert] = useMyAlert(); 
+  const [loadingPromiseWrapper, dismissLoading] = useLoadingPromise(); 
   const history = useHistory();
   const canSubmit = !(charNameErr || displayNameErr);
 
@@ -27,16 +29,18 @@ const AddCharacter: React.FC<AddCharacterProps> = ({gameId}) => {
     const [url, method] = util.getApiAddCharacterUrl(gameId);
     const body: CreateCharacterBody = {charName: charName, displayName: displayName};
 
-    myPouch.makeApiCall(url, method, body).then((resp) => {
-      presentAlert(resp.message, [ {text: 'OK', role: 'cancel'},
-        {text: 'View Character', handler: () => {
-        //navigate to newly created character
-        let url = util.getCharacterUrl(gameId, charName);
-        history.push(url); 
-      }}]);
-    }).catch((err) => {
-      setServerErr(err.message);
-    });
+    loadingPromiseWrapper(
+      myPouch.makeApiCall(url, method, body).then((resp) => {
+        presentMyAlert(resp.message, [ {text: 'OK', role: 'cancel'},
+          {text: 'View Character', handler: () => {
+          //navigate to newly created character
+          let url = util.getCharacterUrl(gameId, charName);
+          history.push(url); 
+        }}]);
+      }).catch((err) => {
+        setServerErr(err.message);
+      })
+    , {message: "Creating character..."});
   }
 
   useEffect(() => {

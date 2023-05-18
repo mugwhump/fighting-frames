@@ -7,7 +7,7 @@ import { moveNameColumnDef } from '../constants/internalColumns';
 import { getChangeListMoveOrder, keys, updateMoveOrPropChanges, getDateString, unresolvedConflictInList } from '../services/util';
 import { getDefsAndData } from '../services/renderUtil';
 import * as security from '../services/security';
-import { useMyToast } from '../services/hooks';
+import { useMyToast, useMyAlert } from '../services/hooks';
 import MoveEditModal from '../components/MoveEditModal';
 import MoveOrdererModal from '../components/MoveOrdererModal';
 import CharacterRenderer from '../components/CharacterRenderer';
@@ -36,7 +36,7 @@ export const EditCharacter: React.FC<EditCharProps> = ({gameId, columnDefs, univ
   const hasUnresolvedConflicts: boolean = useMemo<boolean>(() => unresolvedConflictInList(changeList?.conflictList), [changeList?.conflictList]);
   const moveToEdit: string | undefined = state.moveToEdit;
   const moveOrder: MoveOrder[] = useCharacterSelector<MoveOrder[]>(selectMoveOrder);
-  const [presentAlert, dismissAlert] = useIonAlert(); //used for deletion confirmation, new move conflicts, other
+  const [presentMyAlert, dismissAlert] = useMyAlert(); //used for deletion confirmation, new move conflicts, other
   const popOver = useRef<HTMLIonPopoverElement>(null); //there's also a usePopover hook
   const [presentMyToast, dismissToast] = useMyToast(); 
   const [presentMoveOrder, dismissMoveOrder] = useIonModal(MoveOrdererModal, {
@@ -46,7 +46,7 @@ export const EditCharacter: React.FC<EditCharProps> = ({gameId, columnDefs, univ
   });
 
   const addMoveCallback = useCallback((state, action, dispatch) => {
-    presentAlert(
+    presentMyAlert(
       {
         header: "Reorder move",
         message: "Would you like to reorder this move?",
@@ -61,13 +61,13 @@ export const EditCharacter: React.FC<EditCharProps> = ({gameId, columnDefs, univ
         },
       }
     );
-  }, []);
+  }, [presentMyAlert, presentMoveOrder]);
 
   useEffect(() => {
     return () => {
-      console.log('EditCharacter unmounting')
+      dismissMoveOrder();
     }
-  },[])
+  },[dismissMoveOrder])
 
   const tryUndoUniversalPropChangesCallback = useCallback((state: State, action, dispatch) => {
     const changeList = state.editChanges;
@@ -92,7 +92,7 @@ export const EditCharacter: React.FC<EditCharProps> = ({gameId, columnDefs, univ
       let addedString = addedMoves.length > 0 ? " (Added " + addedMoves.join(", ") + ")" : "";
       let deletedString = deletedMoves.length > 0 ? " (Deleted " + deletedMoves.join(", ") + ")" : "";
       let otherChangesString = keys(propChanges).length > 1 ? ", but your other changes were." : ".";
-      presentAlert(
+      presentMyAlert(
         {
           header: "Cannot undo changes to move order",
           message: "Because moves being added or deleted affects move order, your move order wasn't reverted" + otherChangesString + addedString + deletedString,
@@ -105,7 +105,7 @@ export const EditCharacter: React.FC<EditCharProps> = ({gameId, columnDefs, univ
       undoChanges = {moveOrder: propChanges.moveOrder};
     }
     dispatch({actionType: 'editMove', moveName: 'universalProps', moveChanges: undoChanges} as EditAction);
-  }, []);
+  }, [presentMyAlert]);
 
   useMiddleware("EditCharacter", {addMove: addMoveCallback, tryUndoUniversalPropChanges: tryUndoUniversalPropChangesCallback});
 
@@ -122,7 +122,7 @@ export const EditCharacter: React.FC<EditCharProps> = ({gameId, columnDefs, univ
     ]; 
     if(canPublish) buttons.push({ text: 'Upload & Publish', handler: (opts)=>(submit(opts, true))})
 
-    presentAlert(
+    presentMyAlert(
       {
         header: "Upload changes",
         buttons: buttons,
@@ -208,7 +208,7 @@ export const EditCharacter: React.FC<EditCharProps> = ({gameId, columnDefs, univ
     <IonPopover ref={popOver} trigger="editFAB" >
       <IonContent>
         <IonList>
-          <IonItem disabled={!changeList} button={true} detail={false} onClick={()=>presentAlert(
+          <IonItem disabled={!changeList} button={true} detail={false} onClick={()=>presentMyAlert(
             {
               header: "Confirm deletion",
               message: "You have unuploaded changes, are you sure you want to delete your local edits of this character's frame data?",

@@ -1,5 +1,5 @@
 import React, { useMemo, useCallback, useEffect } from 'react';
-import { useIonToast, IonicSafeString } from '@ionic/react';
+import { useIonToast, useIonAlert, useIonLoading, IonicSafeString } from '@ionic/react';
 import { ToastOptions } from '@ionic/core/components';
 import { closeCircleOutline, checkmark, informationCircle, warning } from 'ionicons/icons';
 import { useLocation } from 'react-router-dom';
@@ -45,10 +45,59 @@ export function useMyToast() {
       buttons: [{icon: closeCircleOutline, role: 'cancel'}],
       ...options,
     });
-  }, []);
+  }, [presentToast]);
 
   return [enhancedPresentToast, dismissToast];
 }
+
+
+// Same as Ionic's, except this one dismisses when navigating away
+export function useMyAlert(): ReturnType<typeof useIonAlert> {
+  const [presentAlert, dismissAlert] = useIonAlert();
+  useEffect(() => {
+    return () => {
+      dismissAlert();
+    }
+  }, [dismissAlert]); //not actually sure this is a stable reference... at least, the linter complains.
+
+  return [presentAlert, dismissAlert];
+}
+
+
+// Displays loading overlay while given promise chain executes; dismisses overlay when it concludes or navigate away from page.
+// Ex usage: loadingPromiseWrapper(makeApiCall(ble).then((res) => ble).catch((e) => ble), {message:"Doing API call...", duration:10000});
+// Or: loadingPromiseWrapper( (async function () { try { await ble } catch (e) { ble } })(), {message:"Doing API call...", duration:10000});
+export function useLoadingPromise() {
+  const [presentLoading, dismissLoading] = useIonLoading(); 
+
+  const loadingPromiseWrapper = useCallback((promise: Promise<void>, ...args: Parameters<typeof presentLoading>) => {
+    presentLoading(...args);
+    return promise.finally(() => {
+      dismissLoading();
+    });
+  }, [presentLoading, dismissLoading]);
+
+  useEffect(() => { //dismiss upon navigation
+    return () => {
+      dismissLoading();
+    }
+  }, [dismissLoading]); 
+
+  return [loadingPromiseWrapper, dismissLoading];
+}
+
+// Same as Ionic's, except this one dismisses when navigating away
+//function useMyLoading(): ReturnType<typeof useIonLoading> {
+  //const [presentLoading, dismissLoading] = useIonLoading();
+  //useEffect(() => {
+    //return () => {
+      //dismissLoading();
+    //}
+  //}, [dismissLoading]); 
+
+  //return [presentLoading, dismissLoading];
+//}
+
 
 // Fetch a single changeDoc like use-pouchdb's useDoc hook using the given title.
 // If changeHistory (an array of change titles) is provided, returns a changeDoc that reverts all changes since (and including) the one indicated by given changeTitle
@@ -64,6 +113,7 @@ export function useChangeDocOrReversion(changeTitle: string, characterId: string
   const resultDoc: T.ChangeDocWithMeta | null = useMemo<T.ChangeDocWithMeta | null>(() => {
     //If swapping when there's 2+ changes, setting revert=true happens before loading/state even update, 
     //and memo re-calcs a useless inverted first doc unless I make sure # rows matches the request
+
     if(rows.length === docIds.length && !loading) { //rows is empty array during 1st fetch or error
       if(revert) {
         let changeDocs = rows.map((row) => row.doc!);
@@ -71,17 +121,16 @@ export function useChangeDocOrReversion(changeTitle: string, characterId: string
         changeDocs[0] = cloneDeep<T.ChangeDocWithMeta>(changeDocs[0]);
         const combinedChangeDoc = changeDocs.reduce(reduceChangeDocs);
         invertChangeDoc(combinedChangeDoc, true);
-        //console.log(`recalcing memerino, revertino ${rows.length} rows (requested ${docIds.length}), typo iso `+combinedChangeDoc.moveChanges?.['2A']?.moveName?.type);
+
         return combinedChangeDoc;
       }
       else {
-        //console.log(`recalcing memerino, no revertino ${rows.length} rows, typo iso `+rows[0].doc?.moveChanges?.['2A']?.moveName?.type);
         return rows[0].doc!;
       }
     }
-    //console.log('recalcing memerino, nullerino');
+
     return null;
-  }, [rows, loading, changeTitle, characterId, changeHistory, revert]);
+  }, [rows, loading, docIds.length, revert]);
 
   return {doc: resultDoc, loading, state, error};
 }

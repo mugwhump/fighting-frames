@@ -10,6 +10,7 @@ import * as util from '../services/util';
 import { CharDocWithMeta } from '../types/characterTypes';
 import type { ListCharactersViewRow } from '../types/utilTypes'; //==
 import { SegmentUrl, CreateCharacterBody } from '../types/utilTypes';
+import { useMyAlert, useLoadingPromise } from '../services/hooks';
 
 type DeleteCharactersProps = {
   gameId: string;
@@ -18,10 +19,11 @@ type DeleteCharactersProps = {
 const DeleteCharacters: React.FC<DeleteCharactersProps> = ({gameId}) => {
   const { rows, loading, state, error } = useView<ListCharactersViewRow, CharDocWithMeta>("list/list-chars", {db: "remote"}); 
   const [serverErr, setServerErr] = useState<string | null>(null); 
-  const [presentAlert, dismissAlert] = useIonAlert(); 
+  const [presentMyAlert, dismissAlert] = useMyAlert(); 
+  const [loadingPromiseWrapper, dismissLoading] = useLoadingPromise(); 
 
   function promptDelete(characterId: string, displayName: string) {
-    presentAlert(`Are you sure you want to delete the character ${displayName} (id: ${characterId}) and their entire change history? This is a PERMANENT action and cannot be undone.`, 
+    presentMyAlert(`Are you sure you want to delete the character ${displayName} (id: ${characterId}) and their entire change history? This is a PERMANENT action and cannot be undone.`, 
       [ {text: 'Cancel', role: 'cancel'},
         {text: 'Delete', role: 'destructive', handler: () => {dismissAlert().then(() => promptDeleteAgain(characterId, displayName)); } },
       ]);
@@ -29,7 +31,7 @@ const DeleteCharacters: React.FC<DeleteCharactersProps> = ({gameId}) => {
 
   //Nevermind, can't call presentAlert from inside itself
   function promptDeleteAgain(characterId: string, displayName: string) {
-    presentAlert(`Are you SURE you're sure? ${displayName || characterId} will be gone forever. You should only ever do this for newly-created characters where you messed up their ID.`, 
+    presentMyAlert(`Are you SURE you're sure? ${displayName || characterId} will be gone forever. You should only ever do this for newly-created characters where you messed up their ID.`, 
       [ {text: 'Cancel', role: 'cancel'},
         {text: 'Delete', role: 'destructive', handler: () => {dismissAlert().then(() => doDelete(characterId))} },
       ]);
@@ -39,13 +41,15 @@ const DeleteCharacters: React.FC<DeleteCharactersProps> = ({gameId}) => {
     console.log(`Deleting, id = ${characterId}`)
     const [url, method] = util.getApiDeleteCharacterUrl(gameId, characterId);
 
-    myPouch.makeApiCall(url, method).then((resp) => {
-      console.log(JSON.stringify(resp));
-      presentAlert(resp.message);
-      setServerErr(null);
-    }).catch((err) => {
-      setServerErr(err.message);
-    });
+    loadingPromiseWrapper(
+      myPouch.makeApiCall(url, method).then((resp) => {
+        console.log(JSON.stringify(resp));
+        presentMyAlert(resp.message);
+        setServerErr(null);
+      }).catch((err) => {
+        setServerErr(err.message);
+      })
+    , {message: "Deleting character..."});
   }
 
   if (state === 'error') {

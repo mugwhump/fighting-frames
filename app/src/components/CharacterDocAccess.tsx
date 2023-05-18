@@ -8,7 +8,7 @@ import * as myPouch from '../services/pouch';
 import * as util from '../services/util';
 import { PublishChangeBody } from '../types/utilTypes';
 import { State, useCharacterDispatch, useTrackedCharacterState, useMiddleware, MiddlewareFn } from '../services/CharacterReducer';
-import { useMyToast } from '../services/hooks';
+import { useMyToast, useMyAlert, useLoadingPromise } from '../services/hooks';
 import { SegmentUrl } from '../types/utilTypes';
 import { cloneDeep } from 'lodash';
 
@@ -29,27 +29,92 @@ export const CharacterDocAccess: React.FC<CharProviderProps> = ({children, gameI
   const dispatch = useCharacterDispatch();
   const history = useHistory();
   const [presentMyToast, dismissToast] = useMyToast(); 
-  const [presentAlert, dismissAlert] = useIonAlert(); 
+  const [presentMyAlert, dismissAlert] = useMyAlert(); 
+  const [loadingPromiseWrapper, dismissLoading] = useLoadingPromise(); 
   const docEditId = util.getDocEditId(gameId, characterId);
 
   //Initialization, start loading local edits (charDoc automatically starts reloading due to the hook)
   //Also called when switching characters.
   useEffect(() => {
-    if(state.initialized) {
+    if(state.initialized && characterId !== state.characterId) {
       console.log("Character "+characterId+" uninitialized. Loading character docs");
       dispatch({actionType:'deinitialize', characterId: characterId});
     }
+    //localPersonalDatabase.get<T.ChangeDoc>(docEditId).then((doc)=> {
+      //console.log("Loaded edit doc for "+characterId);
+      //dispatch({actionType:'loadEditsFromLocal', editChanges: doc});
+    //}).catch((err) => {
+      //console.log(`Edit doc for ${characterId} loading error: ${err.message}`);
+      //dispatch({actionType:'loadEditsFromLocal', editChanges: undefined});
+    //});
+  //}, [characterId, docEditId]);
+  //}, [characterId, docEditId, state.initialized, localPersonalDatabase, dispatch]);
+  }, [characterId, state.initialized, state.characterId, dispatch]);
+
+  useEffect(() => {
     localPersonalDatabase.get<T.ChangeDoc>(docEditId).then((doc)=> {
-      console.log("Loaded edit doc for "+characterId);
+      console.log("Loaded edit doc "+docEditId);
       dispatch({actionType:'loadEditsFromLocal', editChanges: doc});
     }).catch((err) => {
-      console.log(`Edit doc for ${characterId} loading error: ${err.message}`);
+      console.log(`Edit doc ${docEditId} loading error: ${err.message}`);
       dispatch({actionType:'loadEditsFromLocal', editChanges: undefined});
     });
-  }, [characterId, docEditId]);
+  }, [docEditId, localPersonalDatabase, dispatch]);
 
   // Write edit doc if changed
   useEffect(() => {
+
+    async function writeChangeList() {
+      //TODO: only do if local enabled. Also hide segments if not.
+      if(!state.initialized) {
+        console.error(`Docs for ${characterId} not yet initialized, cannot write changes.`);
+      }
+      if(!state.editChanges) {
+        console.error(`${characterId} does not have changes to write.`); 
+        return;
+      }
+      //TODO: This is NOT a copy, same in-memory JSON obj. changeList now has a runtime _id field (though typescript won't let you use it)
+      //also a _rev field
+      const putDoc: PouchDB.Core.PutDocument<T.ChangeDoc> = state.editChanges; 
+      putDoc._id = docEditId; 
+      try {
+        const currentDoc = await localPersonalDatabase.get<T.ChangeDoc>(docEditId);
+        putDoc._rev = currentDoc._rev;
+      }
+      catch(err) {
+        putDoc._rev = undefined;
+      }
+
+      return await localPersonalDatabase.put(putDoc).then(() => {
+        console.log("Successful write to edit doc");
+        dispatch({actionType:'editsWritten'});
+      }).catch((err) => {
+        if(err.name === "conflict") { //if one write starts while another's in progress, 409 immediate conflict.
+          console.log(`conflict writing edit, retrying: ` + JSON.stringify(err));
+          writeChangeList();
+        }
+        else {
+          throw(err);
+        }
+      });
+    }
+
+    async function deleteLocal() {
+      console.log("Deleting local changes");
+      try {
+        const currentDoc = await localPersonalDatabase.get<T.ChangeDoc>(docEditId);
+        try {
+          await localPersonalDatabase.remove(docEditId, currentDoc._rev);
+          dispatch({actionType:'editsWritten'});
+        } catch(err) {
+          console.error("Error deleting local edits: " + err);
+        }
+      }
+      catch(err) {
+        console.error("No local edits to delete: " + err);
+      }
+    }
+
     if(state.editsNeedWriting && state.initialized) {
       if(state.editChanges) {
         writeChangeList();
@@ -58,66 +123,16 @@ export const CharacterDocAccess: React.FC<CharProviderProps> = ({children, gameI
         deleteLocal();
       }
     }
-  }, [state.editChanges, state.editsNeedWriting]);
+  }, [state.editChanges, state.editsNeedWriting, state.initialized, characterId, docEditId, localPersonalDatabase, dispatch]);
+
 
   // load character document
   useEffect(() => {
     if(doc) {
       dispatch({actionType:'setCharDoc', charDoc:doc});
     }
-  }, [doc]);
-
-
-  async function writeChangeList() {
-    //TODO: only do if local enabled. Also hide segments if not.
-    if(!state.initialized) {
-      console.error(`Docs for ${characterId} not yet initialized, cannot write changes.`);
-    }
-    if(!state.editChanges) {
-      console.error(`${characterId} does not have changes to write.`); 
-      return;
-    }
-    //TODO: This is NOT a copy, same in-memory JSON obj. changeList now has a runtime _id field (though typescript won't let you use it)
-    //also a _rev field
-    const putDoc: PouchDB.Core.PutDocument<T.ChangeDoc> = state.editChanges; 
-    putDoc._id = docEditId; 
-    try {
-      const currentDoc = await localPersonalDatabase.get<T.ChangeDoc>(docEditId);
-      putDoc._rev = currentDoc._rev;
-    }
-    catch(err) {
-      putDoc._rev = undefined;
-    }
-
-    return await localPersonalDatabase.put(putDoc).then(() => {
-      console.log("Successful write to edit doc");
-      dispatch({actionType:'editsWritten'});
-    }).catch((err) => {
-      if(err.name === "conflict") { //if one write starts while another's in progress, 409 immediate conflict.
-        console.log(`conflict writing edit, retrying: ` + JSON.stringify(err));
-        writeChangeList();
-      }
-      else {
-        throw(err);
-      }
-    });
-  }
-
-  async function deleteLocal() {
-    console.log("Deleting local changes");
-    try {
-      const currentDoc = await localPersonalDatabase.get<T.ChangeDoc>(docEditId);
-      try {
-        await localPersonalDatabase.remove(docEditId, currentDoc._rev);
-        dispatch({actionType:'editsWritten'});
-      } catch(err) {
-        console.error("Error deleting local edits: " + err);
-      }
-    }
-    catch(err) {
-      console.error("No local edits to delete: " + err);
-    }
-  }
+  //}, [doc]);
+  }, [doc, dispatch]);
 
 
   const uploadChangeListCallback: MiddlewareFn = useCallback((state, action, dispatch) => {
@@ -152,32 +167,35 @@ export const CharacterDocAccess: React.FC<CharProviderProps> = ({children, gameI
     //console.log('After sanitization '+JSON.stringify(changeList));
 
     const [apiUrl, method] = util.getApiUploadChangeUrl(gameId, state.characterId, changeList.updateTitle);
-    myPouch.makeApiCall(apiUrl, method, changeList).then((res) => {
-      console.log("Upload response = " + JSON.stringify(res));
-      if(action.publish) {
-        dispatch({actionType: 'publishChangeList', character: action.character, title: changeList.updateTitle, justUploaded: true});
-      }
-      else {
-        presentMyToast("Changes uploaded. Someone with editor permissions must publish these changes to apply them to the character.", 'success');
-        //redirect to this specific change in changes section. Currently redirecting to frontpage or general changes section.
-        let url = util.getChangeUrl(gameId, state.characterId, changeList.updateTitle);
-        history.push(url); 
-        //dispatch({actionType:'deleteEdits'});
-      }
-    }).catch((err) => {
-      if(err.status === 409) {
-        presentMyToast(`Changes named ${changeList.updateTitle} already exist`, 'danger');
-      }
-      else if(err.status === 422) {
-        //TODO: this means based on outdated charDoc, gotta fetch newer charDoc!
-        presentMyToast(err.message, 'danger');
-      }
-      else {
-        presentMyToast('Upload failed: ' + err.message, 'danger');
-      }
-      console.log("Upload error = " + err.message);
-    });
-  }, [gameId]);
+
+    loadingPromiseWrapper(
+      myPouch.makeApiCall(apiUrl, method, changeList).then((res) => {
+        console.log("Upload response = " + JSON.stringify(res));
+        if(action.publish) {
+          dispatch({actionType: 'publishChangeList', character: action.character, title: changeList.updateTitle, justUploaded: true});
+        }
+        else {
+          presentMyToast("Changes uploaded. Someone with editor permissions must publish these changes to apply them to the character.", 'success');
+          //redirect to this specific change in changes section. Currently redirecting to frontpage or general changes section.
+          let url = util.getChangeUrl(gameId, state.characterId, changeList.updateTitle);
+          history.push(url); 
+          //dispatch({actionType:'deleteEdits'});
+        }
+      }).catch((err) => {
+        if(err.status === 409) {
+          presentMyToast(`Changes named ${changeList.updateTitle} already exist`, 'danger');
+        }
+        else if(err.status === 422) {
+          //TODO: this means based on outdated charDoc, gotta fetch newer charDoc!
+          presentMyToast(err.message, 'danger');
+        }
+        else {
+          presentMyToast('Upload failed: ' + err.message, 'danger');
+        }
+        console.log("Upload error = " + err.message);
+      })
+    , {message: "Uploading changes..."});
+  }, [gameId, history, presentMyToast, loadingPromiseWrapper]);
 
 
   //can be called right after uploading, action.justUploaded indicates this
@@ -189,25 +207,27 @@ export const CharacterDocAccess: React.FC<CharProviderProps> = ({children, gameI
 
     let [apiUrl, method] = util.getApiPublishChangeUrl(gameId, action.character);
     const body: PublishChangeBody = {changeTitle: action.title};
-
     console.log(`Publishing changeDoc ${apiUrl} with payload ${JSON.stringify(body)}`);
-    myPouch.makeApiCall(apiUrl, method, body).then((res) => {
-      //TODO: if this change was submitted by a user without write perms and current user is admin, prompt for whether to give author write perms
-      console.log("Response: "+JSON.stringify(res));
-      presentMyToast(res.message, 'success');
-      let url = util.getCharacterUrl(gameId, state.characterId); 
-      //TODO: getting error about "Node to be removed is not a child of this node," can I access history here? If so, close any alerts/popovers first.
-      history.push(url);
-    }).catch((err) => {
-      console.error("Error publishing change: "+ err.message);
-      if(action.justUploaded) {
-        presentMyToast(`Changes were uploaded successfully, but there was an error publishing them: ${err.message}`, 'danger');
-      }
-      else {
-        presentMyToast(`Error publishing change: ${err.message}`, 'danger');
-      }
-    });
-  }, [gameId]);
+
+    loadingPromiseWrapper(
+      myPouch.makeApiCall(apiUrl, method, body).then((res) => {
+        //TODO: if this change was submitted by a user without write perms and current user is admin, prompt for whether to give author write perms
+        console.log("Response: "+JSON.stringify(res));
+        presentMyToast(res.message, 'success');
+        let url = util.getCharacterUrl(gameId, state.characterId); 
+        //TODO: getting error about "Node to be removed is not a child of this node," can I access history here? If so, close any alerts/popovers first.
+        history.push(url);
+      }).catch((err) => {
+        console.error("Error publishing change: "+ err.message);
+        if(action.justUploaded) {
+          presentMyToast(`Changes were uploaded successfully, but there was an error publishing them: ${err.message}`, 'danger');
+        }
+        else {
+          presentMyToast(`Error publishing change: ${err.message}`, 'danger');
+        }
+      })
+    , {message: "Applying changes..."});
+  }, [gameId, history, presentMyToast, loadingPromiseWrapper]);
 
 
   const promptImportChangesCallback: MiddlewareFn = useCallback((state, action, dispatch) => {
@@ -218,12 +238,12 @@ export const CharacterDocAccess: React.FC<CharProviderProps> = ({children, gameI
 
     //forbid if have conflicts
     if(state.editChanges?.conflictList) {
-      presentAlert("Your existing edits have unresolved conflicts. Resolve these conflicts before importing.");
+      presentMyAlert("Your existing edits have unresolved conflicts. Resolve these conflicts before importing.");
     }
     else { 
       //TODO: navigate to edits after importing?
       if(state.editChanges) {
-        presentAlert(`You have existing edits. Would you like to merge these changes with your own?`, 
+        presentMyAlert(`You have existing edits. Would you like to merge these changes with your own?`, 
           [ {text: 'Cancel', role: 'cancel'},
             {text: 'Yes', handler: () => {
               dispatch({actionType: "importChanges", changes: action.changes});
@@ -236,7 +256,7 @@ export const CharacterDocAccess: React.FC<CharProviderProps> = ({children, gameI
         dispatch({actionType: "importChanges", changes: action.changes});
       }
     }
-  }, [presentAlert]);
+  }, [gameId, history, presentMyAlert]);
 
 
   useMiddleware("CharacterDocAccess", 
