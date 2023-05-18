@@ -1,5 +1,5 @@
 import { ToastOptions } from '@ionic/react';
-import React, { useReducer, Reducer, useEffect }from 'react';
+import React, { useCallback, useReducer, Reducer, useEffect }from 'react';
 import * as util from '../services/util';
 import { rebaseChangeDoc, mergeChangeDocs, reduceChanges, createChange, applyResolutions, allConflictsAreAutoNoop, insertByNeighbor } from '../services/merging';
 import { createContainer } from 'react-tracked';
@@ -426,14 +426,14 @@ function addMoveToChangeList(edits: T.ChangeDoc, moveChanges: T.AddMoveChanges, 
 }
 
 
-export const CharacterContext = React.createContext<State | null>(null);
-export function useCharacterContext(): State {
-  const contextValue = React.useContext(CharacterContext);
-  if(contextValue === null) {
-    throw new Error("useCharacterContext must be used within CharacterProvider");
-  }
-  return contextValue;
-}
+//export const CharacterContext = React.createContext<State | null>(null);
+//export function useCharacterContext(): State {
+  //const contextValue = React.useContext(CharacterContext);
+  //if(contextValue === null) {
+    //throw new Error("useCharacterContext must be used within CharacterProvider");
+  //}
+  //return contextValue;
+//}
 
 //export const DispatchContext = React.createContext<Dispatch<ReducerAction<typeof Reducer>>| null>(null);
 //export function useCharacterDispatch(): Dispatch<ReducerAction<typeof Reducer>> {
@@ -486,8 +486,9 @@ const useReducerWithMiddleware = (
 ): [State, (action:EditAction)=>void] => {
   const [state, dispatch] = React.useReducer(reducer, initialState);
 
-  //const dispatchWithMiddleware = (action: EditAction): void => {
-  function dispatchWithMiddleware(action: EditAction): void {
+  // had to use a callback for dispatch to be stable (its reference changes when middleware added/removed)
+  //function dispatchWithMiddleware(action: EditAction): void {
+  const dispatchWithMiddleware = useCallback( (action: EditAction): void => {
     for(const component of util.keys(middleware)) {
       const dict: MiddlewareDict = middleware[component];
       const mwCallback = dict[action.actionType];
@@ -497,7 +498,7 @@ const useReducerWithMiddleware = (
       }
     }
     dispatch(action);
-  };
+  }, [middleware]);
 
   return [state, dispatchWithMiddleware];
 };
