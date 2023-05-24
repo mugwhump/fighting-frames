@@ -6,7 +6,7 @@ import { keys, keyVals, getApiUploadConfigUrl } from '../services/util';
 import { getIonicSanitizedString } from '../services/renderUtil';
 import { insertDefsSortGroupsCompileRegexes, repairDefOrder } from '../services/columnUtil';
 import { makeApiCall } from '../services/pouch';
-import { useMyToast } from '../services/hooks';
+import { useMyToast, useMyAlert, useLoadingPromise } from '../services/hooks';
 //import { useGameDispatch, Action as GameAction } from './GameProvider';
 import HeaderPage from '../components/HeaderPage';
 import NeedPermissions from '../components/NeedPermissions';
@@ -48,8 +48,9 @@ const DefEditor: React.FC<DefEditorProps> = ({gameId, configDoc}) => {
   const [defToEdit, setDefToEdit] = useState<DefEditObj | null>(null); //null when not editing, defName is empty string when adding new def
   const [showReorderModal, setShowReorderModal] = useState<'props' | 'cols' | null>(null);
   const [showAddDefModal, setShowAddDefModal] = useState<'props' | 'cols' | null>(null);
-  const [presentAlert, dismissAlert] = useIonAlert(); 
+  const [presentMyAlert, dismissAlert] = useMyAlert(); 
   const [presentMyToast, dismissToast] = useMyToast(); 
+  const [loadingPromiseWrapper, dismissLoading] = useLoadingPromise(); 
   const [previewBreakpoint, setPreviewBreakpoint] = useState<T.Breakpoint | undefined>(undefined);
   let defObjBeingEdited: T.ColumnDef | undefined = undefined; //undefined if not editing or if adding new def
   if(defToEdit && defToEdit.defName !== "") {
@@ -127,7 +128,7 @@ const DefEditor: React.FC<DefEditorProps> = ({gameId, configDoc}) => {
             ((conflictingCols.length > 0) ? "<br>-Conflicting changes to move column definitions " + conflictingCols.join(',') : "") +
             (propOrderConflict ? "<br>-Conflicting order of Universal Properties" : "") +
             (colOrderConflict ? "<br>-Conflicting order of move columns" : "");
-          presentAlert(
+          presentMyAlert(
             {
               header: "Game configuration has been updated!",
               message: new IonicSafeString("While you were working, someone else updated this game's configuration."+changedMessage+".<br>You can choose whose changes to keep."),
@@ -143,7 +144,7 @@ const DefEditor: React.FC<DefEditorProps> = ({gameId, configDoc}) => {
                   //Repair order, using adds/dels from new doc. If you changed order, will slap your defs in to keep your additions (so it doesn't think doc deleted them).
                   //Will have your+their additions, keep your deletions in (as it should), and strip their deletions
                   setClonedDoc(cloneDeep<T.ConfigDoc>(configDoc));
-                  const repairedChanges = repairChangedOrders(configDoc, true);
+                  const repairedChanges = repairChangedOrders(configDoc, true, docChanges);
                   setDocChanges(repairedChanges);
                 } },
               ], 
@@ -152,18 +153,18 @@ const DefEditor: React.FC<DefEditorProps> = ({gameId, configDoc}) => {
         }
         else { //Definition changes do not conflict. If you changed some other setting, don't care, just take yours.
           //must repair order if you changed order and they made a group change that didn't cause an order change
-          //must repair order if THEY changed order and YOU made a group change that didn't cause an order change
+          //must also repair order if THEY changed order and YOU made a group change that didn't cause an order change
           setClonedDoc(cloneDeep<T.ConfigDoc>(configDoc));
-          const repairedChanges = repairChangedOrders(configDoc, false);
+          const repairedChanges = repairChangedOrders(configDoc, false, docChanges);
           setDocChanges(repairedChanges);
           presentMyToast("Loaded and merged updated configuration from server; no conflicts found", undefined, 8000);
         }
       }
     }
-  }, [configDoc, clonedDoc, docChanges, defToEdit]);
+  }, [configDoc, clonedDoc, docChanges, defToEdit, presentMyAlert, presentMyToast]);
 
-  // used when merging a newly-loaded config doc
-  function repairChangedOrders(newDoc: Readonly<T.ConfigDoc>, additionsDeletionsFromDoc: boolean): ConfigDocChanges {
+  // used when merging a newly-loaded config doc. Keep pure.
+  function repairChangedOrders(newDoc: Readonly<T.ConfigDoc>, additionsDeletionsFromDoc: boolean, docChanges: ConfigDocChanges): ConfigDocChanges {
     let newChanges = {...docChanges};
     for(const propOrColPath of ['universalPropDefs', 'columnDefs']) {
       const path = propOrColPath as 'universalPropDefs' | 'columnDefs';
@@ -183,22 +184,27 @@ const DefEditor: React.FC<DefEditorProps> = ({gameId, configDoc}) => {
     let newConfigDoc: T.ConfigDoc = getUpdatedDoc(clonedDoc, docChanges);
 
     const [url, method] = getApiUploadConfigUrl(gameId);
-    makeApiCall(url, method, newConfigDoc).then((res) => {
-      console.log(res.message ?? "Success!");
-      presentAlert("Successfully updated config!");
-      setDocChanges({});
-    }).catch((err) => {
-      console.error(err.message);
-      if(err.status === 409) {
-        //TODO: update conflict. This page forces use of remote db, but might get conflict if change subscription broke
-        //Would still be good to fetch, update clonedDoc, and call this again.
-        console.warn('update conflict');
-      }
-      presentAlert( {
-        header: "Error",
-        message: getIonicSanitizedString(err.message),
+
+    loadingPromiseWrapper(
+
+      makeApiCall(url, method, newConfigDoc).then((res) => {
+        console.log(res.message ?? "Success!");
+        presentMyAlert("Successfully updated config!");
+        setDocChanges({});
+      }).catch((err) => {
+        console.error(err.message);
+        if(err.status === 409) {
+          //TODO: update conflict. This page forces use of remote db, but might get conflict if change subscription broke
+          //Would still be good to fetch, update clonedDoc, and call this again.
+          console.warn('update conflict');
+        }
+        presentMyAlert( {
+          header: "Error",
+          message: getIonicSanitizedString(err.message),
+        })
       })
-    });
+
+    , {message: "Uploading configuration...", duration: 10000});
   }
 
   function getUpdatedDoc(doc: Readonly<T.ConfigDoc>, changes: Readonly<ConfigDocChanges>): T.ConfigDoc {
@@ -267,7 +273,7 @@ const DefEditor: React.FC<DefEditorProps> = ({gameId, configDoc}) => {
     }
     setDocChanges(newChanges);
     return false;
-  }, [defToEdit, docChanges]);
+  }, [defToEdit, docChanges, clonedDoc]);
 
 
   const deleteDefCallback = useCallback((defName: string) => {
@@ -278,7 +284,7 @@ const DefEditor: React.FC<DefEditorProps> = ({gameId, configDoc}) => {
     const orderArrayLength = newChanges?.deletedDefs?.[defToEdit.propOrColPath!]?.length ?? 0;
     set(newChanges, `deletedDefs.${defToEdit.propOrColPath}[${orderArrayLength}]`, defName);
     setDocChanges(newChanges);
-  }, [clonedDoc, defToEdit, docChanges]);
+  }, [defToEdit, docChanges]);
 
 
   //Undoes changes to existing columns, deletes newly-added columns. Makes appropriate changes to order.
@@ -313,22 +319,22 @@ const DefEditor: React.FC<DefEditorProps> = ({gameId, configDoc}) => {
         }
         //if a reorder changed a non-added col's group, this resets its group, so must fix order. 
         else if(docChanges[path]?.[defName] && docChanges[path]?.[defName]?.group !== clonedDoc[path][defName]?.group) {
-          presentAlert(`Column ${defName} was moved to back to group ${clonedDoc[path][defName]?.group}, please check its order inside the group`);
+          presentMyAlert(`Column ${defName} was moved to back to group ${clonedDoc[path][defName]?.group}, please check its order inside the group`);
           let repairedOrder = repairDefOrder(changedOrder, {...clonedDoc[path], ...newChanges[path]});
           set(newChanges, `changedOrders.${path}`, repairedOrder);
         }
       }
     }
     setDocChanges(newChanges);
-  }, [clonedDoc, defToEdit, docChanges]);
+  }, [clonedDoc, defToEdit, docChanges, presentMyAlert]);
 
 
   const setDocChangesCallback = useCallback((changes: ConfigDocChanges) => {
     setDocChanges(changes);
-  }, [docChanges])
+  }, [])
 
   const resetDocChangesCallback = useCallback(() => {
-    presentAlert(
+    presentMyAlert(
       {
         header: "Discard changes?",
         message: "Would you like to discard your changes?",
@@ -338,7 +344,7 @@ const DefEditor: React.FC<DefEditorProps> = ({gameId, configDoc}) => {
         ]
       }
     )
-  }, [docChanges])
+  }, [presentMyAlert])
 
   function chooseBreakpoint(e: any) {
     setPreviewBreakpoint(e.detail.value !== "undefined" ? e.detail.value as T.Breakpoint : undefined);
@@ -354,7 +360,7 @@ const DefEditor: React.FC<DefEditorProps> = ({gameId, configDoc}) => {
 
   const setDefToEditCallback = useCallback((editObj: DefEditObj) => {
     setDefToEdit(editObj);
-  }, [clonedDoc, docChanges]);
+  }, []);
 
   const dismissEditorCallback  = useCallback(() => {
     setDefToEdit(null);

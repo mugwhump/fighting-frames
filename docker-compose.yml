@@ -54,6 +54,8 @@ services:
         ports:
             - "3000:3000"
         volumes:
+            # TODO: docker now supports watch syntax to copy over local files when changed or rebuild, supports ignores. Similar functionality to bind mounts. Looks cool.
+            # --would be smart enough to recognize that a rebuild is needed when package.json changes, for example.
             - ./server:/usr/src/app #completely replaces whatever the image has in /usr/src/app
             # It's more than slightly insane to use symlinks in WSL, mounts inside container, and file copying for built image...
             # Could try moving build context to parent dir and excluding app files from copy so symlinks work inside container.
