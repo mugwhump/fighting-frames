@@ -55,7 +55,9 @@ const Menu: React.FC<MenuProps> = ({usingLocal}) => {
     return (<h1> loadin in menu</h1>);
   }
 
-  const WrappedMenuItem = withGameContext((gameContext, props) => { return {status: gameContext.dbStatuses.get(props.dbListItem.id)}})(MenuItem);
+  const WrappedMenuItem = withGameContext((gameContext, props) => { 
+    return {status: gameContext.dbStatuses.get(props.dbListItem.gameId)}
+  })(MenuItem);
   return (
     <>
       <IonContent>
@@ -74,6 +76,7 @@ const Menu: React.FC<MenuProps> = ({usingLocal}) => {
   </>
   );
 };
+
 
 //TODO: memoize?
 interface MenuItemProps {dbListItem: DBListDocItem, key: number, status: DBStatus, path: string}
