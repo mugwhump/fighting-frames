@@ -37,7 +37,7 @@
     "react-scripts": "^4.0.3",
     "react-select": "^5.7.0",
     "react-sortable-hoc": "^2.0.0",
-    "react-tracked": "^1.7.9",
+    "react-tracked": "^1.7.11",
     "sanitize-html": "^2.9.0",
     "superlogin-client": "^0.8.0",
     "typescript": "^4.5.5",

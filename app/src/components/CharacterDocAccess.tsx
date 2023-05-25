@@ -2,6 +2,7 @@ import { useIonAlert } from '@ionic/react';
 import React, { useEffect, useCallback }from 'react';
 import { useParams, useHistory } from 'react-router';
 import { useDoc, usePouch } from 'use-pouchdb';
+import { getUntrackedObject } from 'react-tracked';
 //import {MoveOrder, ColumnDef, T.ColumnDefs, ColumnData, Cols, PropCols, MoveCols, T.CharDoc, T.ChangeDoc, T.ChangeDocWithMeta } from '../types/characterTypes';
 import type * as T from '../types/characterTypes'; //==
 import * as myPouch from '../services/pouch';
@@ -40,26 +41,21 @@ export const CharacterDocAccess: React.FC<CharProviderProps> = ({children, gameI
       console.log("Character "+characterId+" uninitialized. Loading character docs");
       dispatch({actionType:'deinitialize', characterId: characterId});
     }
-    //localPersonalDatabase.get<T.ChangeDoc>(docEditId).then((doc)=> {
-      //console.log("Loaded edit doc for "+characterId);
-      //dispatch({actionType:'loadEditsFromLocal', editChanges: doc});
-    //}).catch((err) => {
-      //console.log(`Edit doc for ${characterId} loading error: ${err.message}`);
-      //dispatch({actionType:'loadEditsFromLocal', editChanges: undefined});
-    //});
-  //}, [characterId, docEditId]);
-  //}, [characterId, docEditId, state.initialized, localPersonalDatabase, dispatch]);
   }, [characterId, state.initialized, state.characterId, dispatch]);
 
+
   useEffect(() => {
-    localPersonalDatabase.get<T.ChangeDoc>(docEditId).then((doc)=> {
-      console.log("Loaded edit doc "+docEditId);
-      dispatch({actionType:'loadEditsFromLocal', editChanges: doc});
-    }).catch((err) => {
-      console.log(`Edit doc ${docEditId} loading error: ${err.message}`);
-      dispatch({actionType:'loadEditsFromLocal', editChanges: undefined});
-    });
-  }, [docEditId, localPersonalDatabase, dispatch]);
+    console.log("Initiating get for edits "+docEditId);
+    if(!state.editsLoaded) {
+      localPersonalDatabase.get<T.ChangeDoc>(docEditId).then((doc)=> {
+        console.log("Loaded edit doc "+docEditId);
+        dispatch({actionType:'loadEditsFromLocal', editChanges: doc});
+      }).catch((err) => {
+        console.log(`Edit doc ${docEditId} loading error: ${err.message}`);
+        dispatch({actionType:'loadEditsFromLocal', editChanges: undefined});
+      });
+    }
+  }, [docEditId, state.editsLoaded, localPersonalDatabase, dispatch]);
 
   // Write edit doc if changed
   useEffect(() => {
@@ -128,11 +124,16 @@ export const CharacterDocAccess: React.FC<CharProviderProps> = ({children, gameI
 
   // load character document
   useEffect(() => {
-    if(doc) {
+    // Proxy wrapper was messing up equality check
+    if(doc && doc !== getUntrackedObject(state.charDoc)) {
       dispatch({actionType:'setCharDoc', charDoc:doc});
     }
   //}, [doc]);
-  }, [doc, dispatch]);
+  }, [doc, state.charDoc, dispatch]);
+
+  useEffect(() => {
+    console.log("Dispatch updated, ugh");
+  }, [dispatch]);
 
 
   const uploadChangeListCallback: MiddlewareFn = useCallback((state, action, dispatch) => {

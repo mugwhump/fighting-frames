@@ -1,5 +1,5 @@
 import { ToastOptions } from '@ionic/react';
-import React, { useCallback, useReducer, Reducer, useEffect }from 'react';
+import React, { useCallback, useReducer, Reducer, useEffect, useRef }from 'react';
 import * as util from '../services/util';
 import { rebaseChangeDoc, mergeChangeDocs, reduceChanges, createChange, applyResolutions, allConflictsAreAutoNoop, insertByNeighbor } from '../services/merging';
 import { createContainer } from 'react-tracked';
@@ -347,6 +347,11 @@ export const characterReducer: Reducer<State, EditAction> = (state, action) => {
       // Uhhh do nothing? Middleware handles this.
       break;
     }
+
+    case 'promptImportChanges': {
+      // Middleware
+      break;
+    }
     
     default: {
       console.warn("Action " + action.actionType + " not implemented");
@@ -465,6 +470,7 @@ function useMiddlewareContext(): Middleware {
   }
   return contextValue;
 }
+
 export const MiddlewareSetterContext = React.createContext<React.Dispatch<React.SetStateAction<Middleware>> | null>(null);
 function useMiddlewareSetter(): React.Dispatch<React.SetStateAction<Middleware>> {
   const contextValue = React.useContext(MiddlewareSetterContext);
@@ -485,20 +491,32 @@ const useReducerWithMiddleware = (
   middleware: Middleware
 ): [State, (action:EditAction)=>void] => {
   const [state, dispatch] = React.useReducer(reducer, initialState);
+  const stateRef = useRef<State>(initialState);
+  const middlewareRef = useRef<Middleware>(middleware);
 
-  // had to use a callback for dispatch to be stable (its reference changes when middleware added/removed)
+  //Using ref so that dispatch can always give latest state without putting it in its dep list
+  useEffect(() => {
+    stateRef.current = state;
+  }, [state]);
+  useEffect(() => {
+    middlewareRef.current = middleware;
+  }, [middleware]);
+
+  // use a callback for dispatch to be stable 
   //function dispatchWithMiddleware(action: EditAction): void {
   const dispatchWithMiddleware = useCallback( (action: EditAction): void => {
-    for(const component of util.keys(middleware)) {
-      const dict: MiddlewareDict = middleware[component];
+    for(const component of util.keys(middlewareRef.current)) {
+      const dict: MiddlewareDict = middlewareRef.current[component];
       const mwCallback = dict[action.actionType];
       if(mwCallback) {
         console.log(`Executing middleware from ${component} for ${action.actionType}`);
-        mwCallback(state, action, dispatchWithMiddleware, dispatch);
+        mwCallback(stateRef.current, action, dispatchWithMiddleware, dispatch);
       }
     }
+    console.log(`Dispatching ${action.actionType}`);
     dispatch(action);
-  }, [middleware]);
+  }, []);
+  //}, [state, middleware]);
 
   return [state, dispatchWithMiddleware];
 };
@@ -510,7 +528,9 @@ export function useMiddleware(componentName: string, localDict: MiddlewareDict) 
 
   useEffect(() => {
     console.log("Middleware init for "+componentName);
+    // eslint-disable-next-line
   }, []);
+
   //update callbacks
   useEffect(()=> {
     setMiddleware((mw) => {
@@ -527,7 +547,9 @@ export function useMiddleware(componentName: string, localDict: MiddlewareDict) 
       }
       return changed ? updatedMW : mw;
     });
-  }, [localDict]);
+  }, [localDict, componentName, setMiddleware]);
+  //}, [localDict]);
+
   //delete callbacks on unmount
   useEffect(()=> {
     return(()=>{
@@ -537,5 +559,6 @@ export function useMiddleware(componentName: string, localDict: MiddlewareDict) 
         return {...mw};
       });
     });
-  }, []);
+  }, [componentName, setMiddleware]);
+  //}, []);
 }
