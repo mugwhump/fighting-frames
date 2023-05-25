@@ -297,9 +297,13 @@ export function mergeChangeDocs(theirChangeDoc: T.ChangeDoc, yourChangeDoc: T.Ch
       yourChangeDoc.conflictList.universalProps = conflicts;
     }
   }
+
   //TODO: is the clone needed? Does useDoc hook return new objects when doc updates? Test.
-  yourChangeDoc.mergeSource = cloneDeep<T.CharDocWithMeta>(baseDoc);
+  if(yourChangeDoc.conflictList) {
+    yourChangeDoc.mergeSource = cloneDeep<T.CharDocWithMeta>(baseDoc);
+  }
 }
+
 
 //Get conflicts for a single move
 //assumes both changes are based on latest
