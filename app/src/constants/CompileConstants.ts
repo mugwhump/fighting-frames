@@ -47,14 +47,14 @@ export let CompileConstants = {
 
   //game and char ids completely url-safe, lowercase-only. Nothing can start with underscore. Discordbot will use ; as separator, rarely used in notations.
   //FORBIDDEN_GAME_ID_REGEX: /^(?:_)|[^a-z0-9\-\._~]/, 
-  ALLOWED_GAME_ID_REGEX: /^(?!_|local|character|sl-users|top|game-template|config|internal)[a-z0-9\-\._~]{1,20}$/, //can't start with _, local, character, or internal db names
+  ALLOWED_GAME_ID_REGEX: /^(?!_|local|character|sl-users|top|game-template|config|internal)[a-z0-9\-._~]{1,20}$/, //can't start with _, local, character, or internal db names
   ALLOWED_GAME_DISPLAY_NAME_REGEX: /^[^\t\n]{2,50}$/, 
-  ALLOWED_CHARACTER_ID_REGEX: /^(?!_)[a-z0-9\-\._~]{1,25}$/,
+  ALLOWED_CHARACTER_ID_REGEX: /^(?!_)[a-z0-9\-._~]{1,25}$/,
   ALLOWED_CHARACTER_DISPLAY_NAME_REGEX: /^[^\t\n]{1,35}$/, //TODO: has colDef now so remove this and just remove tabs/returns during validation
   ALLOWED_CHANGE_TITLE_REGEX: /^[\w-.~]{3,25}$/, //uppercase permitted
   ALLOWED_CHANGE_VERSION_REGEX: /^[\d.]{1,10}$/,
-  FORBIDDEN_MOVE_ID_REGEX: /^(?:_)|[^\w\-\.,_~+:()\[\]\{\}\/><=]/, //uppercase permitted
-  FORBIDDEN_COL_ID_REGEX: /^(?:_|group:)|[^\w\-\._~]/, //can't start with _ or group: 
+  FORBIDDEN_MOVE_ID_REGEX: /^(?:_)|[^\w\-.,_~+:()[\]{}/><=]/, //uppercase permitted
+  FORBIDDEN_COL_ID_REGEX: /^(?:_|group:)|[^\w\-._~]/, //can't start with _ or group: 
 } as const;
 
 export default CompileConstants;

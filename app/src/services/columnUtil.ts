@@ -177,7 +177,7 @@ export function parseNumStrVal(data: string, def: T.ColumnDefRestrictions): numb
 export function getNumStrColRegex(def: T.ColumnDefRestrictions): RegExp {
   let str = def.allowedValues ?
     // Escape special characters
-    def.allowedValues.map(s => s.replace(/[()[\]{}*+?^$|#.,\/\\\s-]/g, "\\$&"))
+    def.allowedValues.map(s => s.replace(/[()[\]{}*+?^$|#.,/\\\s-]/g, "\\$&"))
     // Sort for maximal munch
     .sort((a, b) => b.length - a.length)
     .join("|")
@@ -198,7 +198,7 @@ export function getTagStrColRegex(def: T.ColumnDefRestrictions): RegExp {
   let str = def.allowedValues ?
     '\\[(' + //whole thing goes in capture group for string.split(), omit brackets from capture group so they get split.
     // Escape special characters
-    def.allowedValues.map(s => s.replace(/[()[\]{}*+?^$|#.,\/\\\s-]/g, "\\$&")) 
+    def.allowedValues.map(s => s.replace(/[()[\]{}*+?^$|#.,/\\\s-]/g, "\\$&")) 
     // Sort for maximal munch
     .sort((a, b) => b.length - a.length)
     .join("|")
