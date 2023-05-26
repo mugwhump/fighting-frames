@@ -320,7 +320,7 @@ function useDBsForRouteMatch(routeMatch: match<{gameId: string}> | null): [strin
   return [gameId, dbsRef, deletionCallback];
 }
 
-export const GameProvider: React.FC<GameProviderProps> = ({children, storedCredentials, wantedDbs, localEnabled}) => {
+export const InnerGameProvider: React.FC<GameProviderProps> = ({children, storedCredentials, wantedDbs, localEnabled}) => {
   const location = useLocation();
   const [initialized, setInitialized] = useState<boolean>(false);
   //const [loggingIn, setLoggingIn] = useState<boolean>(false);
@@ -476,6 +476,10 @@ export const GameProvider: React.FC<GameProviderProps> = ({children, storedCrede
     //console.log("GameProvider sez: no gameId, using top");
   }
 
+  useEffect(() => {
+    console.log("GameProvider rendered");
+  }, )
+
   if(!initialized) {
     return (
       <span>Initializing GP...</span>
@@ -489,7 +493,7 @@ export const GameProvider: React.FC<GameProviderProps> = ({children, storedCrede
     //);
   //}
   else {
-    //TODO: all explicitly-rendered components (aka not {children}) rerender whenever GameProvider updates. That okay?
+    // Using a memoized LoginProvider
     return (
       <DispatchContext.Provider value={dispatch}>
         <GameContext.Provider value={state}>
@@ -504,6 +508,7 @@ export const GameProvider: React.FC<GameProviderProps> = ({children, storedCrede
   }
 };
 
+export const GameProvider = React.memo(InnerGameProvider); //TODO: this doesn't seem to save any renders
 
 const GameContext = React.createContext<State>(initialState);
 export function useGameContext(): State {

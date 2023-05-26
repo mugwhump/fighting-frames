@@ -19,7 +19,7 @@ type LoginProviderProps  = {
 
 //const useValue: (({ gameId: any; storedCredentials: any; }) => [any, any] ) = ({gameId, storedCredentials}) => {
 //function useValue({ gameId, storedCredentials}: LoginProviderProps): [any, any] {
-export const LoginProvider: React.FC<LoginProviderProps> = ({children, gameId, storedCredentials}) => {
+export const InnerLoginProvider: React.FC<LoginProviderProps> = ({children, gameId, storedCredentials}) => {
   const gameDispatch = useGameDispatch();
   const [initialized, setInitialized] = useState<boolean>(false);
   //TODO: switch to a reducer if consuming components' interactions go beyond logging in/out
@@ -37,9 +37,9 @@ export const LoginProvider: React.FC<LoginProviderProps> = ({children, gameId, s
   const gameIdRef = useRef<string | null>(null);
   gameIdRef.current = gameId; //used by closure that fetches secObj
 
-  //useEffect(() => {
-    //console.log("LoginPROVIDER rendered");
-  //}, )
+  useEffect(() => {
+    console.log("LoginPROVIDER rendered");
+  }, )
 
   useEffect(()=> {
     //setLoginInfoUsingFunction((prevInfo)=>{return {...prevInfo, logout: logoutCallback}});
@@ -223,6 +223,7 @@ export const LoginProvider: React.FC<LoginProviderProps> = ({children, gameId, s
   //return [loginInfo, setLoginInfo]; //TODO: instead of setter give function that returns exception like documentation, saying to use provided callbacks?
 }
 
+export const LoginProvider = React.memo(InnerLoginProvider); //makes LoginProvider render 4 instead of 7 times
 
 //If needed, can expand to pass memoized API object with multiple callbacks 
 //see https://medium.com/trabe/passing-callbacks-down-with-react-hooks-4723c4652aff

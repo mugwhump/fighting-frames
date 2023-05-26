@@ -27,6 +27,7 @@ type LocalDoc = PouchDB.Core.Document<LocalData>;
 type LatestPage = {latestPage: string};
 type LatestPageDoc = PouchDB.Core.Document<LatestPage>;
 
+
 const initialState: LocalData = {
   //credentials: {"sc6": {username:"bobbu", password:"pw"}},
   credentials: CompileConstants.DEFAULT_CREDENTIALS,
@@ -288,6 +289,9 @@ export const LocalProvider: React.FC = ({children}) => {
     else console.log(`Not writing latestPage for ${location.pathname} since not initialized`);
   }, [location, initialized, state.preferences.localEnabled, getLatestPageDoc]);
 
+  useEffect(() => {
+    console.log("LocalProvider rendered");
+  }, )
 
   if(!initialized) {
     return (<span>Initializing...</span>);
@@ -299,7 +303,8 @@ export const LocalProvider: React.FC = ({children}) => {
     // <Context.Provider> will only re-render if its children prop does not share reference equality with its previous children prop.
     // If {children} are same but value changes, still doesn't re-render them. But using <GameProvider> raw creates a new element every time.
     // see https://web.archive.org/web/20211120024251/https://frontarm.com/james-k-nelson/react-context-performance/
-    // Other alternative is memoizing children.
+    // Other alternative is memoizing children. 
+    // GameProvider now exports a memoized component, doesn't seem to have changed rendering behavior, although it did for LoginProvider.
     return (
       <StateContext.Provider value={state}>
         <DispatchContext.Provider value={dispatch}>
@@ -311,6 +316,7 @@ export const LocalProvider: React.FC = ({children}) => {
     )
   }
 }
+
 
 //since this uses a ref, doesn't trigger renders; events do that
 export function useLocalData(): LocalData {
