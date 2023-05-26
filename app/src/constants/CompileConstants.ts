@@ -42,8 +42,13 @@ export let CompileConstants = {
   //UI
   TEXT_AREA_CHARACTERS: 80, //string columns get a textarea input if maxSize is >= this value
 
+  //DATABASE IDS
+  LOCAL_SETTINGS_DB: "local-provider",
+
   //DOC IDS
   CONFIG_DOC_ID: configDocId,
+  LOCAL_DATA_DOC_ID: "_local/localData",
+  LOCAL_LATEST_PAGE_DOC_ID: "_local/latestPage",
 
   //game and char ids completely url-safe, lowercase-only. Nothing can start with underscore. Discordbot will use ; as separator, rarely used in notations.
   //FORBIDDEN_GAME_ID_REGEX: /^(?:_)|[^a-z0-9\-\._~]/, 

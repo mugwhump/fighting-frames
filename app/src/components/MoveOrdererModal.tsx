@@ -1,8 +1,9 @@
-import { useIonModal, useIonAlert, IonContent, IonHeader, IonToolbar, IonTitle, IonFooter, IonRow, IonList, IonItem, IonButton, IonIcon, IonLabel, IonItemSliding, IonItemOptions, IonItemOption, IonReorder, IonReorderGroup } from '@ionic/react';
+import { useIonModal, IonContent, IonHeader, IonToolbar, IonTitle, IonFooter, IonRow, IonList, IonItem, IonButton, IonIcon, IonLabel, IonItemSliding, IonItemOptions, IonItemOption, IonReorder, IonReorderGroup } from '@ionic/react';
 import { ItemReorderEventDetail } from '@ionic/core';
 import { swapVerticalOutline, swapVerticalSharp, chevronForward, chevronBack, trash } from 'ionicons/icons';
 //delete these 2
 import React, { useState, useEffect, useRef } from 'react';
+import { useMyAlert } from '../services/hooks';
 import { MoveOrder, ColumnDef, ColumnData, DataType } from '../types/characterTypes';
 import { isMoveOrder } from '../services/columnUtil';
 import { cloneDeep, isEqual } from 'lodash';
@@ -18,11 +19,8 @@ type MoveOrdererProps = {
 //Dragging parent moves all children after the fact, ionic can't handle it.
 const MoveOrdererModal: React.FC<MoveOrdererProps> = ({moveOrder: originalMoveOrder, changeMoveOrder, onDismiss}) => {
   const [currentOrder, setCurrentOrder] = useState<MoveOrder[]>(getClonedOrder);
-  const [present, dismiss] = useIonAlert();
+  const [presentMyAlert, dismissAlert] = useMyAlert();
 
-  useEffect(() => {
-    console.log(JSON.stringify(originalMoveOrder))
-  }, []);
 
   function getClonedOrder(): MoveOrder[] {
     return cloneDeep<MoveOrder[]>(originalMoveOrder);
@@ -46,7 +44,7 @@ const MoveOrdererModal: React.FC<MoveOrdererProps> = ({moveOrder: originalMoveOr
   }
 
   function addCategory() {
-    present({
+    presentMyAlert({
       message: "Add Category:",
       inputs: [{
         type: 'text',
@@ -86,26 +84,6 @@ const MoveOrdererModal: React.FC<MoveOrdererProps> = ({moveOrder: originalMoveOr
       }
       setCurrentOrder([...currentOrder]);
     }
-  }
-
-  function CategoryJSX({name, index}: {name:string, index:number}) {
-    return (
-      <IonItem>
-        <IonButton onClick={() => present({
-          message: `Delete Category ${name}?`,
-          buttons: [
-            'Cancel',
-            { text: 'Ok', role: 'destructive', handler: () => deleteCategory(index) },
-          ],
-        })} >
-          <IonIcon icon={trash} />
-        </IonButton>
-        <IonLabel>--------{name}--------</IonLabel>
-        <IonReorder slot="end">
-          <IonIcon ios={swapVerticalOutline} md={swapVerticalSharp}></IonIcon>
-        </IonReorder>
-      </IonItem>
-    );
   }
 
   /*
@@ -149,7 +127,7 @@ const MoveOrdererModal: React.FC<MoveOrdererProps> = ({moveOrder: originalMoveOr
     //check if next item is child
     if(next.indent && next.indent > indent) {
       //look ahead for a sibling
-      for(let i=index+1; i<order.length; i++) {
+      for(let i = index+1; i < order.length; i++) {
         const item = order[i];
         if(!item.indent || item.indent < indent) {
           break;
@@ -177,7 +155,7 @@ const MoveOrdererModal: React.FC<MoveOrdererProps> = ({moveOrder: originalMoveOr
         {currentOrder.map((item, index) => {
           const {name, isCategory, indent=0}: MoveOrder = {...item};
           if(isCategory) { return (
-            <CategoryJSX key={name} name={name} index={index} />
+            <CategoryJSX key={name} name={name} index={index} presentAlert={presentMyAlert} deleteCategory={deleteCategory} />
           )}
           else { return (
             <MoveJSX  key={name} name={name} indent={indent} index={index} changeIndent={changeIndent}/>
@@ -201,26 +179,55 @@ const MoveOrdererModal: React.FC<MoveOrdererProps> = ({moveOrder: originalMoveOr
 
 }
 
-  function MoveJSX({name, indent=0, index, changeIndent}: {name:string, indent:number | undefined, index:number, changeIndent:(x: number, y:number)=>void}) {
-    const increaseIndent = <IonButton key="increase" onClick={()=>changeIndent(index, indent+1)}><IonIcon icon={chevronForward} /></IonButton>;
-    const reduceIndent = indent > 0 ? <IonButton key="decrease" onClick={()=>changeIndent(index, indent-1)}><IonIcon icon={chevronBack} /></IonButton> : null;
-    let buttons = [reduceIndent, increaseIndent];
-    let indents = [];
-    for(let i=0; i <= indent; i++) {
-      let key="spacer-"+i;
-      indents.push(<div key={key} style={{width: "var(--indent-spacer-width)"}}></div>);
-    }
-    return (
-      <IonItem key={name}>
-        {indents}
-        <IonLabel>{name}</IonLabel>
-        <IonReorder slot="end">
-          <IonIcon ios={swapVerticalOutline} md={swapVerticalSharp}></IonIcon>
-        </IonReorder>
-        {buttons}
-      </IonItem>
-    );
+function MoveJSX({name, indent=0, index, changeIndent}: {name:string, indent:number | undefined, index:number, changeIndent:(x: number, y:number)=>void}) {
+
+  const increaseIndent = <IonButton key="increase" onClick={()=>changeIndent(index, indent+1)}><IonIcon icon={chevronForward} /></IonButton>;
+  const reduceIndent = indent > 0 ? <IonButton key="decrease" onClick={()=>changeIndent(index, indent-1)}><IonIcon icon={chevronBack} /></IonButton> : null;
+  let buttons = [reduceIndent, increaseIndent];
+  let indents = [];
+  for(let i=0; i <= indent; i++) {
+    let key="spacer-"+i;
+    indents.push(<div key={key} style={{width: "var(--indent-spacer-width)"}}></div>);
   }
+  return (
+    <IonItem key={name}>
+      {indents}
+      <IonLabel>{name}</IonLabel>
+      <IonReorder slot="end">
+        <IonIcon ios={swapVerticalOutline} md={swapVerticalSharp}></IonIcon>
+      </IonReorder>
+      {buttons}
+    </IonItem>
+  );
+}
+
+
+type CategoryProps = {
+  name:string, 
+  index:number, 
+  presentAlert: ReturnType<typeof useMyAlert>[0], 
+  deleteCategory: (index: number) => void
+}
+function CategoryJSX({name, index, presentAlert, deleteCategory}: CategoryProps) {
+  return (
+    <IonItem>
+      <IonButton onClick={() => presentAlert({
+        message: `Delete Category ${name}?`,
+        buttons: [
+          'Cancel',
+          { text: 'Ok', role: 'destructive', handler: () => deleteCategory(index) },
+        ],
+      })} >
+        <IonIcon icon={trash} />
+      </IonButton>
+      <IonLabel>--------{name}--------</IonLabel>
+      <IonReorder slot="end">
+        <IonIcon ios={swapVerticalOutline} md={swapVerticalSharp}></IonIcon>
+      </IonReorder>
+    </IonItem>
+  );
+}
+
 
 export default MoveOrdererModal;
 

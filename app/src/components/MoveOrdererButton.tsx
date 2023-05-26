@@ -19,6 +19,14 @@ const MoveOrdererButton: React.FC<MoveOrdererButtonProps> = ({moveOrder, changeM
     changeMoveOrder,
     onDismiss: handleDismiss,
   });
+
+  //dismiss upon navigation
+  useEffect(() => {
+    return () => {
+      dismissModal();
+    }
+  }, [dismissModal])
+
   function handleDismiss() {
     dismissModal();
   }

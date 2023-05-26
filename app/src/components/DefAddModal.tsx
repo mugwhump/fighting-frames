@@ -1,4 +1,4 @@
-import { useIonModal, useIonAlert, IonContent, IonRow, IonList, IonItem, IonHeader, IonToolbar, IonTitle, IonFooter, IonItemDivider, IonButton, IonIcon, IonLabel, IonNote, IonSelect, IonSelectOption } from '@ionic/react';
+import { useIonModal, IonContent, IonRow, IonList, IonItem, IonHeader, IonToolbar, IonTitle, IonFooter, IonItemDivider, IonButton, IonIcon, IonLabel, IonNote, IonSelect, IonSelectOption } from '@ionic/react';
 import { ItemReorderEventDetail } from '@ionic/core';
 import { swapVerticalOutline, swapVerticalSharp, chevronForward, chevronBack, trash } from 'ionicons/icons';
 //delete these 2
@@ -23,7 +23,6 @@ type DefAddProps  = {
 // One instance of this for universal props, one for columns
 const DefAddModal: React.FC<DefAddProps > = ({doc, docChanges, isUniversalProps, setDefToEditCallback, dismissModalCallback}) => {
   const path = isUniversalProps ? "universalPropDefs" : "columnDefs";
-  const [presentAlert, dismiss] = useIonAlert();
   const suggestions: Readonly<ColumnDefs> = specialDefs.suggested[path];
 
   function clickedDef(colName: string) {

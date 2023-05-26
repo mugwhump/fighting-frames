@@ -1,8 +1,9 @@
-import { useIonModal, useIonAlert, IonContent, IonList, IonItem, IonHeader, IonToolbar, IonTitle, IonFooter, IonButton, IonIcon, IonLabel, IonNote, IonItemSliding, IonItemOptions, IonItemOption, IonReorder, IonReorderGroup, IonRow } from '@ionic/react';
+import { useIonModal, IonContent, IonList, IonItem, IonHeader, IonToolbar, IonTitle, IonFooter, IonButton, IonIcon, IonLabel, IonNote, IonItemSliding, IonItemOptions, IonItemOption, IonReorder, IonReorderGroup, IonRow } from '@ionic/react';
 import { ItemReorderEventDetail } from '@ionic/core';
 import { swapVerticalOutline, swapVerticalSharp, chevronForward, chevronBack, trash } from 'ionicons/icons';
 //delete these 2
 import React, { useState, useEffect, useRef } from 'react';
+import { useMyAlert } from '../services/hooks';
 import { DefGroup, groupList, ConfigDoc, ColumnDefs, ColumnDef, ColumnData, DataType } from '../types/characterTypes';
 import { groupDescriptions, predefinedWidths, specialDefs } from '../constants/internalColumns';
 import { ConfigDocChanges } from '../pages/DefEditor';  
@@ -27,7 +28,7 @@ const DefOrdererModal: React.FC<DefOrdererProps > = ({doc, docChanges, changeDef
   const path = isUniversalProps ? "universalPropDefs" : "columnDefs";
   const movedItems = useRef<Set<string>>(new Set());
   const [order, setOrder] = useState<string[]>(getInitialOrder); //includes groups, prefixed by 'group:'
-  const [presentAlert, dismiss] = useIonAlert();
+  const [presentMyAlert, dismiss] = useMyAlert();
 
   function wasDeleted(key: string): boolean {
     return !!docChanges.deletedDefs?.[path]?.includes(key);
@@ -91,7 +92,7 @@ const DefOrdererModal: React.FC<DefOrdererProps > = ({doc, docChanges, changeDef
           // Don't let mandatory defs have their group changed
           const mandatoryDefs = (specialDefs.mandatory[path]);
           if(keys(mandatoryDefs).includes(newDef.columnName)) {
-            presentAlert( newDef.columnName + " is a special column that must stay in group " + newDef.group,);
+            presentMyAlert( newDef.columnName + " is a special column that must stay in group " + newDef.group,);
             return;
           }
           newDef.group = currentGroup;

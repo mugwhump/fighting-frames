@@ -296,7 +296,7 @@ function Reducer(state: State, action: Action) {
     }
     case 'loginSuccess': {
       let oldStatus : DBStatus = state.dbStatuses.get(action.db);
-      if(oldStatus .remoteError?.name === 'unauthorized') {
+      if(oldStatus.remoteError?.name === 'unauthorized') {
         console.log(`Clearing unauthorized remote error for ${action.db} because of successful login`);
         updateDbStatus({...oldStatus , remoteError: null}, action.db);
       }
@@ -373,15 +373,18 @@ export const GameProvider: React.FC<GameProviderProps> = ({children, storedCrede
     initialize();
   }, []);
 
+
   useEffect(()=> {
     dispatch({actionType: "setUserWants", wantedDBs: wantedDbs} as Action);
   }, [wantedDbs]);
+
 
   useEffect(()=> {
     if(gameId !== state.gameId) { //if changing db or initially loading to non-homepage
       dispatch({actionType: 'changeCurrentDB', db: gameId} as Action);
     }
   }, [gameId, state.gameId]); 
+
 
   //notice if a db is wanted but not downloading yet or needs to be deleted
   useEffect(()=> {
@@ -465,7 +468,7 @@ export const GameProvider: React.FC<GameProviderProps> = ({children, storedCrede
         deleteDB(db);
       }
     }
-  }, [state.dbStatuses]);
+  }, [state.dbStatuses, deletionCallback]);
   
 
 

@@ -66,8 +66,9 @@ export const EditCharacter: React.FC<EditCharProps> = ({gameId, columnDefs, univ
   useEffect(() => {
     return () => {
       dismissMoveOrder();
+      dispatch({actionType: 'closeMoveEditModal'});
     }
-  },[dismissMoveOrder])
+  },[dismissMoveOrder, dispatch])
 
   const tryUndoUniversalPropChangesCallback = useCallback((state: State, action, dispatch) => {
     const changeList = state.editChanges;

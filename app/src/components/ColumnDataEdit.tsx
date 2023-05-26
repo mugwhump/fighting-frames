@@ -162,8 +162,10 @@ const ColumnDataEdit: React.FC<ColumnDataEditProps> = ({columnName, colData, col
     }
   }
 
-  const availableOptions: HelpTextOption[] = useMemo<HelpTextOption[]>(getAvailableOptions , [colDef.allowedValues, inputData, isSelector, isCreatableSelect]);
-  const selectedOptions: HelpTextOption[] = useMemo<HelpTextOption[]>(getSelectedOptions , [availableOptions , inputData]);
+  const availableOptions: HelpTextOption[] = useMemo<HelpTextOption[]>(getAvailableOptions, 
+                                              [colDef.allowedValues, colDef.allowedValuesHints, colDef.dataType, isTextInputSelect, inputData, isSelector, isCreatableSelect]);
+  const selectedOptions: HelpTextOption[] = useMemo<HelpTextOption[]>(getSelectedOptions , 
+                                              [colDef.dataType, availableOptions , inputData]);
 
   // special handling for moveOrder
   if(inputData && isMoveOrder(inputData, colDef.dataType)) {

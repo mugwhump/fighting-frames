@@ -12,7 +12,7 @@ import { HelpPopup } from './HelpPopup';
 import characterStyles from '../theme/Character.module.css';
 import styles from '../theme/DefEditor.module.css';
 
-type DefEditCollection = {
+type DefEditCollectionProps = {
   doc: T.ConfigDoc,
   docChanges: ConfigDocChanges,
   isUniversalProps: boolean,
@@ -21,7 +21,7 @@ type DefEditCollection = {
 }
 // Collection of definitions for either universal props or move columns, which are forced to preview at the given screen size
 // Does not display columns marked as deleted
-const DefEditCollection: React.FC<DefEditCollection> = ({doc, docChanges, isUniversalProps, itemClicked, previewBreakpoint}) => {
+const DefEditCollection: React.FC<DefEditCollectionProps> = ({doc, docChanges, isUniversalProps, itemClicked, previewBreakpoint}) => {
   const path = isUniversalProps ? "universalPropDefs" : "columnDefs";
   const order: string[] = docChanges.changedOrders?.[path] || keys(doc[path]);
   const mergedDefs: T.ColumnDefs = {};

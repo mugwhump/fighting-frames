@@ -13,11 +13,11 @@ type DefEditPreviewProps = {
 // Shows a preview of the input for the column whose definition is being edited
 const DefEditPreview: React.FC<DefEditPreviewProps> = ({def}) => {
   const [defData, setDefData] = useState<T.ColumnDefAndData>({data: undefined, def: def, columnName: def.columnName, cssClasses: []});
-  const error = useMemo<FieldError | false>(() => checkInvalid(defData.data, defData.def ?? def), [defData]);
+  const error = useMemo<FieldError | false>(() => checkInvalid(defData.data, defData.def ?? def), [defData, def]);
 
   useEffect(() => {
     setDefData({data: defData.data, def: def, columnName: def.columnName, cssClasses: []});
-  }, [def]);
+  }, [def, defData.data]);
 
   function editSingleColumn(columnName: string, newData?: T.ColumnData) {
     setDefData({data: newData, def: def, columnName: columnName, cssClasses: []});

@@ -1,10 +1,9 @@
-import React, { useMemo, useReducer, useEffect, Dispatch, ReducerAction, useState } from 'react';
+import React, { useMemo, useReducer, useCallback, useEffect, Dispatch, ReducerAction, useState } from 'react';
 import { useLocation, useHistory } from 'react-router';
 import { GameProvider } from './GameProvider';
 import PouchDB from 'pouchdb';
 import CompileConstants from '../constants/CompileConstants';
 import { StringSet, Credentials } from '../types/utilTypes';
-import { usePouch } from 'use-pouchdb';
 
 export type db = string;
 //export type CredentialStore = Record<db, Credentials>; // With superlogin users should only need one set of credentials
@@ -36,7 +35,6 @@ const initialState: LocalData = {
   wantedDbs: new StringSet(),
 };
 
-type ValueOf<T> = T[keyof T];
 
 export type Action = 
   | { actionType: 'loadState', doc: LocalDoc }
@@ -115,115 +113,39 @@ function LocalReducer(state: LocalData, action: Action): LocalData {
 const StateContext = React.createContext<LocalData | null>(null);
 const DispatchContext = React.createContext<Dispatch<ReducerAction<typeof LocalReducer>>| null>(null);
 
+const docId: string = CompileConstants.LOCAL_DATA_DOC_ID;
+const locationDocId: string = CompileConstants.LOCAL_LATEST_PAGE_DOC_ID;
+//TODO: for hardcore non-local version, set to null here, set to below in initialization if localEnabled in constants, and listen for change to true
+//but is there even a way to check if local was previously used without attempting db access? Need web served version to test.
+//Apparently even safari/ios only show a popup to users once you request > 5MB, should be fine
+const database: PouchDB.Database = new PouchDB<LocalDoc | LatestPageDoc>(CompileConstants.LOCAL_SETTINGS_DB);
+
+
 export const LocalProvider: React.FC = ({children}) => {
   const [state, dispatch] = useReducer(LocalReducer, initialState);
   const [initialized, setInitialized] = useState<boolean>(false);
   const history = useHistory();
   interface LocationState {from: string};
   const location = useLocation<LocationState>();
-  //TODO: for hardcore non-local version, set to null here, set to below in initialization if localEnabled in constants, and listen for change to true
-  //but is there even a way to check if local was previously used without attempting db access? Need web served version to test.
-  //Apparently even safari/ios only show a popup to users once you request > 5MB, should be fine
-  const database: PouchDB.Database = new PouchDB<LocalDoc | LatestPageDoc>("local-provider");
-  const docId: string = "_local/localData";
-  const locationDocId: string = "_local/latestPage";
 
   function pathIsRootOrHome(path: string) {
     return (path === CompileConstants.HOME_PATH || path === '/');
   }
 
-  async function initializeAppState() {
-    if(!state.preferences.localEnabled) {
-      console.log("Not initializing from local data since local disabled");
-      setInitialized(true);
-      return;
-    }
-    try {
-      let doc: LocalDoc = await getLocalDoc();
-      //if doesn't exist, error caught, doc created, state is already initialState
-      loadState(doc);
-      console.log('Loaded saved LocalData'); //state updates are deferred, new state isn't visible to this console.log
-      await getAndNavigateLatestPage();
-    }
-    catch(err: any) {
-      if(err.name == "not_found") {
-        createInitialDoc().catch((err) => {
-          console.error("Error creating initial local document: " + JSON.stringify(err));
-        });
-      }
-      else {
-        console.error(JSON.stringify(err));
-      }
-    }
-    finally {
-      setInitialized(true);
-    }
-  }
-
   // Returns promise resolving to LocalDoc, or throws error
-  async function getLocalDoc(): Promise<LocalDoc & PouchDB.Core.GetMeta> {
+  const getLocalDoc = useCallback(async () => {
     if(!state.preferences.localEnabled) throw new Error("Called getLocalDoc() when local not enabled");
     return await database.get<LocalDoc>(docId);
-  }
-  //async function getAllLocalDocs(): Promise<PouchDB.Core.AllDocsResponse<LocalDoc | LatestPageDoc>> {
-  //async function getAllLocalDocs(): Promise<any> {
-    //if(!state.preferences.localEnabled) throw new Error("Called getLocalDocs() when local not enabled");
-    //return await database.allDocs<LocalDoc | LatestPageDoc>({include_docs: true});
-  //}
-  async function getLatestPageDoc(): Promise<LatestPageDoc & PouchDB.Core.GetMeta> {
-    if(!state.preferences.localEnabled) throw new Error("Called getLocalDoc() when local not enabled");
+  }, [state.preferences.localEnabled]);
+
+
+  //async function getLatestPageDoc(): Promise<LatestPageDoc & PouchDB.Core.GetMeta> {
+  const getLatestPageDoc = useCallback(async () => {
+    if(!state.preferences.localEnabled) throw new Error("Called getLatestPageDoc() when local not enabled");
     return await database.get<LatestPageDoc>(locationDocId);
-  }
-  async function getAndNavigateLatestPage() {
-    try {
-      const latestPageDoc: LatestPageDoc = await database.get<LatestPageDoc>(locationDocId); 
-      const latestPage: string = latestPageDoc?.latestPage;
-      if(latestPage) {
-        if(!pathIsRootOrHome(latestPage) && pathIsRootOrHome(location.pathname)) {
-          console.log("Initializing with latest page = " + latestPage);
-          history.replace(latestPage); 
-        }
-        else {
-          console.log("LatestPage was home or current page isn't home, not navigating");
-        }
-      }
-    }
-    catch(err) {
-      console.log("Error loading latest page doc: " + err);
-    }
-  }
+  }, [state.preferences.localEnabled]);
 
-  async function createInitialDoc() {
-    console.log("Creating initial local document");
-    return writeLocalDoc(false);
-  }
-
-  //Don't worry about initial creation for this one
-  async function writeLatestPage(path: string) {
-    if(!state.preferences.localEnabled) { return; }
-    const putDoc: PouchDB.Core.PutDocument<LatestPage> = {latestPage: path};
-    putDoc._id = locationDocId; 
-    try {
-      const doc = await getLatestPageDoc(); //get current _rev, must specify when updating existing doc or get conflict
-      if(doc) {
-        putDoc._rev = doc._rev;
-      }
-    }
-    catch(err) {
-      console.log("Error fetching latestPage Doc for first write, probably doesn't exist: " + err);
-    }
-    return await database.put(putDoc).catch((err) => {
-        if(err.name === "conflict") { //if one write starts while another's in progress, 409 immediate conflict.
-          console.log("conflict writing latestPage, NOT retrying: " + JSON.stringify(err));
-          //writeLatestPage(path); //if user quickly navigates to a different page, captured path argument will be stale
-        }
-        else {
-          throw(err);
-        }
-      });
-  }
-
-  async function writeLocalDoc(docExists: boolean) {
+  const writeLocalDoc = useCallback(async (docExists: boolean) => {
     if(!state.preferences.localEnabled) {
       console.log("Not saving local data since local disabled");
       return; //compiler wraps in immediately-resolved promise
@@ -245,19 +167,76 @@ export const LocalProvider: React.FC = ({children}) => {
           throw(err);
         }
       });
-  }
+  }, [state, getLocalDoc]);
+
+
+  useEffect(() => {
+
+    async function initializeAppState() {
+      if(!state.preferences.localEnabled) {
+        console.log("Not initializing from local data since local disabled");
+        setInitialized(true);
+        return;
+      }
+      try {
+        let doc: LocalDoc = await getLocalDoc();
+        //if doesn't exist, error caught, doc created, state is already initialState
+        loadState(doc);
+        console.log('Loaded saved LocalData'); //state updates are deferred, new state isn't visible to this console.log
+        await getAndNavigateLatestPage();
+      }
+      catch(err: any) {
+        if(err.name === "not_found") {
+          createInitialDoc().catch((err) => {
+            console.error("Error creating initial local document: " + JSON.stringify(err));
+          });
+        }
+        else {
+          console.error(JSON.stringify(err));
+        }
+      }
+      finally {
+        setInitialized(true);
+      }
+    }
+
+    async function getAndNavigateLatestPage() {
+      try {
+        const latestPageDoc: LatestPageDoc = await database.get<LatestPageDoc>(locationDocId); 
+        const latestPage: string = latestPageDoc?.latestPage;
+        if(latestPage) {
+          if(!pathIsRootOrHome(latestPage) && pathIsRootOrHome(location.pathname)) {
+            console.log("Initializing with latest page = " + latestPage);
+            history.replace(latestPage); 
+          }
+          else {
+            console.log("LatestPage was home or current page isn't home, not navigating");
+          }
+        }
+      }
+      catch(err) {
+        console.log("Error loading latest page doc: " + err);
+      }
+    }
+
+    async function createInitialDoc() {
+      console.log("Creating initial local document");
+      return writeLocalDoc(false);
+    }
+
+    if(!initialized) {
+      console.log("Initializing localProvider, this should only run once...");
+      initializeAppState();
+    }
+  }, [initialized, state.preferences.localEnabled, history, location.pathname, getLocalDoc, writeLocalDoc]);
+
 
   function loadState(doc: LocalDoc) {
     console.log("Loading saved local data into provider");
     dispatch({actionType: 'loadState', doc: doc});
   }
 
-  useEffect(() => {
-    initializeAppState();
-  }, []);
-  useEffect(() => {
-    //console.log("LocalProvider rendered");
-  });
+
   useEffect(() => {
     if(initialized) { // Reducer getting set to initialState counts as a change
       console.log("LocalProvider state changed, writing to document");
@@ -270,8 +249,35 @@ export const LocalProvider: React.FC = ({children}) => {
         }
       });
     }
-  }, [state]); 
+  }, [state, initialized, writeLocalDoc]); 
+
+
   useEffect(()=> {
+    //Don't worry about initial creation for this one
+    async function writeLatestPage(path: string) {
+      if(!state.preferences.localEnabled) { return; }
+      const putDoc: PouchDB.Core.PutDocument<LatestPage> = {latestPage: path};
+      putDoc._id = locationDocId; 
+      try {
+        const doc = await getLatestPageDoc(); //get current _rev, must specify when updating existing doc or get conflict
+        if(doc) {
+          putDoc._rev = doc._rev;
+        }
+      }
+      catch(err) {
+        console.log("Error fetching latestPage Doc for first write, probably doesn't exist: " + err);
+      }
+      return await database.put(putDoc).catch((err) => {
+          if(err.name === "conflict") { //if one write starts while another's in progress, 409 immediate conflict.
+            console.log("conflict writing latestPage, NOT retrying: " + JSON.stringify(err));
+            //writeLatestPage(path); //if user quickly navigates to a different page, captured path argument will be stale
+          }
+          else {
+            throw(err);
+          }
+        });
+    }
+
     const wasRedirected: boolean = location?.state?.from === '/';
     //this hook is triggered by first load for /, then again post-initialize for the redirect to home path
     //if user initializes on a specific page, don't navigate away from it to their latestPage
@@ -280,12 +286,8 @@ export const LocalProvider: React.FC = ({children}) => {
       writeLatestPage(location.pathname);
     }
     else console.log(`Not writing latestPage for ${location.pathname} since not initialized`);
-  }, [location]);
+  }, [location, initialized, state.preferences.localEnabled, getLatestPageDoc]);
 
-  //pretty sure this isn't working, profiler seems to say this causes GameProvider to re-render if LocalProvider does
-  //function getLatestPage(): string | null {
-    //return state.latestPage;
-  //}
 
   if(!initialized) {
     return (<span>Initializing...</span>);

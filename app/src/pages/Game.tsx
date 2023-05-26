@@ -54,7 +54,7 @@ const Game: React.FC<GameProps> = () => {
 
   useEffect(() => {
     gameDispatch({actionType: 'setGameDisplayName', gameId: gameId, displayName: displayName} as GameAction);
-  }, [displayName]);
+  }, [displayName, gameId, gameDispatch]);
 
   //TODO: would need to give character state info about whether it's a preview doc so players can't save or upload changes based on faulty defs
   //and display a banner saying "you're previewing your definitions"

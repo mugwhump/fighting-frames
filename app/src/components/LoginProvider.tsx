@@ -30,8 +30,8 @@ export const LoginProvider: React.FC<LoginProviderProps> = ({children, gameId, s
   const [roles, setRoles] = useState<string[]>(CompileConstants.DEFAULT_USER_ROLES);
   //const [loginInfo, setLoginInfoUsingFunction] = useState<LoginInfo>(getInitialLoginInfo); //Must use functional updates to not constantly re-set stale state!
   const loginInfo = useMemo<LoginInfo>(() => {
-    return {currentUser: currentUser, secObj: secObj, roles: roles, setShowModal: setShowModal, logout: logoutCallback}
-  }, [currentUser, secObj, roles, setShowModal, logoutCallback]);
+    return {currentUser: currentUser, secObj: secObj, roles: roles, setShowModal: setShowModal, logout: logout}
+  }, [currentUser, secObj, roles, setShowModal, logout]); //TODO: logout fn isn't actually callback, changes every render, memoization is useless.
   const loginTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
   const database: PouchDB.Database = usePouch(gameId === "top" ? "remoteTop" : "remote");
   const gameIdRef = useRef<string | null>(null);
@@ -50,9 +50,37 @@ export const LoginProvider: React.FC<LoginProviderProps> = ({children, gameId, s
     });
   }, []);
 
+
   useEffect(()=> {
+
+    async function fetchCurrentSecObj (startingGameId : string): Promise<void> {
+      try {
+        //setLoginInfoUsingFunction((prevInfo)=>{return {...prevInfo, secObj: null}});
+        setSecObj(null);
+        //const dbAtStart = getCurrentDB();
+        console.log(`fetching SecObj for db ${startingGameId}`);
+        let res = await database.get<SecObj>('_security');
+        // if rapidly switching between dbs and one occurs before the other, set to null if they arrive out-of-order
+        if(startingGameId === gameIdRef.current) {
+          console.log("Setting secObj for "+startingGameId+" to " + JSON.stringify(res));
+          //setLoginInfoUsingFunction((prevInfo)=>{return {...prevInfo, secObj: res}});
+          setSecObj(res);
+        }
+        else {
+          console.warn(`Received SecObj for db ${startingGameId} but current db is ${gameIdRef.current}`); 
+          //setLoginInfoUsingFunction((prevInfo)=>{return {...prevInfo, secObj: null}});
+          setSecObj(null);
+        }
+      }
+      catch (err) {
+        console.error(`Error getting secObj for db ${startingGameId }, setting to null ${err}`);
+        //setLoginInfoUsingFunction((prevInfo)=>{return {...prevInfo, secObj: null}});
+        setSecObj(null);
+      }
+    }
+
     fetchCurrentSecObj(gameId);
-  }, [gameId]); 
+  }, [gameId, database, setSecObj]); 
 
   useEffect(()=> {
     let creds = storedCredentials;
@@ -63,7 +91,7 @@ export const LoginProvider: React.FC<LoginProviderProps> = ({children, gameId, s
         console.log("Initial login failure as " + creds.username);
       });
     }
-  }, [initialized]); 
+  }, [initialized, logIn, storedCredentials]); 
 
   // Handle logging in. Default auth cookie determined by my couchDB settings (I set 1 hour for convenience).
   // Start session as default user, who can read all DBs with same cookie. Stored creds start as default creds.
@@ -74,35 +102,6 @@ export const LoginProvider: React.FC<LoginProviderProps> = ({children, gameId, s
   // Setting require_valid_user in couch means every request, including to _session, needs auth. So if default creds are wrong,
   // all requests are sending wrong basic auth headers, and you can't login with right creds. So no point in extensive error handling.
 
-  //useEffect(() => {
-    //console.log("Current creds: "+currentCreds.username+", showModal: "+showModal+", secObj: "+JSON.stringify(secObj));
-  //});
-
-  async function fetchCurrentSecObj (startingGameId : string): Promise<void> {
-    try {
-      //setLoginInfoUsingFunction((prevInfo)=>{return {...prevInfo, secObj: null}});
-      setSecObj(null);
-      //const dbAtStart = getCurrentDB();
-      console.log(`fetching SecObj for db ${startingGameId}`);
-      let res = await database.get<SecObj>('_security');
-      // if rapidly switching between dbs and one occurs before the other, set to null if they arrive out-of-order
-      if(startingGameId === gameIdRef.current) {
-        console.log("Setting secObj for "+startingGameId+" to " + JSON.stringify(res));
-        //setLoginInfoUsingFunction((prevInfo)=>{return {...prevInfo, secObj: res}});
-        setSecObj(res);
-      }
-      else {
-        console.warn(`Received SecObj for db ${startingGameId} but current db is ${gameIdRef.current}`); 
-        //setLoginInfoUsingFunction((prevInfo)=>{return {...prevInfo, secObj: null}});
-        setSecObj(null);
-      }
-    }
-    catch (err) {
-      console.error(`Error getting secObj for db ${startingGameId }, setting to null ${err}`);
-      //setLoginInfoUsingFunction((prevInfo)=>{return {...prevInfo, secObj: null}});
-      setSecObj(null);
-    }
-  }
 
   // Always returns couchdb's login response, not superlogin's
   // TODO: test closure capture on setTimeout
@@ -141,7 +140,7 @@ export const LoginProvider: React.FC<LoginProviderProps> = ({children, gameId, s
         return response;
       }).catch((loginError) => {
         console.error("Cookie login error for SL session! Switching to default creds. " + JSON.stringify(loginError));
-        logoutCallback();
+        logout();
         throw loginError;
       });
     }
@@ -185,8 +184,9 @@ export const LoginProvider: React.FC<LoginProviderProps> = ({children, gameId, s
     });
   }
 
-  //const logoutCallback = useCallback(() => {
-  function logoutCallback() {
+  //TODO: this is passed, so really should memoize it, and logIn() on which it depends.
+  //const logoutCallback: () => void = useCallback(() => {
+  function logout() {
     console.log("Logging out of SL account then loggin in as default");
     myPouch.superlogin.logoutAll(`Logging out ${currentUser}, switching to public`).then((logoutResponse) => {
       console.log(`SL logoutResponse = ${JSON.stringify(logoutResponse)}`);

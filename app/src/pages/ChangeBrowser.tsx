@@ -17,47 +17,14 @@ type ChangeBrowserProps = {
 export const ChangeBrowser: React.FC<ChangeBrowserProps> = ({gameId}) => {
   const state = useTrackedCharacterState();
   const characterId = state.characterId;
-  //const loginInfo = useLoginInfoContext();
   const baseRev = state.charDoc._rev;
   const publishedChanges = state.charDoc.changeHistory;
   //regarding how to match first element of array key: https://stackoverflow.com/questions/9687297/couchdb-search-or-filtering-on-key-array
   const { rows, loading, state: viewState, error } = useView<ListChangesViewRow, ChangeDocWithMeta>("changes/list-changes", {descending: true, startkey: [characterId, {}], endkey: [characterId]}); 
-  const [presentAlert, dismissAlert] = useIonAlert(); 
-  const characterDispatch = useCharacterDispatch();
 
   useEffect(() => {
     console.log(`Dem rows: ${JSON.stringify(rows)}`);
   },[rows]);
-
-
-  //const promptRevertChange = useCallback((changeTitle: string) => {
-    //const changeIndex = publishedChanges.indexOf(changeTitle);
-    //const numChanges = publishedChanges.length - changeIndex;
-    //if(numChanges <= 0) {
-      //presentAlert("Error, no changes to revert");
-      //return;
-    //}
-    //presentAlert(`Revert ${characterId} to the state they were in before change ${changeTitle}, undoing ${numChanges} changes?`, 
-      //[ {text: 'Cancel', role: 'cancel'},
-        //{text: 'Yes', role: 'destructive', handler: () => console.log('finna undo '+publishedChanges.slice(-numChanges).join(', ')) },
-      //]);
-  //}, [publishedChanges, presentAlert, characterId]);
-
-
-  //const promptPublishChange = useCallback((changeTitle: string) => {
-    //presentAlert(`Apply the change "${changeTitle}" to character "${characterId}"?`, 
-      //[ {text: 'Cancel', role: 'cancel'},
-        //{text: 'Yes', handler: () => dismissAlert().then(() => characterDispatch({actionType: 'publishChangeList', character: characterId, title: changeTitle})) },
-      //]);
-  //}, [publishedChanges, presentAlert, characterId]);
-
-
-  //const promptImportChange = useCallback((changeTitle: string) => {
-    //presentAlert(`Apply the change "${changeTitle}" to character "${characterId}"?`, 
-      //[ {text: 'Cancel', role: 'cancel'},
-        //{text: 'Yes', handler: () => dismissAlert().then(() => characterDispatch({actionType: 'publishChangeList', character: characterId, title: changeTitle})) },
-      //]);
-  //}, [publishedChanges, presentAlert, characterId]);
 
 
   if (viewState === 'error') {
@@ -91,7 +58,6 @@ export const ChangeBrowser: React.FC<ChangeBrowserProps> = ({gameId}) => {
     }
   }
 
-  //TODO: show published changes (w/ button to revert), up-to-date (w/ button to publish), outdated (w/ button to import). Click any to go to changeviewer.
   return (
     <HeaderPage title={"Changes for " + state.characterDisplayName}>
       <IonContent fullscreen>
@@ -141,32 +107,9 @@ export const ChangeBrowser: React.FC<ChangeBrowserProps> = ({gameId}) => {
       </IonContent>
     </HeaderPage>
   );
-  /*
-  return (
-    <IonGrid>
-      {rows.map((row: ListChangesViewRow) => {
-        const changeTitle = row.value.updateTitle;
-        const changeDescription = row.value.updateDescription; //descriptions are optional
-        const changeBasis = row.value.baseRevision;
-        const needsRebase = changeBasis !== baseRev;
-        const published = publishedChanges.includes(changeTitle);
-        const uri = util.getChangeUrl(gameId, characterId, changeTitle);
-          return (
-            <IonRouterLink key={changeTitle} routerLink={uri}>
-              <IonRow >
-                {published && <IonIcon md={thumbsUpOutline} color="black" />}
-                <IonItem color={needsRebase ? "warning" : "primary"}>{changeTitle}</IonItem>
-                <IonItem>{changeDescription}</IonItem>
-              </IonRow>
-            </IonRouterLink>
-          );
-      })}
-    </IonGrid>
-  );
-  */
 }
 
-  {/*function MoveJSX({name, indent=0, index, changeIndent}: {name:string, indent:number | undefined, index:number, changeIndent:(x: number, y:number)=>void}) {*/}
+
 interface ChangeGridProps {
   rows: ListChangesViewRow[];
   type: 'history' | 'recent' | 'outdated';
@@ -197,12 +140,6 @@ function ChangeGrid({rows, type, gameId, characterId}: ChangeGridProps) {
               </IonItem>
             </IonRouterLink>
           </IonCol>
-          {/*<IonCol size="3">*/}
-            {/*<IonButton expand="full" onClick={() => buttonCallback(changeTitle)} >*/}
-              {/*Undo*/}
-              {/*<IonIcon slot="end" ios={arrowUndoOutline} md={arrowUndoSharp} />*/}
-            {/*</IonButton> */}
-          {/*</IonCol>*/}
         </IonRow>
       );
     })}

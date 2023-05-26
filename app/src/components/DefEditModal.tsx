@@ -1,4 +1,4 @@
-import { useIonAlert, IonContent, IonItem, IonHeader, IonToolbar, IonTitle, IonFooter, IonItemGroup, IonRow, IonAccordionGroup, IonNote, IonicSafeString, IonAccordion, IonButton, IonLabel, IonText } from '@ionic/react';
+import { IonContent, IonItem, IonHeader, IonToolbar, IonTitle, IonFooter, IonItemGroup, IonRow, IonAccordionGroup, IonNote, IonicSafeString, IonAccordion, IonButton, IonLabel, IonText } from '@ionic/react';
 //import { warningOutline, warningSharp } from 'ionicons/icons';
 import React, { useState, useEffect, useMemo, useCallback } from 'react';
 import ColumnDataEditWrapper from './ColumnDataEditWrapper';
@@ -7,6 +7,7 @@ import type { FieldError } from '../types/utilTypes'; //==
 import { keys, keyVals } from '../services/util';
 import * as colUtil from '../services/columnUtil';
 import { getIonicSanitizedString } from '../services/renderUtil';
+import { useMyAlert } from '../services/hooks';
 import styles from '../theme/DefEditor.module.css';
 import characterStyles from '../theme/Character.module.css';
 import { createChange, getInvertedMoveChanges } from '../services/merging';
@@ -41,8 +42,8 @@ const DefEditModal: React.FC<DefEditModalProps > = ({defEditingInfo, updateDefCa
   const addingNewBlankDef = defEditingInfo.defName === ""; //TODO: no way to identify suggested defs that are just being added now rather than earlier in session...
   const canDelete = (!defEditingInfo.wasDeleted && !defEditingInfo.wasAdded && !defEditingInfo.isMandatory);
   const [fieldErrors, setFieldErrors] = useState<DefPropertyFieldErrors>(() => getErrorsForColumnDef(clonedDef, defEditingInfo.isMandatory));
-  const warnings = useMemo<DefPropertyFieldErrors>(getWarnings, [clonedDef, colDef]);
-  const [presentAlert, dismissAlert] = useIonAlert(); 
+  const warnings = useMemo<DefPropertyFieldErrors>(getWarnings, [clonedDef, colDef, defEditingInfo.defName, defEditingInfo.wasAdded]);
+  const [presentMyAlert, dismissAlert] = useMyAlert(); 
 
   function getStartingDef(): T.ColumnDef {
     let result = colDef;
@@ -72,7 +73,7 @@ const DefEditModal: React.FC<DefEditModalProps > = ({defEditingInfo, updateDefCa
 
     //Warn if existing definition and dataTypes aren't the same underlying javascript type
     if(!defEditingInfo.wasAdded && colDef?.dataType && !colUtil.dataTypesAreCompatible(clonedDef.dataType, colDef?.dataType)) {
-      result.dataType = {columnName: 'dataType', message: `Changing an existing column from type ${clonedDef.dataType} to ${colDef.dataType} may cause complications if users have already entered data, which can't be automatically converted. Instead of changing this column's dataType, try deleting this column and creating a new one.`};
+      result.dataType = {columnName: 'dataType', message: `Changing an existing column from type ${colDef.dataType} to ${clonedDef.dataType} may cause complications if users have already entered data, which can't be automatically converted. Instead of changing this column's dataType, try deleting this column and creating a new one.`};
     }
     //Useless prop warnings take priority
     return {...result, ...getUselessProperties(clonedDef)};
@@ -108,7 +109,7 @@ const DefEditModal: React.FC<DefEditModalProps > = ({defEditingInfo, updateDefCa
     }
     //Display error
     if(errorString) {
-      presentAlert(
+      presentMyAlert(
         {
           header: "Error updating column",
           message: getIonicSanitizedString(errorString),
@@ -203,7 +204,7 @@ const DefEditModal: React.FC<DefEditModalProps > = ({defEditingInfo, updateDefCa
   function resetColumnDef(): void {
     if(!colDef) throw new Error("Cannot delete def that's being added");
     if(defEditingInfo.wasAdded) {
-      presentAlert(
+      presentMyAlert(
         {
           header: "Permanently remove column?",
           message: "This column hasn't been uploaded yet, so its deletion can't be undone.",

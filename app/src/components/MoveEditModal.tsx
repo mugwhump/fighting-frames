@@ -19,7 +19,7 @@ export type MoveEditModalProps  = {
 // Use with useIonModal, pass this as body. Used to edit moves or add new moves 
 const MoveEditModal: React.FC<MoveEditModalProps > = ({moveName, getDefsAndData, originalChanges}) => {
   const addingNewMove: boolean = moveName === "";
-  const defsAndData = useMemo<ColumnDefAndData[]>(()=>getDefsAndData(moveName), [moveName]);
+  const defsAndData = useMemo<ColumnDefAndData[]>(()=>getDefsAndData(moveName), [moveName, getDefsAndData]);
   const [clonedChanges, setClonedChanges] = useState<Changes>(getClonedChanges);
   const [fieldErrors, setFieldErrors] = useState<{[columnName: string]: FieldError}>(getInitialErrors);
   const displayName = (moveName === "universalProps") ? "Universal Properties" : (addingNewMove ? "New Move" : moveName);

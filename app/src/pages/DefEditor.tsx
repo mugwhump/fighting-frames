@@ -1,5 +1,6 @@
 import { IonIcon, IonItem, IonGrid, IonRow, IonCol, IonButton, IonLabel, IonInput, useIonAlert, IonNote, useIonToast, IonContent, IonModal, IonSelect, IonSelectOption, IonicSafeString } from '@ionic/react';
 import React, { useEffect, useState, useCallback } from 'react';
+import { Prompt } from 'react-router-dom';
 import { swapVerticalOutline, swapVerticalSharp, warningOutline, warningSharp } from 'ionicons/icons';
 import * as T from '../types/characterTypes';
 import { keys, keyVals, getApiUploadConfigUrl } from '../services/util';
@@ -161,24 +162,25 @@ const DefEditor: React.FC<DefEditorProps> = ({gameId, configDoc}) => {
         }
       }
     }
-  }, [configDoc, clonedDoc, docChanges, defToEdit, presentMyAlert, presentMyToast]);
 
-  // used when merging a newly-loaded config doc. Keep pure.
-  function repairChangedOrders(newDoc: Readonly<T.ConfigDoc>, additionsDeletionsFromDoc: boolean, docChanges: ConfigDocChanges): ConfigDocChanges {
-    let newChanges = {...docChanges};
-    for(const propOrColPath of ['universalPropDefs', 'columnDefs']) {
-      const path = propOrColPath as 'universalPropDefs' | 'columnDefs';
-      const changedOrder = docChanges.changedOrders?.[path];
-      const defs = (changedOrder && additionsDeletionsFromDoc) ? {...newDoc[path], ...docChanges[path]} : newDoc[path];
+    // used when merging a newly-loaded config doc. Keep pure.
+    function repairChangedOrders(newDoc: Readonly<T.ConfigDoc>, additionsDeletionsFromDoc: boolean, docChanges: ConfigDocChanges): ConfigDocChanges {
+      let newChanges = {...docChanges};
+      for(const propOrColPath of ['universalPropDefs', 'columnDefs']) {
+        const path = propOrColPath as 'universalPropDefs' | 'columnDefs';
+        const changedOrder = docChanges.changedOrders?.[path];
+        const defs = (changedOrder && additionsDeletionsFromDoc) ? {...newDoc[path], ...docChanges[path]} : newDoc[path];
 
-      const repairedOrder = repairDefOrder(changedOrder ?? keys(newDoc[path]), defs, additionsDeletionsFromDoc, additionsDeletionsFromDoc);
-      set(newChanges, `changedOrders.${path}`, repairedOrder);
-      if(isEqual(repairedOrder, keys(configDoc[path]))) { // use configDoc because sometimes newDoc is a merged one just used to get defs in right groups
-        delete newChanges.changedOrders?.[path];
+        const repairedOrder = repairDefOrder(changedOrder ?? keys(newDoc[path]), defs, additionsDeletionsFromDoc, additionsDeletionsFromDoc);
+        set(newChanges, `changedOrders.${path}`, repairedOrder);
+        if(isEqual(repairedOrder, keys(configDoc[path]))) { // use configDoc because sometimes newDoc is a merged one just used to get defs in right groups
+          delete newChanges.changedOrders?.[path];
+        }
       }
+      return newChanges;
     }
-    return newChanges;
-  }
+
+  }, [configDoc, clonedDoc, docChanges, defToEdit, presentMyAlert, presentMyToast]);
 
   function uploadDoc() {
     let newConfigDoc: T.ConfigDoc = getUpdatedDoc(clonedDoc, docChanges);
@@ -378,6 +380,11 @@ const DefEditor: React.FC<DefEditorProps> = ({gameId, configDoc}) => {
     <>
     <HeaderPage title={"Editing config for " + clonedDoc.displayName}>
       <IonContent fullscreen>
+
+        <Prompt 
+          when={keys(docChanges).length !== 0}
+          message="You have unsubmitted changes. Would you like to proceed?"
+        />
 
         <IonModal isOpen={defToEdit !== null} onDidDismiss={dismissEditorCallback} backdropDismiss={false} >
           {defToEdit &&

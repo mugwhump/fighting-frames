@@ -188,11 +188,11 @@ export type ChangeDoc = Optional<ChangeDocServer, 'updateTitle'> & {
   conflictList?: ConflictList; 
   rebaseSource?: CharDocWithMeta; //chardoc that current changedoc saw and rebase conflicts were generated from, needed if an even newer charDoc comes in mid-rebase.
   // Gets set on all docs that are rebased. If conflicts, used to update metadata when resolutions applied. If no conflicts, metadata immediately updated and rebaseSource deleted.
-  mergeSource?: CharDocWithMeta; //chardoc that changeDocs causing merge conflicts were based on
+  mergeSource?: CharDocWithMeta; //chardoc that changeDocs causing merge conflicts were based on. If no conflicts, not set.
   // If conflicts came from a merge, nothing from the other changelist is needed, just the base
 }
 // Separate ChangeDoc type used internally and ChangeDocServer type used for server-side validation (which requires title and excludes all validation stuff)
-  //_id is blabla/local-edit when saved/loaded locally, blabla/updateTitle on the server
+  //_id of your own working edits is blabla/local-edit when saved/loaded locally, blabla/updateTitle on the server
 export type ChangeDocServer = {
   /** 
    * url-safe user slug

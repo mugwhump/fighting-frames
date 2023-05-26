@@ -1,10 +1,10 @@
 import React, { useEffect, useRef, useState, useCallback } from 'react';
-import { useIonAlert, IonPopover, IonIcon, IonFab, IonFabButton, IonList, IonButton, IonContent, IonItem, IonLabel, IonGrid, IonRow } from '@ionic/react';
+import { IonPopover, IonIcon, IonFab, IonFabButton, IonList, IonButton, IonContent, IonItem, IonLabel, IonGrid, IonRow } from '@ionic/react';
 import { add, } from 'ionicons/icons';
 import { useDoc } from 'use-pouchdb';
 import { useParams, useHistory } from 'react-router-dom';
 import { State, useCharacterDispatch, useTrackedCharacterState, EditAction } from '../services/CharacterReducer';
-import { useQuery, useChangeDocOrReversion } from '../services/hooks';
+import { useQuery, useChangeDocOrReversion, useMyAlert } from '../services/hooks';
 import * as T from '../types/characterTypes';
 import * as util from '../services/util';
 import CharacterRenderer from '../components/CharacterRenderer';
@@ -35,7 +35,7 @@ export const ChangeViewer: React.FC<ChangeViewerProps> = ({gameId, columnDefs, u
   //const { doc: changeDoc, loading, state: docState, error } = useDoc<T.ChangeDocServer>(changeDocId); 
   const { doc: changeDoc, loading, state: docState, error } = useChangeDocOrReversion(changeTitle, characterId, isRevert ? charDoc.changeHistory : undefined);
   const dispatch = useCharacterDispatch();
-  const [presentAlert, dismissAlert] = useIonAlert(); 
+  const [presentMyAlert, dismissAlert] = useMyAlert(); 
   const popOver = useRef<HTMLIonPopoverElement>(null); 
   let changeType: 'history' | 'recent' | 'outdated' | null = null;
   let changeInfoText: string = '';
@@ -61,7 +61,7 @@ export const ChangeViewer: React.FC<ChangeViewerProps> = ({gameId, columnDefs, u
   else if(changeDoc) {
     pageTitle = `${charDisplayName}'s unapplied change ${changeTitle}`
 
-    if(changeDoc.baseRevision === charDoc._id) {
+    if(changeDoc.baseRevision === charDoc._rev) {
       changeType = 'recent';
       changeInfoText = `Previewing change "${changeTitle}" based on latest version of ${charDisplayName}.`;
     }
@@ -81,15 +81,6 @@ export const ChangeViewer: React.FC<ChangeViewerProps> = ({gameId, columnDefs, u
   }
 
 
-  useEffect(() => {
-    return () => {
-      //doesn't work, popovers stay open when navigating away
-      dismissPopOver();
-      dismissAlert();
-    }
-  }, [])
-
-
   function importChanges() {
     if(changeDoc) dispatch({actionType: "promptImportChanges", changes: changeDoc});
     dismissPopOver();
@@ -100,7 +91,7 @@ export const ChangeViewer: React.FC<ChangeViewerProps> = ({gameId, columnDefs, u
     let promptMessage = `Would you like to apply change "${changeTitle}" to character ${charDisplayName}?`;
     if(changeType === 'history') promptMessage = `Would you like to undo change "${changeTitle}" and the ${distanceFromLatest - 1} changes after it, reverting character ${charDisplayName} to the state they were in before those changes were applied? This reversion would be applied as a new change in the character's history.`;
 
-    presentAlert(promptMessage, 
+    presentMyAlert(promptMessage, 
       [ {text: 'Cancel', role: 'cancel'},
         {text: 'Yes', handler: () => {
           if(changeType === 'history') {

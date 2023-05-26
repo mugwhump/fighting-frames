@@ -255,7 +255,7 @@ export function useDocumentLocalRemoteSwitching(state: string, error: PouchDB.Co
         //setFetchedWithLocal(null);
       }
     //}
-  }, [state, error, currentPouch]);
+  }, [state, error, currentPouch, doc, componentName, failureAlreadyDispatched, gameDispatch]);
 }
 
 /*
