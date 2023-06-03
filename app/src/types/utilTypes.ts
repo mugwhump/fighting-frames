@@ -1,4 +1,4 @@
-import type { ChangeDocWithMeta, CharDocWithMeta } from './characterTypes';
+import type { ChangeDocWithMeta, CharDocWithMeta, HtmlPageDoc } from './characterTypes';
 
 //these are suffixes that go at the end of the url. Used for local and remote database URIs too.
 export enum SegmentUrl {
@@ -36,6 +36,8 @@ export type ViewRowGeneric<Key, Value, Doc extends Object = Object> = {
 
 // key is character ID, string is character displayName
 export type ListCharactersViewRow = ViewRowGeneric<string, string, CharDocWithMeta>;
+
+export type ListPagesViewRow = ViewRowGeneric<string, string, HtmlPageDoc>;
 
 export type ListChangesViewRow = ViewRowGeneric<ListChangesViewRowKey, ListChangesViewRowValue, ChangeDocWithMeta>;
 export type ListChangesViewRowKey = 

@@ -1,8 +1,8 @@
 import React, { useEffect, useState, useCallback, useRef } from 'react';
-import { useIonAlert, IonContent, IonFooter, IonToolbar, IonRow, IonList, IonListHeader, IonItem, IonIcon, IonLabel, IonInput, IonButton } from '@ionic/react';
+import { IonContent, IonFooter, IonToolbar, IonRow, IonList, IonListHeader, IonItem, IonIcon, IonLabel, IonButton } from '@ionic/react';
 import { add, remove, informationCircleOutline, informationCircleSharp } from 'ionicons/icons';
 //import { useHistory } from 'react-router';
-import { useDoc, usePouch } from 'use-pouchdb'
+import { usePouch } from 'use-pouchdb'
 import { useMyToast, useMyAlert, useLoadingPromise } from '../services/hooks';
 import { useLoginInfoContext } from '../components/LoginProvider';
 import HeaderPage from '../components/HeaderPage';
@@ -10,15 +10,15 @@ import NeedPermissions from '../components/NeedPermissions';
 import * as myPouch from '../services/pouch';
 import * as util from '../services/util';
 import { SecObj, userHasPerms } from '../services/security';
-import { cloneDeep, isEqual, set, get } from 'lodash';
+import { cloneDeep, isEqual, set } from 'lodash';
 import CompileConstants from '../constants/CompileConstants';
 
 type PermKey = 'admins' | 'members' | 'uploaders';
-type AuthorizedUserssProps = {
+type AuthorizedUsersProps = {
   gameId: string;
 }
 
-const AuthorizedUserss: React.FC<AuthorizedUserssProps> = ({gameId}) => {
+const AuthorizedUsers: React.FC<AuthorizedUsersProps> = ({gameId}) => {
   const db = usePouch('remote');
   const loginInfo = useLoginInfoContext();
   const [serverSecObj, setServerSecObj] = useState<SecObj | null>(null);
@@ -26,8 +26,8 @@ const AuthorizedUserss: React.FC<AuthorizedUserssProps> = ({gameId}) => {
   const [serverErr, setServerErr] = useState<string | null>(null); 
   const serverErrRef = useRef<HTMLIonItemElement>(null);
   const [presentAlert, dismissAlert] = useMyAlert(); 
-  const [loadingPromiseWrapper, dismissLoading] = useLoadingPromise(); 
-  const [presentMyToast, dismissToast] = useMyToast(); 
+  const [loadingPromiseWrapper, ] = useLoadingPromise(); 
+  const [presentMyToast, ] = useMyToast(); 
 
   useEffect(() => {
     db.get<SecObj>('_security').then((result) => {
@@ -303,4 +303,4 @@ const NameList: React.FC<NameListProps> = ({permKey, names, promptRemoveCallback
   )
 }
 
-export default AuthorizedUserss;
+export default AuthorizedUsers;

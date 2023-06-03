@@ -193,6 +193,18 @@ export function getDeleteCharacterUrl(gameId: string): string {
 export function getAuthorizedUsersUrl(gameId: string): string {
   return generatePath(CompileConstants.AUTHORIZED_USERS_MATCH, {gameId: gameId});
 }
+export function getAddHtmlPageUrl(gameId: string): string {
+  return generatePath(CompileConstants.ADD_HTML_PAGE_MATCH, {gameId: gameId});
+}
+export function getManageHtmlPagesUrl(gameId: string): string {
+  return generatePath(CompileConstants.MANAGE_HTML_PAGES_MATCH, {gameId: gameId});
+}
+export function getHtmlPageUrl(gameId: string, pageId: string): string {
+  return generatePath(CompileConstants.HTML_PAGE_MATCH, {gameId: gameId, pageId: pageId});
+}
+export function getEditHtmlPageUrl(gameId: string, pageId: string): string {
+  return generatePath(CompileConstants.EDIT_HTML_PAGE_MATCH, {gameId: gameId, pageId: pageId});
+}
 
 
 export function getApiUploadChangeUrl(gameId: string, characterId: string, changeTitle: string): [string, HttpMethod] {
@@ -216,6 +228,15 @@ export function getApiAuthorizedUsersUrl(gameId: string): [string, HttpMethod] {
 export function getApiAddGameUrl(): [string, HttpMethod] {
   return [CompileConstants.API_GAMES_MATCH, "POST"];
 }
+export function getApiAddHtmlPageUrl(gameId: string): [string, HttpMethod] {
+  return [generatePath(CompileConstants.API_HTML_PAGES_MATCH, {gameId: gameId}), "POST"];
+}
+export function getApiUpdateHtmlPageUrl(gameId: string, pageId: string): [string, HttpMethod] {
+  return [generatePath(CompileConstants.API_HTML_PAGE_MATCH, {gameId: gameId, pageId: pageId}), "PUT"];
+}
+export function getApiDeleteHtmlPageUrl(gameId: string, pageId: string): [string, HttpMethod] {
+  return [generatePath(CompileConstants.API_HTML_PAGE_MATCH, {gameId: gameId, pageId: pageId}), "DELETE"];
+}
 
 //TODO: would be nice to switch all db names to game/{gameId}, but have code that doesn't distinguish between top and game database names
 //export function getDatabaseName(gameId: string): string {
@@ -230,6 +251,14 @@ export function getChangeId(character: string, changeTitle: string): string {
 export function getDocEditId(gameId: string, characterId: string): string {
   //return getSegmentUrl(gameId, character, SegmentUrl.Edit);
   return getCharacterUrl(gameId, characterId);
+}
+export function getHtmlPageDocId(pageId: string): string {
+  if(pageId.indexOf('pages/') === 0) throw new Error(`Malformed pageId for HTML page: ${pageId}`);
+  return 'pages/' + pageId;
+}
+export function getHtmlPageIdFromDocId(docId: string): string {
+  if(docId.indexOf('pages/') !== 0) throw new Error(`Malformed docId for HTML page: ${docId}`);
+  return docId.slice('pages/'.length);
 }
 
 // Gets current time in alphabetically sortable ISO UTC format YYYY-MM-DDTHH:mm:ss.sssZ

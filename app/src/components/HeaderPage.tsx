@@ -1,14 +1,25 @@
-import { useIonViewDidEnter, IonButtons, IonHeader, IonMenuButton, IonPage, IonTitle, IonToolbar } from '@ionic/react';
+import { useIonViewDidEnter, IonButtons, IonHeader, IonContent, IonMenuButton, IonPage, IonTitle, IonToolbar, IonButton } from '@ionic/react';
 import React  from 'react';
+import { useHistory } from 'react-router';
+
 type HeaderPageProps  = {
   title: string,
-  children: React.ReactNode
+  children?: React.ReactNode;
+  contentMessage?: string;
+  retryButton?: boolean;
 }
 
-const HeaderPage: React.FC<HeaderPageProps > = ({title, children}) => {
-  useIonViewDidEnter(() => {
-    console.log("HeaderPage IonViewDidEnter fired");
-  });
+const HeaderPage: React.FC<HeaderPageProps > = ({title, children, contentMessage, retryButton}) => {
+  const history = useHistory();
+  if(contentMessage) {
+    if(children) throw new Error(`Error in HeaderPage ${title}, do not provide both children and contentMessage ${contentMessage}`);
+  }
+  else {
+    if(retryButton) throw new Error(`Error in HeaderPage ${title}, must provide contentMessage with retryButton`);
+  }
+  //useIonViewDidEnter(() => {
+    //console.log("HeaderPage IonViewDidEnter fired");
+  //});
 
   return (
     <IonPage>
@@ -24,6 +35,16 @@ const HeaderPage: React.FC<HeaderPageProps > = ({title, children}) => {
       </IonHeader>
 
       {children}
+
+      {contentMessage &&
+        <IonContent fullscreen>
+          <div>{contentMessage}</div>
+          {retryButton &&
+            <IonButton type="button" onClick={() => history.go(0)}>Retry</IonButton>
+          }
+        </IonContent>
+      }
+
     </IonPage>
   );
 };

@@ -170,8 +170,18 @@ export type ConfigDoc = {
   columnDefs: ColumnDefs,
 } & {_id: string, _rev: string}
 
+export type HtmlPageDoc = {
+  _id: string; // 'pages/frontpage'
+  _rev?: string;
+  title: string; //window title, also displayed as header on every page. Not editable for frontpages.
+  html: string; // html produced by tinyMCE. Validated server-side.
+  //published: boolean; // TODO: doesn't appear for normal users if not published?
+  updatedAt: string; //set by server
+  updatedBy: string; //set by server
+}
+
 export type CharDoc = {
-  charName: string,
+  charName: string, // ID
   //displayName: string, //TODO: phasing out in favor of builtin universal prop
   updatedAt: string, // created via new Date().toString()
   updatedBy: string,

@@ -2,9 +2,6 @@
   "members": {
     "roles": [
       "read"
-    ],
-    "names": [
-      "testing-bootstrapper"
     ]
   },
   "admins": {
@@ -13,5 +10,5 @@
     ]
   },
   "publicIsWriter": false,
-  "publicCanUploadChanges": true
+  "publicCanUploadChanges": false
 }

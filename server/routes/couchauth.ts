@@ -35,7 +35,7 @@ const config: Config = {
       secure: false, // true for 465, false for other ports
       auth: {
         user: mailFrom, 
-        pass: 'CUMCUMCUM',//mailApiKey, TODO: TESTING, does couch-auth's register route not catch error from calling sendEmail() from insertNewUserDocument() in user.ts?
+        pass: mailApiKey, //TODO: couch-auth's register route doesn't catch error from calling sendEmail() from insertNewUserDocument() in user.ts, hangs server
       }
     },
     // Can't activate my SendinBlue SMTP account until I can submit ticket w/ my website, skip for now

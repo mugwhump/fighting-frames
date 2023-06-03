@@ -15,7 +15,7 @@ const password = secrets.couch_password;
 //This object persists between requests, so don't modify its configuration
 //TODO: test if 2 different reqs at same time use different dbs? I'd guess adminNano.use() returns a new DocumentScope object
 export const adminNano = Nano.default(`http://${admin}:${password}@`+process.env.COUCHDB_URL); 
-//Do NOT stringify this object in any error messages! It will give away credentials!
+//Nano appears to be smart enough to hide credentials when stringifying object but I'll disallow it anyway.
 (adminNano as any).toJSON = () => "Not stringifying nano object";
 
 //can configure http pool size, by default has infinite active connections
@@ -24,6 +24,8 @@ export const adminNano = Nano.default(`http://${admin}:${password}@`+process.env
   //maxSockets: 25
 //})
 //export const adminNano = Nano.default({url: `http://${admin}:${password}@`+process.env.COUCHDB_URL, requestDefaults: {agent: myagent}}); 
+
+export const frontend_url: string = process.env.FRONTEND_URL!;
 
 export const testModuleObj = {val: 10}; //initialized once, persists between multiple requests. 
 

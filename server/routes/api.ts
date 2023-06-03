@@ -5,7 +5,7 @@ import logger from '../util/logger';
 import * as Security from '../shared/services/security';
 import { secrets } from "docker-secret";
 import couchAuth from './couchauth';
-import { adminNano, TypedRequest, getSuccessObject, sendSuccess, getErrorObject, sendError, needsPermissions, getUser, mySleep } from '../util/expressUtil';
+import { adminNano, TypedRequest, frontend_url, getSuccessObject, sendSuccess, getErrorObject, sendError, needsPermissions, getUser, mySleep } from '../util/expressUtil';
 import * as CouchAuthTypes from '@perfood/couch-auth/lib/types/typings';
 import { cloneDeep, isEqual, set } from 'lodash';
 import * as Nano from 'nano';
@@ -35,6 +35,102 @@ const testObject = {val: 1};
 
 //TODO: make custom error handler for nonexistent endpoint or method, right now express returns html
 
+
+/**
+ * POST. Create a new HTML page.
+ * Success returns 201 and location header of new resource.
+ */
+router.post(CompileConstants.API_HTML_PAGES_MATCH, needsPermissions("GameAdmin"),
+           async (req: TypedRequest<{gameId:string}, T.HtmlPageDoc>, res) => {
+  try {
+    const docId: string = req.body._id;
+    const pageId: string = util.getHtmlPageIdFromDocId(docId);
+    // validate id
+    let validId = CompileConstants.ALLOWED_PAGE_ID_REGEX.test(pageId);
+    if(!validId) {
+      return sendError(res, `Invalid page ID ${pageId}`, 400);
+    }
+
+    let error = await updatePage(req, '');
+
+    if(error) sendError(res, error.message, error.status);
+    else {
+      res.location(frontend_url + util.getHtmlPageUrl(req.params.gameId, docId));
+      sendSuccess(res, `Page ${pageId} created`, 201);
+    }
+  }
+  catch(err: any) {
+    return sendError(res, `Error creating page, ${err}`, err.statusCode || (err.status ?? 500));
+  }
+});
+
+
+async function updatePage(req: TypedRequest<{gameId:string}, T.HtmlPageDoc>, _rev?: string): Promise<false | ApiResponse> {
+  try {
+    const gameId = req.params.gameId;
+    const doc: T.HtmlPageDoc = req.body;
+    const docId: string = doc._id;
+    const pageId: string = util.getHtmlPageIdFromDocId(docId);
+    const title: string = doc.title;
+    const db = adminNano.use<T.HtmlPageDoc>(gameId);
+
+    // set it to Front Page
+    if(docId === CompileConstants.GAME_FRONTPAGE_DOC_ID) {
+      doc.title = "Front Page";
+    }
+    // validate title. But being non-unique is fine.
+    let validTitle = CompileConstants.ALLOWED_PAGE_TITLE_REGEX.test(title);
+    if(!validTitle) {
+      return getErrorObject(`Invalid page title ${title}`, 400);
+    }
+
+    // TODO: sanitize html
+
+    // Set updatedAt and updatedBy
+    doc.updatedAt = util.getDateString();
+    doc.updatedBy = getUser(req)?._id ?? 'public';
+
+    try {
+      await db.insert(doc);
+    }
+    catch(err: any) {
+      if(err.statusCode === 409) {
+        return getErrorObject(`Error, a page with id ${pageId} already exists (${err})`, err.statusCode);
+      }
+      else {
+        return getErrorObject("Error creating page, " + err, err.statusCode);
+      }
+    }
+    return false;
+  }
+  catch(err) {
+    return getErrorObject(`Server Error updating page, ${err}`);
+  }
+}
+
+
+/**
+ * PUT. Update existing HTML page.
+ * Success returns 200
+ */
+router.put(CompileConstants.API_HTML_PAGE_MATCH, needsPermissions("GameAdmin"),
+           async (req: TypedRequest<{gameId:string}, T.HtmlPageDoc>, res) => {
+  try {
+    const docId: string = req.body._id;
+    const pageId: string = util.getHtmlPageIdFromDocId(docId);
+
+    let error = await updatePage(req, '');
+
+    if(error) sendError(res, error.message, error.status);
+    else {
+      res.location(frontend_url + util.getHtmlPageUrl(req.params.gameId, docId));
+      sendSuccess(res, `Page ${pageId} updated`, 200);
+    }
+  }
+  catch(err: any) {
+    return sendError(res, `Error creating page, ${err}`, err.statusCode || (err.status ?? 500));
+  }
+});
 
 /**
  * POST. Creates a new game. Non-atomic operation; partial failure allows users to retry.
@@ -113,7 +209,7 @@ router.post(CompileConstants.API_GAMES_MATCH, needsPermissions("ServerManager"),
     //make _design/columns. Can put new one with different displayName in case top rejected previous attempt due to duplicate displayName
     const configDoc: T.ConfigDoc = {
       _id: CompileConstants.CONFIG_DOC_ID,
-      _rev: '', //set to undefined if creating new doc, overwritten otherwise
+      _rev: '', //I'll set to undefined if creating new doc, overwritten otherwise
       displayName: displayName,
       universalPropDefs: {},
       columnDefs: {},
@@ -155,7 +251,7 @@ router.post(CompileConstants.API_GAMES_MATCH, needsPermissions("ServerManager"),
 /**
  * PUT. Upload new configuration which defines a game's columns, their restrictions, the game's displayed name, etc.
  * Body contains configuration document.
- * TODO: check if game displayName has changed; if so, modify its entry in top/list via update func
+ * If game's displayName is changed, modifies top/game-list
  */
 router.put(CompileConstants.API_CONFIG_MATCH, needsPermissions("GameAdmin"), 
            async (req: Request<{gameId:string}>, res) => {
@@ -190,7 +286,7 @@ router.put(CompileConstants.API_CONFIG_MATCH, needsPermissions("GameAdmin"),
       return sendError(res, err, 400);
     }
 
-    // Check if displayName has changed, if so trim+validate it and update top/list TODO: test
+    // Check if displayName has changed, if so trim+validate it and update top/list 
     const newDisplayName = newConfigDoc.displayName.trim();
     newConfigDoc.displayName = newDisplayName;
     const existingConfigDoc = await db.get(CompileConstants.CONFIG_DOC_ID) as T.ConfigDoc;

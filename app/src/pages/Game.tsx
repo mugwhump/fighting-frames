@@ -14,18 +14,20 @@ import * as T from '../types/characterTypes';
 //import { cloneDeep } from 'lodash';
 import { insertDefsSortGroupsCompileRegexes   } from '../services/columnUtil';
 import { CharacterDocAccess } from '../components/CharacterDocAccess';
+import HeaderPage from '../components/HeaderPage';
+import CompileConstants from '../constants/CompileConstants';
+import NeedPermissions from '../components/NeedPermissions';
 import Character from './Character';
 import EditCharacter from './EditCharacter';
 import ChangeBrowser from './ChangeBrowser';
 import ChangeViewer from './ChangeViewer';
-import HeaderPage from '../components/HeaderPage';
 import DefEditor from './DefEditor';
 import AddCharacter from './AddCharacter';
 import DeleteCharacters from './DeleteCharacters';
 import AuthorizedUsers from './AuthorizedUsers';
-import CompileConstants from '../constants/CompileConstants';
-import NeedPermissions from '../components/NeedPermissions';
-import AuthorizedUserss from './AuthorizedUsers';
+import ManageHtmlPages from './ManageHtmlPages';
+import { EditHtmlPage, EditExistingHtmlPage } from './EditHtmlPage';
+import { HtmlPage } from './HtmlPage';
 
 type GameProps = {
 }
@@ -89,6 +91,7 @@ const Game: React.FC<GameProps> = () => {
               <IonButton size="large" routerLink={util.getAddCharacterUrl(gameId)}>Add Character</IonButton>
               <IonButton size="large" routerLink={util.getDeleteCharacterUrl(gameId)}>Delete Character</IonButton>
               <IonButton size="large" routerLink={util.getAuthorizedUsersUrl(gameId)}>Change Authorized Users</IonButton>
+              <IonButton size="large" routerLink={util.getManageHtmlPagesUrl(gameId)}>Manage Pages</IonButton>
             </NeedPermissions>
             </IonContent>
           </HeaderPage>
@@ -147,13 +150,28 @@ const Game: React.FC<GameProps> = () => {
           <AddCharacter gameId={gameId} />
         </Route>
 
-        {/* this should also let you change display names */}
         <Route path={CompileConstants.DELETE_CHARACTER_MATCH} >
           <DeleteCharacters gameId={gameId} />
         </Route>
 
         <Route path={CompileConstants.AUTHORIZED_USERS_MATCH} >
-          <div><AuthorizedUserss gameId={gameId} /></div>
+          <AuthorizedUsers gameId={gameId} />
+        </Route>
+
+        <Route path={CompileConstants.HTML_PAGE_MATCH} >
+          <HtmlPage />
+        </Route>
+
+        <Route path={CompileConstants.MANAGE_HTML_PAGES_MATCH} >
+          <ManageHtmlPages />
+        </Route>
+
+        <Route path={CompileConstants.ADD_HTML_PAGE_MATCH} >
+          <EditHtmlPage gameDisplayName={displayName ?? gameId} />
+        </Route>
+
+        <Route path={CompileConstants.EDIT_HTML_PAGE_MATCH} >
+          <EditExistingHtmlPage gameDisplayName={displayName ?? gameId} />
         </Route>
     </>
   );

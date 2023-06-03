@@ -67,6 +67,7 @@ export function useMyAlert(): ReturnType<typeof useIonAlert> {
 // Displays loading overlay while given promise chain executes; dismisses overlay when it concludes or navigate away from page.
 // Ex usage: loadingPromiseWrapper(makeApiCall(ble).then((res) => ble).catch((e) => ble), {message:"Doing API call...", duration:10000});
 // Or: loadingPromiseWrapper( (async function () { try { await ble } catch (e) { ble } })(), {message:"Doing API call...", duration:10000});
+//TODO: a dialogue prompt if user navigates before resolution? react-router's Prompt has no hook. Could try https://github.com/jacobbuck/react-beforeunload
 export function useLoadingPromise() {
   const [presentLoading, dismissLoading] = useIonLoading(); 
 
@@ -85,18 +86,6 @@ export function useLoadingPromise() {
 
   return [loadingPromiseWrapper, dismissLoading];
 }
-
-// Same as Ionic's, except this one dismisses when navigating away
-//function useMyLoading(): ReturnType<typeof useIonLoading> {
-  //const [presentLoading, dismissLoading] = useIonLoading();
-  //useEffect(() => {
-    //return () => {
-      //dismissLoading();
-    //}
-  //}, [dismissLoading]); 
-
-  //return [presentLoading, dismissLoading];
-//}
 
 
 // Fetch a single changeDoc like use-pouchdb's useDoc hook using the given title.
