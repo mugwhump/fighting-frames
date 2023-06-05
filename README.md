@@ -13,5 +13,7 @@ Ionic-react app for community-driven fighting game frame data
 git clone https://github.com/mugwhump/fighting-frames.git
 cd fighting-frames
 npm install
+chmod +x ./run-dev.sh
+./run-dev.sh
 ionic serve --browser chrome
 ```
