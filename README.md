@@ -14,7 +14,8 @@ This project requires docker and a linux environment. If you want to run it in a
 git clone https://github.com/mugwhump/fighting-frames.git
 cd fighting-frames
 npm install
-chmod +x ./run-dev.sh
+chmod +x ./run-dev.sh ./bootstrap-couchdb.sh
 ./run-dev.sh
+./bootstrap-couchdb.sh
 ionic serve --browser chrome
 ```
