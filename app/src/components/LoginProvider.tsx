@@ -160,16 +160,25 @@ export const InnerLoginProvider: React.FC<LoginProviderProps> = ({children, game
       myPouch.superlogin.checkExpired(); //deletes sess if expired
       let session = myPouch.superlogin.getSession();
       if(session && name === session.user_id) {
-        console.log("Found existing SL session");
+        const expiresInSeconds = (session.expires - Date.now()) / 1000.0;
+        console.log("Found existing SL session, expires in " + expiresInSeconds + " seconds. Refreshing.");
         myPouch.superlogin.refresh(); //make sure it matches our timer
       }
       else { //SYNCHRONOUSLY make new SL session
-        session = await myPouch.superlogin.login({username: name, password: password}).then((response) => {
-          return response;
-        }).catch((loginError) => {
+        console.log("Creating new SL session");
+        try {
+          session = await myPouch.superlogin.login({username: name, password: password});
+        } catch (loginError) {
           onFailure(loginError);
           throw loginError;
-        });
+        }
+        // Don't mix await with promises like this
+        //session = await myPouch.superlogin.login({username: name, password: password}).then((response) => {
+          //return response;
+        //}).catch((loginError) => {
+          //onFailure(loginError);
+          //throw loginError;
+        //});
       }
       onSuccess(session);
       return superloginCouchSession(session);

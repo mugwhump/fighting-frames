@@ -53,9 +53,9 @@ export const ManageHtmlPages = ({}: ManageHtmlPagesProps) => {
             </IonListHeader>
 
             {rows.map((row) => {
-              const pageId = util.getHtmlPageIdFromDocId(row.id);
+              const pageId = row.key;
               const title = row.value;
-              const isFrontPage = row.id === CompileConstants.GAME_FRONTPAGE_DOC_ID; 
+              const isFrontPage = pageId === CompileConstants.GAME_FRONTPAGE_PAGE_ID; 
 
               return (
                 <IonItem key={pageId} >

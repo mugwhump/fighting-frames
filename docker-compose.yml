@@ -19,7 +19,8 @@ services:
         networks: # helps API talk to couch
             - backend
         # TODO: the couch image does not normally check files in /run/secrets/couch_admin, it only checks env vars,
-        # must either set up admin and replicator manually, or write build file to add them to ini
+        # must either set up admin and replicator manually, or write build file to add them to ini.
+        # Orrr just use this to start, then change creds once it's running
         #environment: 
             #COUCHDB_USER: admin
             #COUCHDB_PASSWORD: password #specify this differently for committing
@@ -41,6 +42,7 @@ services:
         # image: private.registry.mine/my-stack/my-service:${MY_SERVICE_VERSION:-latest}
 
         # Build context, this will be the base path for dockerfile. Can specify both context and file itself w/ context: and dockerfile:
+        # TODO: for dev keep mounting code in volume. For prod, build code to the location where the dev-only volume is mounted.
         build: server/
         environment: # can also use a .env file
             COUCHDB_URL: 'couchdb:5984' #access with 'http://user:pass@couchdb:5984'
@@ -61,20 +63,6 @@ services:
             # Could try moving build context to parent dir and excluding app files from copy so symlinks work inside container.
             # For production, turn bind mind volumes into normal ones? External volumes for swarm deploy?
             # No, code changes are supposed to mean rebuilding and redeploying image, and mounts can't be accessed during builds.
-            #
-            # This is hacky, but monorepos are a PITA with CRA. 
-            # Keep in mind that some editors (like default vim) change file's inode when saving, causing host file to desync from mounted file.
-            #- ./app/src/constants/CompileConstants.ts:/usr/src/app/shared/constants/CompileConstants.ts:ro
-            #- ./app/src/constants/internalColumns.ts:/usr/src/app/shared/constants/internalColumns.ts:ro
-            #- ./app/src/constants/metaDefs.ts:/usr/src/app/shared/constants/metaDefs.ts:ro
-            #- ./app/src/services/columnUtil.ts:/usr/src/app/shared/services/columnUtil.ts:ro
-            #- ./app/src/services/merging.ts:/usr/src/app/shared/services/merging.ts:ro
-            #- ./app/src/services/util.ts:/usr/src/app/shared/services/util.ts:ro
-            #- ./app/src/types/characterTypes.ts:/usr/src/app/shared/types/characterTypes.ts:ro
-            #- ./app/src/types/utilTypes.ts:/usr/src/app/shared/types/utilTypes.ts:ro
-            #- type: bind #long form syntax
-              #source: ${PWD}/app/src/TEST.txt
-              #target: /usr/src/app/shared/constants/TEST.txt
         secrets:
             - couch_admin
             - couch_password
@@ -82,17 +70,15 @@ services:
             - couch_replicator_password
             - mail_from_address
             - mail_api_key
-    #shell access to server with something like docker-compose run --rm web-cli maybe
-    #web-cli:
-        #image: ff-server #part of same image as api
-        #networks:
-            #- backend
-        #command: sh # command to run on start, can be useful for setting up secrets in other containers
 
     # TODO: should have another service to serve the frontent? For scalability yes.
     # But if using node+express for both frontend and API might not be an issue...
     # Either way production frontend needs env vars for addresses of db and api... or... same domain?
     # Whatever I do probably needs to interface with traefik for letsencrypt?
+    # Should put couchdb AND discordbot behind reverse proxy too
+    # JUST DO IT: https://medium.com/intrinsic-blog/why-should-i-use-a-reverse-proxy-if-node-js-is-production-ready-5a079408b2ca
+    # But if nginx is my reverse proxy, do I need traefik??
+    # ALSO node itself will be the one doing server-side rendering
     #frontend:
 
 

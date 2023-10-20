@@ -38,7 +38,7 @@ export const EditHtmlPage = ({gameDisplayName, existingDoc}: EditHtmlPageProps) 
   const [title, setTitle] = useState<string>(existingDoc?.title ?? 'New Page');
   const [titleErr, setTitleErr] = useState<string | null>(null); 
 
-  const isFrontPage = existingDoc && existingDoc._id === CompileConstants.GAME_FRONTPAGE_DOC_ID; // TODO: make frontpage always exists, is never being added
+  const isFrontPage = pageId === CompileConstants.GAME_FRONTPAGE_PAGE_ID; // TODO: make frontpage always exists, is never being added
   const canUpdateId = !existingDoc;
   const canUpdateTitle = !isFrontPage;
   
@@ -156,13 +156,23 @@ export const EditHtmlPage = ({gameDisplayName, existingDoc}: EditHtmlPageProps) 
                 menubar: false,
                 plugins: [
                   'advlist', 'autolink', 'lists', 'link', 'image', 'charmap', 
-                  'anchor', 'visualblocks', 'fullscreen',
+                  'visualblocks', 'fullscreen',
                   'insertdatetime', 'media', 'table', 'code', 'help', 'wordcount'
                 ],
                 toolbar: 'undo redo | blocks | ' +
-                  'bold italic forecolor | alignleft aligncenter ' +
+                  'bold italic link | alignleft aligncenter ' +
                   'alignright alignjustify | bullist numlist outdent indent | ' +
-                  'removeformat | help',
+                  'table  tabledelete | tableinsertrowbefore tableinsertrowafter tabledeleterow | tableinsertcolbefore tableinsertcolafter tabledeletecol |' + 
+                  'removeformat ',
+                element_format: 'xhtml', //no unclosed tags
+                entity_encoding: 'raw', //only &"><' are encoded, not &nbsp;
+                link_title: false, //disallow custom link titles
+                link_target_list: false, //disallow custom link targets
+                link_assume_external_targets: true, //if no protocol, ask users if they want to prepend it to link off-site
+                table_appearance_options: false, //disallow setting cell spacing+padding and border width in table properties
+                table_advtab: false, //disallow advanced tab with style, border color, and background color
+                table_cell_advtab: false,table_row_advtab: false,
+                //table_toolbar: 'tableprops tabledelete | tableinsertrowbefore tableinsertrowafter tabledeleterow | tableinsertcolbefore tableinsertcolafter tabledeletecol',
                 //content_style: 'body { font-family:Helvetica,Arial,sans-serif; font-size:14px }'
               }}
             />

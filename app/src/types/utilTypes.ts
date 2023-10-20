@@ -34,10 +34,18 @@ export type ViewRowGeneric<Key, Value, Doc extends Object = Object> = {
   doc?: Doc;
 }
 
-// key is character ID, string is character displayName
+// key is character ID, value is character displayName
 export type ListCharactersViewRow = ViewRowGeneric<string, string, CharDocWithMeta>;
 
+// key is pageId, value is title
 export type ListPagesViewRow = ViewRowGeneric<string, string, HtmlPageDoc>;
+
+//  value is character displayName or page title
+export type ListCharactersAndPagesViewRow = ViewRowGeneric<ListCharactersAndPagesViewRowKey, string, HtmlPageDoc>;
+export type ListCharactersAndPagesViewRowKey = [
+  boolean, // true if is page
+  string // ID
+]
 
 export type ListChangesViewRow = ViewRowGeneric<ListChangesViewRowKey, ListChangesViewRowValue, ChangeDocWithMeta>;
 export type ListChangesViewRowKey = 

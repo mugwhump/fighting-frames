@@ -75,7 +75,7 @@ async function updatePage(req: TypedRequest<{gameId:string}, T.HtmlPageDoc>, _re
     const db = adminNano.use<T.HtmlPageDoc>(gameId);
 
     // set it to Front Page
-    if(docId === CompileConstants.GAME_FRONTPAGE_DOC_ID) {
+    if(pageId === CompileConstants.GAME_FRONTPAGE_PAGE_ID) {
       doc.title = "Front Page";
     }
     // validate title. But being non-unique is fine.
