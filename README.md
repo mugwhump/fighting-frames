@@ -9,9 +9,13 @@ Ionic-react app for community-driven fighting game frame data
 - Compile for Android, iOS, web, or PWA
 
 ## Building
+This project requires docker and a linux environment. If you want to run it in a windows environment, install Docker Desktop and Windows Subsystem for Linux 2 (Ubuntu).
 ```
 git clone https://github.com/mugwhump/fighting-frames.git
 cd fighting-frames
 npm install
+chmod +x ./run-dev.sh ./bootstrap-couchdb.sh
+./run-dev.sh
+./bootstrap-couchdb.sh
 ionic serve --browser chrome
 ```
