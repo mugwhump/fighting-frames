@@ -4,7 +4,6 @@ import { useParams } from 'react-router';
 import './Page.css';
 import PouchDB from 'pouchdb';
 import * as myPouch from '../services/pouch';
-import * as Update from 'pouchdb-update';
 import * as E from '../constants/exampleData';
 import { reduceChanges, resolveMoveOrder, rebaseChangeDoc, mergeChangeDocs, getMergeConflicts, getRebaseConflicts, applyResolutions, autoResolveConflicts } from '../services/merging';
 import { remote, getDB, pullDB, pushDB, remoteWithBasicCreds } from '../services/pouch';
