@@ -103,8 +103,10 @@ const MoveOrUniversalProps: React.FC<MoveProps> = ({moveName, indentLevel=0, col
       </IonCol>
     );
   }
+  // Need uprops edit text because if all columns are dontRenderEmpty there's nothing to click on
   return(
       <IonRow class="ion-justify-content-center" onClick={startEditing} key={moveName} className={moveNameClassString}>
+        {(editMove && !isMove) && <IonItem>Click here to edit Universal Properties</IonItem>}
         {allGroups}
       </IonRow>
   )
