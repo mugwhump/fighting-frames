@@ -9,19 +9,32 @@ import type { ApiResponse, HttpMethod } from '../types/utilTypes'; //=}
 import * as security from './security';
 import CompileConstants from '../constants/CompileConstants';
 
-// also currently have admin:password
-export const remoteWithBasicCreds: string = `http://${CompileConstants.DEFAULT_CREDENTIALS.username}:${CompileConstants.DEFAULT_CREDENTIALS.password}@localhost:5984/`;
-export const remoteWithTestAdminCreds: string = 'http://admin:password@localhost:5984/';
+const protocol = (process.env.NODE_ENV === 'development') ? 'http' : 'https';
+console.log("NODE_ENV is " + process.env.NODE_ENV );
+const couch_host = process.env.REACT_APP_COUCH_HOST!;
+const api_host = process.env.REACT_APP_API_HOST!;
+
+//export const remoteWithBasicCreds: string = `http://${CompileConstants.DEFAULT_CREDENTIALS.username}:${CompileConstants.DEFAULT_CREDENTIALS.password}@localhost:5984/`;
+export const remoteWithBasicCreds: string = `${protocol}://${CompileConstants.DEFAULT_CREDENTIALS.username}:${CompileConstants.DEFAULT_CREDENTIALS.password}@${couch_host}/`;
+
+// also have admin:password for local dev
+//export const remoteWithTestAdminCreds: string = 'http://admin:password@localhost:5984/';
+export const remoteWithTestAdminCreds: string = `${protocol}://admin:password@${couch_host}/`;
+
 //TODO: turn all of these into environment variables, they need to change in production.
-export const remote: string = 'http://localhost:5984/';
-export const apiUrl: string = 'http://localhost:3000/api/v1';
+//export const remote: string = `http://localhost:5984/`;
+export const remote: string = `${protocol}://${couch_host}/`;
+//export const apiUrl: string = 'http://localhost:3000/api/v1';
+export const apiUrl: string = `${protocol}://${api_host}/api/v1`;
 PouchDB.plugin(PouchAuth);
 
 
 superlogin.configure({
-  serverUrl: 'http://localhost:3000',
+  //serverUrl: 'http://localhost:3000',
+  serverUrl: `${protocol}://${api_host}`,
   baseUrl: '/auth',
-  endpoints: ['localhost:3000'], //http interceptor adds bearer auth headers to any requests to these hosts. (Only couchAuth uses bearer auth)
+  //endpoints: ['localhost:3000'], 
+  endpoints: [api_host], //http interceptor adds bearer auth headers to any requests to these hosts. (Only couchAuth uses bearer auth)
   noDefaultEndpoint: true, //don't add url bar to list
 });
 export {superlogin};
