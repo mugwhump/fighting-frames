@@ -1,8 +1,8 @@
 # traefik configuration file
-providers:
-  docker:
+#providers:
+  #docker:
     # swarm classic (1.12-)
     # endpoint: "tcp://127.0.0.1:2375"
     # docker swarm mode (1.12+)
-    endpoint: "tcp://127.0.0.1:2377"
-    swarmMode: true #not sure what this does when run via docker compose up
+    #endpoint: "tcp://127.0.0.1:2377"
+    #swarmMode: true #not sure what this does when run via docker compose up

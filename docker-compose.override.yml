@@ -1,8 +1,63 @@
 # overrides for dev, applied when running docker-compose up.
-#
+
+name: ff-dev
+
 services:
     couchdb:
+        volumes: #main storage volume inherited from prod compose
+            # host volume/bind mounts to map couchdb's config and logging to local directories
+            # couch docker image creates docker.ini in local.d folder
+            - ~/ff/couchmounts/config:/opt/couchdb/etc/local.d
+            # must enable logging in config
+            - ~/ff/couchmounts/logs:/opt/couchdb/log
         environment:
-            #this approach is only used locally since env vars are visible in docker repo image
             COUCHDB_USER: admin
             COUCHDB_PASSWORD: password 
+        labels:
+        - "traefik.http.routers.couchdb.rule=Host(`couchdb.docker.localhost`)"
+
+    mailhog: # on dev, couchauth+nodemailer registration emails caught by mailhog. View them at http://localhost:8025/#
+        image: mailhog/mailhog
+        ports:
+            - 1025:1025 # smtp server
+            - 8025:8025 # web ui
+        networks:
+            - backend
+        logging:
+            driver: 'none'  # disable saving logs, mailhog's way too chatty
+        environment:
+            MH_STORAGE: maildir
+            MH_MAILDIR_PATH: /home/mailhog
+        volumes:
+            - mail_storage:/home/mailhog
+
+    api:
+        command: [ "npm", "run", "dev" ]
+        environment:
+            NODE_ENV: development
+            FRONTEND_URL: 'http://localhost:8100'
+        depends_on:
+            - mailhog
+        secrets: #need this so the override secrets are used instead of parent secrets
+            - couch_password
+            - couch_replicator_password
+        #labels:
+        #- "traefik.http.routers.api.rule=Host(`api.docker.localhost`)"
+
+    reverse-proxy:
+        command: 
+            - --log.level=DEBUG
+            - --api.insecure=true # web ui when not in prod
+        ports:
+        # The Web UI (enabled by --api.insecure=true)
+        - "8080:8080"
+
+
+volumes:
+    mail_storage:
+
+secrets: # users are shared, passwords are different. 
+    couch_password:
+        file: ./secrets/couch_password_dev.txt
+    couch_replicator_password:
+        file: ./secrets/couch_replicator_password_dev.txt

@@ -1,0 +1,6 @@
+# Cloudflare pages uses this to set headers for frontend app
+# see https://developers.cloudflare.com/pages/configuration/headers/
+
+# enable any origin to request any asset from my Pages deployment
+/*
+  Access-Control-Allow-Origin: *
