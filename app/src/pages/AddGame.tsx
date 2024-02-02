@@ -1,6 +1,7 @@
 import React, { useEffect, useState } from 'react';
-import { useIonAlert, useIonLoading, IonContent, IonFooter, IonToolbar, IonRow, IonList, IonItem, IonLabel, IonNote, IonInput, IonButton } from '@ionic/react';
+import { useIonAlert, useIonLoading, IonContent, IonIcon, IonFooter, IonToolbar, IonRow, IonList, IonItem, IonLabel, IonNote, IonInput, IonButton } from '@ionic/react';
 import { useHistory } from 'react-router';
+import { warningOutline, warningSharp } from 'ionicons/icons';
 import HeaderPage from '../components/HeaderPage';
 import NeedPermissions from '../components/NeedPermissions';
 import * as myPouch from '../services/pouch';
@@ -65,7 +66,9 @@ const AddGame: React.FC<{}> = () => {
   return (
     <HeaderPage title={"Add new game"}>
       <IonContent fullscreen>
-        <NeedPermissions permissions={"ServerManager"}>
+
+        <NeedPermissions permissions={"ServerManager"} ifYes={(
+
           <IonList onKeyPress={(event: any) => {if(canSubmit && event.key === "Enter") submit()}}>
 
             <IonItem counter={true} className={gameIdErr && gameId ? 'ion-invalid' : '' }>
@@ -92,8 +95,15 @@ const AddGame: React.FC<{}> = () => {
             }
 
           </IonList>
-        </NeedPermissions>
+
+        )} ifNo={(
+
+          <IonItem color="danger"><IonIcon slot="start" ios={warningOutline} md={warningSharp} /><span>You do not have permission to access this page</span></IonItem>
+          
+        )} />
+
       </IonContent>
+
       <IonFooter>
         <IonToolbar>
           <IonRow class="ion-justify-content-center">
