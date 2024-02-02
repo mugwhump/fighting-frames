@@ -34,6 +34,7 @@ services:
             - couch_replicator_user
             - couch_replicator_password
             - mail_from_address
+            - mail_user
             - mail_api_key
 
 
@@ -63,10 +64,13 @@ secrets: # available in containers in /run/secrets/<secret_name>. Long notation 
         file: ./secrets/couch_replicator_password.txt
     mail_from_address:
         name: mail_from_address
-        file: ./secrets/mail_from_address_test.txt
+        file: ./secrets/mail_from_address.txt
+    mail_user:
+        name: mail_user
+        file: ./secrets/mail_user.txt
     mail_api_key:
         name: mail_api_key
-        file: ./secrets/mail_api_key_test.txt
+        file: ./secrets/mail_api_key.txt
     traefik-dashboard-user:
         name: traefik-dashboard-user
         file: ./secrets/traefik-dashboard-user.txt

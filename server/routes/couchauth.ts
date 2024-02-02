@@ -6,6 +6,7 @@ const admin = secrets.couch_admin;
 const adminPassword = secrets.couch_password;
 const couch_replicator_user = secrets.couch_replicator_user;
 const mailFrom = secrets.mail_from_address;
+const mailUser = secrets.mail_user;
 const mailApiKey = secrets.mail_api_key;
 
 const useMailHog = (process.env.NODE_ENV !== 'production');
@@ -30,13 +31,12 @@ const config: Config = {
         port: 1025,
       }
       :
-      // Can't activate my SendinBlue SMTP account until I can submit ticket w/ my website, skip for now
-      // Actually forget SendinBlue, use Brevo, can verify just by adding DNS record
       {
-        service: 'SendinBlue',
+        host: "smtp-relay.brevo.com",
+        port: 587,
+        secure: false, // true for 465, false for other ports
         auth: {
-          //apiKey: mailApiKey // I'm using SMTP, not the SendinBlue api
-          user: mailFrom,
+          user: mailUser,
           pass: mailApiKey
         }
       }
