@@ -4,7 +4,7 @@ function (newDoc, oldDoc, userCtx, secObj) {
     userId = userCtx.roles[0].substring(5);
   }
   //log("Happy logging!" + JSON.stringify(secObj)); //set log level to info to see this
-  const isServerAdmin = userCtx.roles.indexOf('_admin') !== -1; //includes replicator-guy
+  const isServerAdmin = userCtx.roles.indexOf('_admin') !== -1; //includes replicator user
   const isReplication = userId === "replication-fella";
   const isGameAdmin = userCtx.roles.indexOf(userCtx.db+'-admin') !== -1 || (secObj.admins.names && secObj.admins.names.includes(userId));
   const isGameWriter = userCtx.roles.indexOf(userCtx.db+'-write') !== -1 || (secObj.members.names && secObj.members.names.includes(userId)); //put public in member list to make anyone a writer
