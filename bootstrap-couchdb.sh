@@ -36,5 +36,5 @@ fi
 # Execute the command
 couchdb-bootstrap ${PROTOCOL}://${ADMIN}:${PASSWORD}@${HOST} couchdb/
 
-# for initial run, remember to run couchdb's setup, enable CORS, and create replication admin
+# for initial run, remember to run couchdb's setup, enable CORS, create replication admin, and make empty top/game-list
 
