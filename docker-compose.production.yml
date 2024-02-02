@@ -1,0 +1,105 @@
+
+name: ff-prod
+
+
+services:
+    couchdb:
+        # the couch image does not check files in /run/secrets/couch_admin, it only checks env vars,
+        #environment: easiest to specify these here during creation
+            #COUCHDB_USER: [whatever admin]
+            #COUCHDB_PASSWORD: [whatever password]
+        labels:
+            - "traefik.enable=true" #reachable by outside
+            # Here we have to define the URL
+            - "traefik.http.routers.couchdb.rule=Host(`dedede.fightingframes.com`)"
+            - "traefik.http.routers.couchdb.entrypoints=websecure"
+            - "traefik.http.services.couchdb.loadbalancer.server.port=5984"
+
+    api:
+        command: [ "npm", "run", "start" ]
+        environment:
+            NODE_ENV: production
+            FRONTEND_URL: 'https://fightingframes.com'
+        volumes:
+            - nodelogs:/usr/src/app/log
+        labels:
+            - "traefik.enable=true"
+            # Here we have to define the URL
+            - "traefik.http.routers.api.rule=Host(`oatmeal.fightingframes.com`)"
+            - "traefik.http.routers.api.entrypoints=websecure"
+            - "traefik.http.services.api.loadbalancer.server.port=3000"
+    # purely to fix perms on node log volume
+    fix-named-volumes-permissions:
+        # the image doesn't matter; easiest to use the same as the target docker service
+        image: ff-server
+        user: root
+        command: chown node:node /usr/src/app/log
+        volumes:
+            - nodelogs:/usr/src/app/log
+
+    # SPA served in production by CF pages. Needs ENV vars for backend urls.
+    # DB, API, and Discordbot behind traefik, which does SSL
+
+    # reverse proxy, letsencrypt. 
+    reverse-proxy:
+        # The official v2 Traefik docker image
+        image: traefik:v2.10
+        command: 
+            - --providers.docker=true
+            - --log.level=INFO
+            - --accesslog=true
+            #- --api.insecure=true # if testing
+            - --api.dashboard=true
+            - --providers.docker.network=frontend
+            - --providers.docker.exposedByDefault=false
+            - --entrypoints.web.address=:80 # I uhink letsencrypt uses 80
+            - --entrypoints.web.http.redirections.entrypoint.to=websecure
+            - --entryPoints.web.http.redirections.entrypoint.scheme=https
+            - --entrypoints.websecure.address=:443
+            #- --entrypoints.websecure.asDefault=true # only for traefik v3
+            - --entrypoints.websecure.http.tls.certresolver=myresolver
+            - --certificatesresolvers.myresolver.acme.email=grayson.bartlet@shaw.ca # TODO: can't use a secret here, would need to be an env value
+            - --certificatesresolvers.myresolver.acme.tlschallenge=true
+            - --certificatesresolvers.myresolver.acme.storage=/letsencrypt/acme.json
+        labels:
+            - traefik.enable=true
+            - traefik.http.routers.mydashboard.rule=Host(`dashboard.fightingframes.com`)
+            - traefik.http.routers.mydashboard.service=api@internal
+            - traefik.http.routers.mydashboard.middlewares=myauth
+            # generate with echo $(htpasswd -nB user) | sed -e s/\\$/\\$\\$/g
+            - traefik.http.middlewares.myauth.basicauth.usersfile=/run/secrets/traefik-dashboard-user 
+        ports:
+        # The HTTP port. Nothing else has exposed ports, go through traefik's entrypoints.
+            - "80:80"
+            - "443:443"
+        networks: 
+            - frontend
+        volumes:
+            # So that Traefik can listen to the Docker events
+            - /var/run/docker.sock:/var/run/docker.sock
+            - letsencrypt:/letsencrypt
+        secrets:
+            - traefik-dashboard-user
+
+    whoami:
+        # A container that exposes an API to show its IP address
+        image: traefik/whoami
+        networks: 
+            - frontend
+        command:
+            - --port=6969
+        labels:
+            # This is enableing treafik to proxy this service
+            - "traefik.enable=true"
+            # Here we have to define the URL
+            - "traefik.http.routers.whoami.rule=Host(`whoami.fightingframes.com`)"
+            # Here we are defining wich entrypoint should be used by clients to access this service
+            - traefik.http.routers.whoami.entrypoints=websecure 
+            # Here we define in wich network treafik can find this service
+            #- "traefik.docker.network=frontend"
+            # This is the port that traefik should proxy 
+            - "traefik.http.services.whoami.loadbalancer.server.port=6969"
+
+volumes:
+    nodelogs: # api data that needs to persist. In dev whole app/ dir is bind mounted.
+    letsencrypt:

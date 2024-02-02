@@ -1,20 +1,42 @@
 # overrides for dev, applied when running docker-compose up.
+# traefik still runs in dev, the services just have their ports exposed and bypass it
+# TODO: restructure compose files so the reverse proxy/traefik stuff doesn't run in dev env
 
 name: ff-dev
 
 services:
     couchdb:
-        volumes: #main storage volume inherited from prod compose
-            # host volume/bind mounts to map couchdb's config and logging to local directories
-            # couch docker image creates docker.ini in local.d folder
-            - ~/ff/couchmounts/config:/opt/couchdb/etc/local.d
-            # must enable logging in config
-            - ~/ff/couchmounts/logs:/opt/couchdb/log
+        ports:
+            - 5984:5984
         environment:
             COUCHDB_USER: admin
             COUCHDB_PASSWORD: password 
-        labels:
-        - "traefik.http.routers.couchdb.rule=Host(`couchdb.docker.localhost`)"
+            
+    api:
+        command: [ "npm", "run", "dev" ]
+        ports:
+            - 3000:3000
+        environment:
+            NODE_ENV: development
+            FRONTEND_URL: 'http://localhost:8100'
+        volumes:
+            # TODO: docker now supports watch syntax to copy over local files when changed or rebuild, supports ignores. Similar functionality to bind mounts. Looks cool.
+            # --would be smart enough to recognize that a rebuild is needed when package.json changes, for example.
+            - ./server:/usr/src/app #completely replaces whatever the image has in /usr/src/app
+            # It's more than slightly insane to use symlinks in WSL, mounts inside container, and file copying for built image...
+            # Could try moving build context to parent dir and excluding app files from copy so symlinks work inside container.
+            # For production, code is copied into image during build.
+        depends_on:
+            - mailhog
+        secrets: #need this so the override secrets are used instead of parent secrets
+            - couch_password
+            - couch_replicator_password
+        #labels:
+        #- "traefik.http.routers.api.rule=Host(`api.docker.localhost`)"
+
+    ##ionic:
+        ##build: app/
+        ## not sure if need volumes, but what ports in container to map?
 
     mailhog: # on dev, couchauth+nodemailer registration emails caught by mailhog. View them at http://localhost:8025/#
         image: mailhog/mailhog
@@ -30,27 +52,6 @@ services:
             MH_MAILDIR_PATH: /home/mailhog
         volumes:
             - mail_storage:/home/mailhog
-
-    api:
-        command: [ "npm", "run", "dev" ]
-        environment:
-            NODE_ENV: development
-            FRONTEND_URL: 'http://localhost:8100'
-        depends_on:
-            - mailhog
-        secrets: #need this so the override secrets are used instead of parent secrets
-            - couch_password
-            - couch_replicator_password
-        #labels:
-        #- "traefik.http.routers.api.rule=Host(`api.docker.localhost`)"
-
-    reverse-proxy:
-        command: 
-            - --log.level=DEBUG
-            - --api.insecure=true # web ui when not in prod
-        ports:
-        # The Web UI (enabled by --api.insecure=true)
-        - "8080:8080"
 
 
 volumes:

@@ -1,75 +1,33 @@
 version: "3.7" # Compose version. 3.7 is for docker engine 18.06.0+. 
 
-# Compose file for production. dev environment overrides go in docker-dompose.override.yml
-# TODO: might be better to have this be dev file and use overrides for production and staging?
+# Compose file. dev environment overrides go in docker-dompose.override.yml, prod overrides in docker-compose.prod.yml
 
-name: ff-prod
+#name: ff-prod
 
 services:
     couchdb:
         image: apache/couchdb:3
-        volumes:
+        volumes: #same in dev and prod
             # this is a named volume for database storage
             - couchdata:/opt/couchdb/data
-        ports:
-            - 5984:5984
-        networks: # helps API talk to couch
-            - backend
-        # TODO: the couch image does not normally check files in /run/secrets/couch_admin, it only checks env vars,
-        # must either set up admin and replicator manually, or write build file to add them to ini.
-        # Orrr just use this to start, then change creds once it's running, then commit to VC. API still needs password secrets to match.
-        # Also remember to create replicator user after setup
-        environment: 
-            COUCHDB_USER: admin
-            COUCHDB_PASSWORD: foofoogochoochoo #specify this differently for committing
-        #secrets: 
-            #- couch_admin
-            #- couch_password
-            #- couch_replicator_user
-            #- couch_replicator_password
-        labels:
-            - "traefik.enable=true"
-            # Here we have to define the URL
-            - "traefik.http.routers.couchdb.rule=Host(`oatmeal.fightingframes.com`)"
-            - "traefik.http.routers.couchdb.entrypoints=frontend"
-            - "traefik.docker.network=frontend"
+            # host volume/bind mounts to map couchdb's config and logging to local directories
+            # couch docker image creates docker.ini in local.d folder
+            - ~/ff/couchmounts/config:/opt/couchdb/etc/local.d
+            # must enable logging in config
+            - ~/ff/couchmounts/logs:/opt/couchdb/log
+        networks: # exposes to outside and lets API talk to couch
+            - frontend
 
-    #ionic:
-        #build: app/
-        # not sure if need volumes, but what ports in container to map?
     api:
         image: ff-server
-        # To build for prod, use export MY_SERVICE_VERSION=1.2.3, then docker-compose -f docker-compose.yml build,
-        # then push. Could launch in prod (or staging) by exporting right vars, then using
-        # docker stack deploy my-stack --compose-file docker-compose.yml --with-registry-auth
-        # ^^^ for swarm mode
-        # image: private.registry.mine/my-stack/my-service:${MY_SERVICE_VERSION:-latest}
-
         # Build context, this will be the base path for dockerfile. Can specify both context and file itself w/ context: and dockerfile:
-        # TODO: for dev keep mounting code in volume. For prod, build code to the location where the dev-only volume is mounted.
         build: server/
-        command: [ "npm", "run", "start" ]
         environment: # can also use a .env file
-            NODE_ENV: production
             COUCHDB_URL: 'couchdb:5984' #access with 'http://user:pass@couchdb:5984'
-            FRONTEND_URL: 'https://fightingframes.com'
         depends_on:
             - couchdb #specifies that couchdb spins up first
-        links:
-            - couchdb
         networks:
-            - backend
             - frontend
-        ports:
-            - "3000:3000"
-        volumes:
-            # TODO: docker now supports watch syntax to copy over local files when changed or rebuild, supports ignores. Similar functionality to bind mounts. Looks cool.
-            # --would be smart enough to recognize that a rebuild is needed when package.json changes, for example.
-            - ./server:/usr/src/app #completely replaces whatever the image has in /usr/src/app
-            # It's more than slightly insane to use symlinks in WSL, mounts inside container, and file copying for built image...
-            # Could try moving build context to parent dir and excluding app files from copy so symlinks work inside container.
-            # For production, turn bind mind volumes into normal ones? External volumes for swarm deploy?
-            # No, code changes are supposed to mean rebuilding and redeploying image, and mounts can't be accessed during builds.
         secrets:
             - couch_admin
             - couch_password
@@ -77,72 +35,22 @@ services:
             - couch_replicator_password
             - mail_from_address
             - mail_api_key
-        labels:
-            - "traefik.enable=true"
-            # Here we have to define the URL
-            - "traefik.http.routers.api.rule=Host(`api.ff.local`)"
-            - "traefik.http.routers.api.entrypoints=frontend"
-            - "traefik.docker.network=frontend"
 
-    # SPA served in production by CF pages. Needs ENV vars for backend urls.
-    # DB, API, and Discordbot behind traefik, which does SSL
-
-
-    # reverse proxy, letsencrypt. Dashboard at http://localhost:8080/dashboard#/
-    # TODO: for prod, put dashboard behind IP whitelist, not exposed on public network or default port
-    reverse-proxy:
-        # The official v2 Traefik docker image
-        image: traefik:v2.10
-        # tells Traefik to listen to docker
-        command: 
-            - --providers.docker=true
-            - --api.insecure=true # TODO: baleet, just testing
-            - "--entrypoints.frontend.address=:80" # not sure this is needed when ports are specified
-        ports:
-        # The HTTP port
-        - "80:80"
-        # The Web UI (enabled by --api.insecure=true) TODO: baleet, testing
-        - "8080:8080"
-        networks: # Needed??
-            - backend
-            - frontend
-        volumes:
-        # So that Traefik can listen to the Docker events
-        - /var/run/docker.sock:/var/run/docker.sock
-    whoami:
-        # A container that exposes an API to show its IP address
-        image: traefik/whoami
-        networks: # Needed??
-            - frontend
-        ports:
-            - 6969:6969
-        labels:
-            # This is enableing treafik to proxy this service
-            - "traefik.enable=true"
-            # Here we have to define the URL
-            - "traefik.http.routers.whoami.rule=Host(`oatmeal.fightingframes.com`)"
-            # Here we are defining wich entrypoint should be used by clients to access this service
-            - "traefik.http.routers.whoami.entrypoints=frontend"
-            # Here we define in wich network treafik can find this service
-            - "traefik.docker.network=frontend"
-            # This is the port that traefik should proxy
-            #- "traefik.http.services.myproject.loadbalancer.server.port=80"
-            #- "traefik.http.routers.whoami.rule=Host(`whoami.docker.localhost`)"
 
 volumes:
     couchdata:
 
 networks:
-    backend: # TODO: with traefik make sure this is what I think. 
+    backend: # TODO: with traefik I currently only need frontend in prod. In dev, mailhog's here.
         driver: bridge
-    frontend:
-        #external: true #actually this just tells docker it already exists
+    frontend: 
+        name: frontend
 
 # Secrets outside of swarm aren't shared over remote context since compose secrets just use a bind mount, must be on remote machine
-secrets: # available in containers in /run/secrets/<project_name>_<secret_name>. Long notation can set file perms.
+secrets: # available in containers in /run/secrets/<secret_name>. Long notation can set file perms.
     # use explicit name for consistency between dev/stage/prod
     couch_admin:
-        name: couch_admin
+        name: couch_admin # if not named, I think secret file will be <project_name>_<secret_name>
         file: ./secrets/couch_admin.txt
     couch_password:
         name: couch_password
@@ -159,6 +67,9 @@ secrets: # available in containers in /run/secrets/<project_name>_<secret_name>.
     mail_api_key:
         name: mail_api_key
         file: ./secrets/mail_api_key_test.txt
+    traefik-dashboard-user:
+        name: traefik-dashboard-user
+        file: ./secrets/traefik-dashboard-user.txt
     #mail_from_address_test:
         #file: ./secrets/mail_from_address_test.txt
     #mail_api_key_test:

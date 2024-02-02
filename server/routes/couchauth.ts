@@ -1,21 +1,16 @@
-//var express = require('express');
-//var router = express.Router();
-//const SuperLogin = require('@sensu/superlogin');
 import { CouchAuth } from '@perfood/couch-auth';
 import { Config } from '@perfood/couch-auth/lib/types/config';
 import { secrets } from "docker-secret";
+import logger from '../util/logger';
 const admin = secrets.couch_admin;
 const adminPassword = secrets.couch_password;
+const couch_replicator_user = secrets.couch_replicator_user;
 const mailFrom = secrets.mail_from_address;
 const mailApiKey = secrets.mail_api_key;
 
-/* GET home page. */
-//router.get('/', function(req, res, next) {
-  ////res.render('index', { title: 'Express' });
-  //res.send('Welcome to superlogin, COUCHDB_URL = '+process.env.COUCHDB_URL+', secrets = '+admin+', '+adminPassword);
-//});
+const useMailHog = (process.env.NODE_ENV !== 'production');
 
-// see https://github.com/colinskow/superlogin/blob/master/config.example.js for all options and their default values
+// see https://github.com/perfood/couch-auth/blob/master/src/config/default.config.ts for all options and their default values
 const config: Config = {
   dbServer: {
     protocol: 'http://',
@@ -28,26 +23,33 @@ const config: Config = {
   },
   mailer: {
     fromEmail: mailFrom,
-    // ethereal test mail
-    options: {
-      host: "smtp.ethereal.email",
-      port: 587,
-      secure: false, // true for 465, false for other ports
-      auth: {
-        user: mailFrom, 
-        pass: mailApiKey, //TODO: couch-auth's register route doesn't catch error from calling sendEmail() from insertNewUserDocument() in user.ts, hangs server
+    // in development, catch mails w/ mailhog.
+    options: useMailHog ? 
+      {
+        host: "mailhog",
+        port: 1025,
       }
-    },
-    // Can't activate my SendinBlue SMTP account until I can submit ticket w/ my website, skip for now
-    /*options: {
-      service: 'SendinBlue',
-      auth: {
-        //apiKey: mailApiKey // I'm using SMTP, not the SendinBlue api
-        user: mailFrom,
-        pass: mailApiKey
+      :
+      // Can't activate my SendinBlue SMTP account until I can submit ticket w/ my website, skip for now
+      // Actually forget SendinBlue, use Brevo, can verify just by adding DNS record
+      {
+        service: 'SendinBlue',
+        auth: {
+          //apiKey: mailApiKey // I'm using SMTP, not the SendinBlue api
+          user: mailFrom,
+          pass: mailApiKey
+        }
       }
-    }
-    */
+      /* { //ethereal sux
+        host: "smtp.ethereal.email",
+        port: 587,
+        secure: false, // true for 465, false for other ports
+        auth: {
+          user: mailFrom, 
+          pass: mailApiKey, //TODO: couch-auth's register route doesn't catch error from calling sendEmail() from insertNewUserDocument() in user.ts, hangs server
+        }
+      } ,
+      */
   },
   // Personal per-user DBs. 
   //userDBs: {
@@ -85,7 +87,7 @@ const config: Config = {
     validate: {
       username: { //by default couch-auth trims username, forbids starting underscore, and must match /^[a-z0-9_-]{3,16}$/
         exclusion: {
-          within: ['public', 'password', 'admin', '_admin', 'replicator-guy'],
+          within: ['public', 'password', '_admin', 'replicator', admin, couch_replicator_user],
           message: "^Cannot use that username"
         }
       }
@@ -97,6 +99,25 @@ const config: Config = {
     debugEmail: true //logs outgoing emails to console
   }
 };
+
+
+//if (useEtherealMail){
+  //createTestAccount((err, account) => {
+    //if(err) logger.error("Failed to create ethereal test account: " + err.message);
+    //else {
+      //config.mailer!.options =
+      //{
+        //host: "smtp.ethereal.email",
+        //port: 587,
+        //secure: false, // true for 465, false for other ports
+        //auth: {
+          //user: account.user, 
+          //pass: account.pass, 
+        //}
+      //}
+    //}
+  //});
+//}
 
 const couchAuth = new CouchAuth(config);
 

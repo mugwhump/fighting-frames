@@ -1,12 +1,12 @@
-#Ignoring all source code besides dist directory. Not sure if I want to do compilation inside the image or on dev machine...
-routes
-util
-server.ts
-tsconfig.json
+# All compilation and building is done inside docker container, for dev or prod. So DO include source code.
+#routes
+#util
+#server.ts
+#tsconfig.json
+#shared
+
 node_modules
 log
 npm-debug.log
 .git
 .gitignore
-# shared files not included...?
-shared
