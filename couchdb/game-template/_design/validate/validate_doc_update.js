@@ -5,7 +5,6 @@ function (newDoc, oldDoc, userCtx, secObj) {
   }
   //log("Happy logging!" + JSON.stringify(secObj)); //set log level to info to see this
   const isServerAdmin = userCtx.roles.indexOf('_admin') !== -1; //includes replicator user
-  const isReplication = userId === "replication-fella";
   const isGameAdmin = userCtx.roles.indexOf(userCtx.db+'-admin') !== -1 || (secObj.admins.names && secObj.admins.names.includes(userId));
   const isGameWriter = userCtx.roles.indexOf(userCtx.db+'-write') !== -1 || (secObj.members.names && secObj.members.names.includes(userId)); //put public in member list to make anyone a writer
   const regex = new RegExp('character/[\\w\\-~]+/changes/[\\w\\-.~]{3,25}$');
@@ -36,7 +35,6 @@ function (newDoc, oldDoc, userCtx, secObj) {
     // but nobody can edit or delete changedocs. Could potentially write API to modify metadata or allow deletion of non-published ones
 
     // Replications ignore these checks
-    //if(!isReplication) {
     if(!isServerAdmin) { // Let server admin ignore for testing purposes
       if(oldDoc && !isServerAdmin) {
         throw({
