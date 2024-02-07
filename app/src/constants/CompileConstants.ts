@@ -29,7 +29,7 @@ export let CompileConstants = {
   MANAGE_HTML_PAGES_MATCH: "/game/:gameId/manage-pages",
   EDIT_HTML_PAGE_MATCH: "/game/:gameId/pages/:pageId/edit",
   HTML_PAGE_MATCH: "/game/:gameId/pages/:pageId", //TODO: component (w pageId prop for previewiing and frontpage)
-  HOME_PATH: "/page/Inbox",
+  HOME_PATH: "/page/home",
   CONFIRMATION_PATH: "/page/confirmed", //TODO: make an env var so couch-auth can use it... although frontend currently isn't dockerized
   ADD_GAME_PATH: "/page/add-game",
 
