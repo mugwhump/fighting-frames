@@ -1,5 +1,5 @@
 import { MenuContainer } from './components/Menu';
-import Page from './pages/Page';
+import Home from './pages/Home';
 import Test from './pages/Test';
 import { GameProvider } from './components/GameProvider';
 import Game from './pages/Game';
@@ -67,7 +67,7 @@ const App: React.FC = () => {
                   <Route path={CompileConstants.ADD_GAME_PATH} exact >
                     <AddGame />
                   </Route>
-                  <Route path="/page/Inbox" component={Page} exact />
+                  <Route path={CompileConstants.HOME_PATH} component={Home} exact />
                   {/*<Route path="/game/:gameId" render={({match}) => etc etc to use the match here */}
                   <Redirect from="/" to={{pathname: CompileConstants.HOME_PATH, state: {from: '/'}}} exact />
                 </Switch>
