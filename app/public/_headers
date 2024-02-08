@@ -2,5 +2,5 @@
 # see https://developers.cloudflare.com/pages/configuration/headers/
 
 # enable any origin to request any asset from my Pages deployment
-/*
-  Access-Control-Allow-Origin: *
+# /*
+#  Access-Control-Allow-Origin: *
