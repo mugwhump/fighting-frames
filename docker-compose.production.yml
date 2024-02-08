@@ -28,6 +28,8 @@ services:
             - "traefik.http.routers.api.rule=Host(`oatmeal.fightingframes.com`)"
             - "traefik.http.routers.api.entrypoints=websecure"
             - "traefik.http.services.api.loadbalancer.server.port=3000"
+            # set CORS (couchdb has its own setting for CORS headers)
+            - "traefik.http.middlewares.mycors.headers.accesscontrolalloworiginlist=https://fightingframes.com,https://dedede.fightingframes.com"
     # purely to fix perms on node log volume
     fix-named-volumes-permissions:
         # the image doesn't matter; easiest to use the same as the target docker service
