@@ -1,4 +1,4 @@
-import { IonContent, IonButton, IonMenu } from '@ionic/react';
+import { IonContent, IonButton, IonMenu, IonList, IonListHeader, IonItem, IonLabel } from '@ionic/react';
 import React, { useEffect, useState, useMemo, useCallback } from 'react';
 import { Route, Switch, useRouteMatch } from 'react-router-dom';
 //import PouchDB from 'pouchdb';
@@ -76,22 +76,33 @@ const Game: React.FC<GameProps> = () => {
   // TODO: check if changing this from && doc==null messed anything up
   if (loading || doc === null) {
     //console.log("Game Loading: "+loading+", doc: "+JSON.stringify(doc));
-    return (<h1> loadin in game</h1>);
+    return (<h1>Loading in game...</h1>);
   }
 
+  // TODO: have API create a frontpage when game is created, display it here
   return (
     <>
         <Route exact path={"/game/" + gameId } >
           <HeaderPage title={displayName ?? gameId}>
             <IonContent fullscreen>
-            DUHHHH DIS IS GAME PAGE
-            {JSON.stringify(doc)}
+            <br />
+            <div>This is the page for {displayName}. Select a character from the menu on the left.</div> 
+            <div>Administrators for this game can edit its columns, add or delete characters, add and edit rich text pages, and manage which users have editing permissions.</div>
             <NeedPermissions permissions={"GameAdmin"}>
-              <IonButton size="large" routerLink={util.getConfigurationUrl(gameId)}>Configure game columns and settings</IonButton>
-              <IonButton size="large" routerLink={util.getAddCharacterUrl(gameId)}>Add Character</IonButton>
-              <IonButton size="large" routerLink={util.getDeleteCharacterUrl(gameId)}>Delete Character</IonButton>
-              <IonButton size="large" routerLink={util.getAuthorizedUsersUrl(gameId)}>Change Authorized Users</IonButton>
-              <IonButton size="large" routerLink={util.getManageHtmlPagesUrl(gameId)}>Manage Pages</IonButton>
+              <IonList>
+                <IonListHeader><IonLabel>Admin Links:</IonLabel></IonListHeader>
+
+                <IonItem href={util.getConfigurationUrl(gameId)}><IonLabel>Configure game columns and settings</IonLabel></IonItem>
+                <IonItem href={util.getAddCharacterUrl(gameId)}><IonLabel>Add Character</IonLabel></IonItem>
+                <IonItem href={util.getDeleteCharacterUrl(gameId)}><IonLabel>Delete Character</IonLabel></IonItem>
+                <IonItem href={util.getAuthorizedUsersUrl(gameId)}><IonLabel>Change Authorized Users</IonLabel></IonItem>
+                <IonItem href={util.getManageHtmlPagesUrl(gameId)}><IonLabel>Manage Pages</IonLabel></IonItem>
+                {/*<IonButton size="large" routerLink={util.getConfigurationUrl(gameId)}>Configure game columns and settings</IonButton>*/}
+                {/*<IonButton size="large" routerLink={util.getAddCharacterUrl(gameId)}>Add Character</IonButton>*/}
+                {/*<IonButton size="large" routerLink={util.getDeleteCharacterUrl(gameId)}>Delete Character</IonButton>*/}
+                {/*<IonButton size="large" routerLink={util.getAuthorizedUsersUrl(gameId)}>Change Authorized Users</IonButton>*/}
+                {/*<IonButton size="large" routerLink={util.getManageHtmlPagesUrl(gameId)}>Manage Pages</IonButton>*/}
+              </IonList>
             </NeedPermissions>
             </IonContent>
           </HeaderPage>
