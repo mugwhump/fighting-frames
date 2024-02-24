@@ -4,9 +4,7 @@ import superlogin from 'superlogin-client';
 import { usePouch } from 'use-pouchdb';
 import { useEffect, useState, useRef, MutableRefObject, useCallback } from 'react';
 import { useGameDispatch, Action as GameAction } from '../components/GameProvider';
-import type { LoginInfo } from '../components/LoginProvider'; //=}
 import type { ApiResponse, HttpMethod } from '../types/utilTypes'; //=}
-import * as security from './security';
 import CompileConstants from '../constants/CompileConstants';
 
 const protocol = (process.env.NODE_ENV === 'development') ? 'http' : 'https';
@@ -14,26 +12,19 @@ console.log("NODE_ENV is " + process.env.NODE_ENV );
 const couch_host = process.env.REACT_APP_COUCH_HOST!;
 const api_host = process.env.REACT_APP_API_HOST!;
 
-//export const remoteWithBasicCreds: string = `http://${CompileConstants.DEFAULT_CREDENTIALS.username}:${CompileConstants.DEFAULT_CREDENTIALS.password}@localhost:5984/`;
 export const remoteWithBasicCreds: string = `${protocol}://${CompileConstants.DEFAULT_CREDENTIALS.username}:${CompileConstants.DEFAULT_CREDENTIALS.password}@${couch_host}/`;
 
 // also have admin:password for local dev
-//export const remoteWithTestAdminCreds: string = 'http://admin:password@localhost:5984/';
 export const remoteWithTestAdminCreds: string = `${protocol}://admin:password@${couch_host}/`;
 
-//TODO: turn all of these into environment variables, they need to change in production.
-//export const remote: string = `http://localhost:5984/`;
 export const remote: string = `${protocol}://${couch_host}/`;
-//export const apiUrl: string = 'http://localhost:3000/api/v1';
 export const apiUrl: string = `${protocol}://${api_host}/api/v1`;
 PouchDB.plugin(PouchAuth);
 
 
 superlogin.configure({
-  //serverUrl: 'http://localhost:3000',
   serverUrl: `${protocol}://${api_host}`,
   baseUrl: '/auth',
-  //endpoints: ['localhost:3000'], 
   endpoints: [api_host], //http interceptor adds bearer auth headers to any requests to these hosts. (Only couchAuth uses bearer auth)
   noDefaultEndpoint: true, //don't add url bar to list
 });
@@ -271,36 +262,3 @@ export function useDocumentLocalRemoteSwitching(state: string, error: PouchDB.Co
   }, [state, error, currentPouch, doc, componentName, failureAlreadyDispatched, gameDispatch]);
 }
 
-/*
-//Hook to only dispatch fetchFailure events if the current usingLocal matches what hook remembers when loading started
-//TODO: remove doc from this and from GP actions?
-export function useDocumentLocalRemoteSwitching(state: string, error: PouchDB.Core.Error | null | Error, usingLocal: boolean, componentName: string = '', doc?: PouchDB.Core.Document<any>): void { const gameDispatch = useGameDispatch();
-  const [fetchedWithLocal, setFetchedWithLocal] = useState<boolean | null>(null);
-  const currentPouch = usePouch();
-
-  useEffect(() => { 
-    if(componentName === 'Game') 
-    console.log(`Game debug: pouch=${currentPouch.name} state=${state}, usingLocal=${usingLocal}, fetchedWithLocal=${fetchedWithLocal}, error=${error?.message}`); //`
-
-    const loading: boolean = state === 'loading';
-    if(loading && fetchedWithLocal === null) { //useDoc is initiating a fetch, store whether it's local or remote
-      //console.log(`${componentName} setting fetchedWithLocal, state=${state}, usingLocal=${usingLocal}`);
-      setFetchedWithLocal(usingLocal); //won't apply until re-render, below lines execute with old value
-    } 
-    //NOTE: state does appear to go error or done between re-fetches if the database is changed
-    //STATE IS SET TO LOADING EVERY TIME GAMEPROVIDER RERENDERS
-    if(fetchedWithLocal !== null) { //for one render state will still be error while usingLocal is switched and fetchedWithLocal is null
-      if (state === 'error') {
-        console.log(`Error loading ${componentName} ` + (usingLocal ? "locally: " : "remotely: ") + error?.message);
-        gameDispatch({actionType: 'fetchFailure', error: error, usedLocal: fetchedWithLocal, dispatcher: componentName} as GameAction);
-        setFetchedWithLocal(null);
-      }
-      if (state === 'done') {
-        gameDispatch({actionType: 'fetchSuccess', usedLocal: fetchedWithLocal, doc} as GameAction); //must only dispatch once unless provider changes...
-        //console.log(`${componentName} WOULD BE DISPATCHING HERE HAHAHA`);
-        setFetchedWithLocal(null);
-      }
-  }
-  }, [usingLocal, state, error, fetchedWithLocal, currentPouch]);
-}
-*/
