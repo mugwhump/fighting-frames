@@ -11,7 +11,7 @@ import indexRouter from './routes/index';
 import apiRouter from './routes/api';
 //const superlogin = require('./routes/superlogin');
 import couchAuth from './routes/couchauth';
-import { SlUserDoc } from '@perfood/couch-auth/src/types/typings';
+import { SlUserDoc } from '@perfood/couch-auth/lib/types/typings';
 import logger from './util/logger';
 
 const app: Express = express();

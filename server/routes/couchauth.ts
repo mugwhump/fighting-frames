@@ -54,7 +54,7 @@ const config: Config = {
     //if true couch-auth forwards errors to node err handler instead of sending response, test with requireAuth failures
     //Don't use without a custom error handler, node's default returns an html string
     forwardErrors: false, 
-    disabledRoutes: [ //removed validate-email, need it to check that confirmation email was sent.
+    disabledRoutes: [ //removed validate-email, need it to check that confirmation email was sent. I put a cloudflare security page rule on it.
       'validate-username',
       'unlink',
       'session',
