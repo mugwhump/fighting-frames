@@ -74,7 +74,7 @@ async function updatePage(req: TypedRequest<{gameId:string}, T.HtmlPageDoc>, _re
     const title: string = doc.title;
     const db = adminNano.use<T.HtmlPageDoc>(gameId);
 
-    // set it to Front Page
+    // if frontpage, set title to Front Page
     if(pageId === CompileConstants.GAME_FRONTPAGE_PAGE_ID) {
       doc.title = "Front Page";
     }
@@ -228,6 +228,8 @@ router.post(CompileConstants.API_GAMES_MATCH, needsPermissions("ServerManager"),
       const status = err.statusCode || err.status;
       return sendError(res, `Error creating db ${gameId}, _design/columns could not be created. ${err.message}`, status || 400);
     }
+
+    // TODO: create pages/frontpage doc. Or could put it in game-template (but might need to replace stuff w/ gameid or displayname)
 
     //update _security w read role. Only incomplete dbs not in top make it to this step, so won't overwrite customized perms.
     const secDoc: Security.SecObj = {
