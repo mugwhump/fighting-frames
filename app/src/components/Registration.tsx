@@ -1,13 +1,9 @@
-import { useIonAlert, IonContent, IonTitle, IonText, IonToolbar, IonItem, IonButton, IonLabel, IonNote, IonInput } from '@ionic/react';
+import { IonContent, IonTitle, IonText, IonToolbar, IonItem, IonButton, IonLabel, IonNote, IonInput } from '@ionic/react';
 import React, { useState, useEffect } from 'react';
-//import { useLocalDispatch, Credentials, Action } from './LocalProvider';
-import PouchDB from 'pouchdb';
-import PouchAuth from 'pouchdb-authentication';
 import * as myPouch from '../services/pouch';
 
 type RegistrationProps = {
   closeIfModal?: () => void; //If this is a modal, this function closes it
-  //registerCallback : (username: string, password: string) => Promise<any>;
 }
 
 // Keep this unaware of whether it's in a modal or its own page
@@ -44,10 +40,15 @@ const Registration: React.FC<RegistrationProps> = ({closeIfModal}) => {
     clearErrors();
     myPouch.superlogin.register(reg).then((response) => {
       console.log("Registration response: " + JSON.stringify(response));
-      setSuccess(true);
+      //Check whether the user document exists. If there was an issue sending the confirmation email, the server will delete the user, making the email unused.
+      //So this call is supposed to fail.
+      myPouch.superlogin.validateEmail(email).then(() => {
+        setErrorText("Registration error: confirmation email could not be sent.");
+      }).catch(() => { 
+        console.log("Confirmation email sent successfully");
+        setSuccess(true);
+      });
     }).catch((error) => {
-      //TODO: this doesn't appear to catch errors with sending confirmation emails (and in that case the account is still made in sl-users db)
-      //^^in fact, a mail error (eg for wrong mailer creds) crashes api lol. Submitted an issue, hopefully they update it to return error if email not sent.
       console.log("Registration error: " + JSON.stringify(error));
       setErrorText(error.error);
       if(error.validationErrors) {

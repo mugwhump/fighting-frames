@@ -5,14 +5,17 @@ import cookieParser from 'cookie-parser';
 
 //import bodyParser from 'body-parser'; //bundled now
 import cors from 'cors';
+//import events from 'events';
 
 import indexRouter from './routes/index';
 import apiRouter from './routes/api';
 //const superlogin = require('./routes/superlogin');
 import couchAuth from './routes/couchauth';
+import { SlUserDoc } from '@perfood/couch-auth/src/types/typings';
 import logger from './util/logger';
 
 const app: Express = express();
+//const emitter = new events.EventEmitter();
 
 //app.use(logger('dev'));
 app.use(express.json()); //access json docs in application/json requests via req.body
@@ -53,5 +56,14 @@ setInterval(() => {
     logger.info("Cleaned up expired sessions: " + removedThings.join(', '));
   });
 }, 1200000);
+
+//If confirmation emails fail to send, delete the user so they can try to register again.
+couchAuth.emitter.on('confirmation-email-error', function(userDoc: SlUserDoc) {
+  logger.error("Confirmation email did not send, deleting user. userDoc: " + JSON.stringify(userDoc));
+  const userEmail = userDoc.unverifiedEmail?.email;
+  if(!!userEmail) {
+    couchAuth.removeUser(userEmail, true, "Confirmation email did not send, deleting user");
+  }
+})
 
 module.exports = app;

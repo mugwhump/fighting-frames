@@ -34,22 +34,11 @@ const config: Config = {
       {
         host: "live.smtp.mailtrap.io",
         port: 587,
-        //secure: false, // true for 465, false for other ports
         auth: {
           user: mailUser,
           pass: mailApiKey
         }
       }
-      /* { //ethereal sux
-        host: "smtp.ethereal.email",
-        port: 587,
-        secure: false, // true for 465, false for other ports
-        auth: {
-          user: mailFrom, 
-          pass: mailApiKey, //TODO: couch-auth's register route doesn't catch error from calling sendEmail() from insertNewUserDocument() in user.ts, hangs server
-        }
-      } ,
-      */
   },
   // Personal per-user DBs. 
   //userDBs: {
@@ -65,6 +54,12 @@ const config: Config = {
     //if true couch-auth forwards errors to node err handler instead of sending response, test with requireAuth failures
     //Don't use without a custom error handler, node's default returns an html string
     forwardErrors: false, 
+    disabledRoutes: [ //removed validate-email, need it to check that confirmation email was sent.
+      'validate-username',
+      'unlink',
+      'session',
+      'forgot-username'
+    ]
   },
   local: { //settings for couchAuth's internal user registration (aka when not signing in with google, FB, etc)
     emailUsername: false, // store the username in the database instead of an auto-generated key

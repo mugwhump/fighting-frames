@@ -17,7 +17,7 @@
     "react-router": "This is only here because shared util.ts uses its generatePath function"
   },
   "dependencies": {
-    "@perfood/couch-auth": "^0.19.1",
+    "@perfood/couch-auth": "github:mugwhump/couch-auth#create_user",
     "@rama41222/node-logger": "^1.0.1",
     "@sensu/superlogin": "^1.2.6",
     "@types/cookie-parser": "^1.4.3",
