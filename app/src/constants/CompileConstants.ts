@@ -9,8 +9,9 @@ const changeMatch = charMatch+"/changes/:changeTitle";
 const configDocId = '_design/columns';
 
 export let CompileConstants = {
-  DEFAULT_PREFER_LOCAL: false,
   DEFAULT_LOCAL_ENABLED: true,
+  DEFAULT_PREFER_LOCAL: false,
+  DEFAULT_GO_TO_LATEST_PAGE: false,
   DELETE_TOP_IF_NOTHING_ELSE_WANTED: true,
 
   //URLs

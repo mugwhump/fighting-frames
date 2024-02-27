@@ -6,17 +6,17 @@ import CompileConstants from '../constants/CompileConstants';
 import { StringSet, Credentials } from '../types/utilTypes';
 
 export type db = string;
-//export type CredentialStore = Record<db, Credentials>; // With superlogin users should only need one set of credentials
+
 export type Preferences = {
-  localEnabled: boolean, //enable if user chooses to download a db?
-  preferLocal: boolean, //TODO: remove, compileconstant does its job. If local's enabled, it should be preferred.
+  localEnabled: boolean, //TODO: should this ever be false? I don't think indexedDB will ever even show a warning.
+  preferLocal: boolean, //if local dbs preferred. Web version may have local but want to prefer non-local.
   showTutorials: boolean, //default true only on platforms where local data won't be wiped
+  goToLatestPage: boolean, //default true only on mobile
 }
 
 // TODO: handling for if old version is saved but a new property is added to LocalData. 
 //Should have transformers for each version that changes state structure
 export type LocalData = {
-  //credentials: CredentialStore, //only stores non-default credentials
   credentials: Credentials,
   preferences: Preferences,
   tutorials: StringSet, //if the name of the tutorial is here, you saw it.
@@ -29,9 +29,13 @@ type LatestPageDoc = PouchDB.Core.Document<LatestPage>;
 
 
 const initialState: LocalData = {
-  //credentials: {"sc6": {username:"bobbu", password:"pw"}},
   credentials: CompileConstants.DEFAULT_CREDENTIALS,
-  preferences: {localEnabled: CompileConstants.DEFAULT_LOCAL_ENABLED, preferLocal: CompileConstants.DEFAULT_PREFER_LOCAL, showTutorials: false},
+  preferences: {
+    localEnabled: CompileConstants.DEFAULT_LOCAL_ENABLED, 
+    preferLocal: CompileConstants.DEFAULT_PREFER_LOCAL, 
+    goToLatestPage: CompileConstants.DEFAULT_GO_TO_LATEST_PAGE,
+    showTutorials: false
+  },
   tutorials: new StringSet(["bonono"]),
   wantedDbs: new StringSet(),
 };
@@ -39,13 +43,10 @@ const initialState: LocalData = {
 
 export type Action = 
   | { actionType: 'loadState', doc: LocalDoc }
-  //| { actionType: 'addCredentials', db: db, creds: Credentials }
-  //| { actionType: 'updateCredentials', db: db, creds: Credentials }
   | { actionType: 'updateCredentials', creds: Credentials }
   | { actionType: 'resetCredentials' }
   | { actionType: 'updatePreferences', preferences: Preferences }
   | { actionType: 'setUserWants', db: string, userWants: boolean } //Confirm user's cool with db size before this. If anything's here, top is here.
-  //| { actionType: 'updateLatestPage', latestPage: string }
 
 // Reducers are preferably pure, but anything that needs to trigger updates must change its reference/value
 // objects are by-reference, so don't store reference anywhere, do state.credentials[game].username every time
@@ -55,15 +56,7 @@ function LocalReducer(state: LocalData, action: Action): LocalData {
   let newState: LocalData = {...state}; //THE SECRET: reference to state itself changes, but its members have same references
   console.log("Action (tuts and userWants don't stringify): " + JSON.stringify(action));
   switch(action.actionType) {
-    //case 'addCredentials':
     case 'updateCredentials': {
-      //let newCreds: CredentialStore = {};
-      //for(let key in newState.credentials) {
-        //newCreds[key] = {...newState.credentials[key]};
-      //}
-      //TODO: check validity? And website version should not store credentials.
-      //newState.credentials = newCreds;
-      //newState.credentials[action.db] = action.creds; //need new credentials record object to trigger dep updates
       newState.credentials = action.creds;
       break;
     }
@@ -83,10 +76,6 @@ function LocalReducer(state: LocalData, action: Action): LocalData {
       newState.preferences = action.preferences;
       break;
     }
-    //case 'updateLatestPage': {
-      //newState.latestPage = action.latestPage;
-      //break;
-    //}
     case 'setUserWants': {
       let newWantedDbs: StringSet = new StringSet([...state.wantedDbs]);
       if(action.userWants) {
@@ -184,7 +173,9 @@ export const LocalProvider: React.FC = ({children}) => {
         //if doesn't exist, error caught, doc created, state is already initialState
         loadState(doc);
         console.log('Loaded saved LocalData'); //state updates are deferred, new state isn't visible to this console.log
-        await getAndNavigateLatestPage();
+        if(state.preferences.goToLatestPage) {
+          await getAndNavigateLatestPage();
+        }
       }
       catch(err: any) {
         if(err.name === "not_found") {
