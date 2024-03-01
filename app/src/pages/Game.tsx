@@ -1,6 +1,6 @@
-import { IonContent, IonButton, IonMenu, IonList, IonListHeader, IonItem, IonLabel } from '@ionic/react';
+import { IonButton } from '@ionic/react';
 import React, { useEffect, useState, useMemo, useCallback } from 'react';
-import { Route, Switch, useRouteMatch } from 'react-router-dom';
+import { Route, Switch, Redirect, useRouteMatch } from 'react-router-dom';
 //import PouchDB from 'pouchdb';
 import { useDocumentLocalRemoteSwitching } from '../services/pouch';
 import { useDoc } from 'use-pouchdb';
@@ -11,12 +11,9 @@ import { useGameContext, useGameDispatch, Action as GameAction } from '../compon
 import { calculateHideBreakpoints } from '../services/renderUtil';
 import * as util from '../services/util';
 import * as T from '../types/characterTypes';
-//import { cloneDeep } from 'lodash';
 import { insertDefsSortGroupsCompileRegexes   } from '../services/columnUtil';
 import { CharacterDocAccess } from '../components/CharacterDocAccess';
-import HeaderPage from '../components/HeaderPage';
 import CompileConstants from '../constants/CompileConstants';
-import NeedPermissions from '../components/NeedPermissions';
 import Character from './Character';
 import EditCharacter from './EditCharacter';
 import ChangeBrowser from './ChangeBrowser';
@@ -28,6 +25,7 @@ import AuthorizedUsers from './AuthorizedUsers';
 import ManageHtmlPages from './ManageHtmlPages';
 import { EditHtmlPage, EditExistingHtmlPage } from './EditHtmlPage';
 import { HtmlPage } from './HtmlPage';
+import FrontPage from './FrontPage';
 
 type GameProps = {
 }
@@ -42,6 +40,8 @@ const Game: React.FC<GameProps> = () => {
   const { doc: actualDoc, loading, state, error } = useDoc<T.ConfigDoc>(CompileConstants.CONFIG_DOC_ID, {db: !!configPageMatch ? 'remote' : '_default'}); 
   const doc: T.ConfigDoc | null = previewDoc ?? actualDoc;
   useDocumentLocalRemoteSwitching(state, error, 'Game');
+  const { doc: frontPageDoc, loading: frontPageLoading, state: frontPageState, error: frontPageError } = 
+    useDoc<T.HtmlPageDoc>(CompileConstants.CONFIG_DOC_ID, {db: !!configPageMatch ? 'remote' : '_default'}); 
   const displayName: string | undefined = doc?.displayName;
 
   const modifiedUniversalPropDefs = useMemo(() => {
@@ -79,49 +79,14 @@ const Game: React.FC<GameProps> = () => {
     return (<h1>Loading in game...</h1>);
   }
 
-  // TODO: have API create a frontpage when game is created, display it here
   return (
     <>
-        <Route exact path={"/game/" + gameId } >
-          <HeaderPage title={displayName ?? gameId}>
-            <IonContent fullscreen>
-            <br />
-            <div>This is the page for {displayName}. Select a character from the menu on the left.</div> 
-            <div>Administrators for this game can edit its columns, add or delete characters, add and edit rich text pages, and manage which users have editing permissions.</div>
-            <NeedPermissions permissions={"GameAdmin"}>
-              <IonList>
-                <IonListHeader><IonLabel>Admin Links:</IonLabel></IonListHeader>
-
-                <IonItem href={util.getConfigurationUrl(gameId)}><IonLabel>Configure game columns and settings</IonLabel></IonItem>
-                <IonItem href={util.getAddCharacterUrl(gameId)}><IonLabel>Add Character</IonLabel></IonItem>
-                <IonItem href={util.getDeleteCharacterUrl(gameId)}><IonLabel>Delete Character</IonLabel></IonItem>
-                <IonItem href={util.getAuthorizedUsersUrl(gameId)}><IonLabel>Change Authorized Users</IonLabel></IonItem>
-                <IonItem href={util.getManageHtmlPagesUrl(gameId)}><IonLabel>Manage Pages</IonLabel></IonItem>
-                {/*<IonButton size="large" routerLink={util.getConfigurationUrl(gameId)}>Configure game columns and settings</IonButton>*/}
-                {/*<IonButton size="large" routerLink={util.getAddCharacterUrl(gameId)}>Add Character</IonButton>*/}
-                {/*<IonButton size="large" routerLink={util.getDeleteCharacterUrl(gameId)}>Delete Character</IonButton>*/}
-                {/*<IonButton size="large" routerLink={util.getAuthorizedUsersUrl(gameId)}>Change Authorized Users</IonButton>*/}
-                {/*<IonButton size="large" routerLink={util.getManageHtmlPagesUrl(gameId)}>Manage Pages</IonButton>*/}
-              </IonList>
-            </NeedPermissions>
-            </IonContent>
-          </HeaderPage>
+        <Route exact path={"/game/" + gameId + '/' + CompileConstants.GAME_FRONTPAGE_DOC_ID} >
+          <Redirect to={"/game/" + gameId } />
         </Route>
-
-        {/*Keep in mind router params stop at slashes, so /character/bob/local-edit just has bob as the character*/}
-        {/*<Route path={[CompileConstants.SEGMENT_MATCH, CompileConstants.CHARACTER_MATCH]} >
-          <HeaderPage title={gameId + "is the game id"}>
-            <MiddlewareSetterContext.Provider value={setMiddleware}>
-              <MiddlewareContext.Provider value={middleware}>
-                <CharacterContextProvider>
-                  <CharacterDocAccess gameId={gameId}>
-                    <CharacterSegments gameId={gameId} columnDefs={modifiedColumnDefs} universalPropDefs={modifiedUniversalPropDefs!} />
-                  </CharacterDocAccess>
-                </CharacterContextProvider>
-              </MiddlewareContext.Provider>
-            </MiddlewareSetterContext.Provider>
-          </HeaderPage>
-        </Route>*/}
+        <Route exact path={"/game/" + gameId } >
+          <FrontPage gameId={gameId} displayName={displayName} />
+        </Route>
 
         <Route path={CompileConstants.CHARACTER_MATCH} >
             <MiddlewareSetterContext.Provider value={setMiddleware}>

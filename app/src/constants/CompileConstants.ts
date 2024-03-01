@@ -56,6 +56,7 @@ export let CompileConstants = {
 
   //DOC IDS
   GAME_FRONTPAGE_PAGE_ID: 'frontpage',
+  GAME_FRONTPAGE_DOC_ID: 'pages/frontpage',
   CONFIG_DOC_ID: configDocId,
   LOCAL_DATA_DOC_ID: "_local/localData",
   LOCAL_LATEST_PAGE_DOC_ID: "_local/latestPage",

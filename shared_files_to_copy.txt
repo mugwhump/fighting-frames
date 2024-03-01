@@ -2,6 +2,7 @@
 constants/CompileConstants.ts
 constants/internalColumns.ts
 constants/metaDefs.ts
+constants/validHtml.ts
 
 services/columnUtil.ts
 services/merging.ts

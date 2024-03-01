@@ -8,6 +8,8 @@ import couchAuth from './couchauth';
 import { adminNano, TypedRequest, frontend_url, getSuccessObject, sendSuccess, getErrorObject, sendError, needsPermissions, getUser, mySleep } from '../util/expressUtil';
 import * as CouchAuthTypes from '@perfood/couch-auth/lib/types/typings';
 import { cloneDeep, isEqual, set } from 'lodash';
+import sanitizeHtml from 'sanitize-html';
+import { sanitizeOptions } from '../shared/constants/validHtml';
 import * as Nano from 'nano';
 import type * as T from '../shared/types/characterTypes'; //= //not included in runtime buildo
 import type { ApiResponse, PublishChangeBody, CreateCharacterBody, CreateGameBody, ListChangesViewRow, ListChangesViewRowValue } from '../shared/types/utilTypes'; //= 
@@ -65,26 +67,35 @@ router.post(CompileConstants.API_HTML_PAGES_MATCH, needsPermissions("GameAdmin")
 });
 
 
+// Called when creating page, editing existing page, or creating a game (which creates the front page)
 async function updatePage(req: TypedRequest<{gameId:string}, T.HtmlPageDoc>, _rev?: string): Promise<false | ApiResponse> {
   try {
     const gameId = req.params.gameId;
     const doc: T.HtmlPageDoc = req.body;
     const docId: string = doc._id;
     const pageId: string = util.getHtmlPageIdFromDocId(docId);
-    const title: string = doc.title;
     const db = adminNano.use<T.HtmlPageDoc>(gameId);
 
     // if frontpage, set title to Front Page
-    if(pageId === CompileConstants.GAME_FRONTPAGE_PAGE_ID) {
+    if(docId === CompileConstants.GAME_FRONTPAGE_DOC_ID) {
       doc.title = "Front Page";
     }
+    const title: string = doc.title;
+
+    // validate doc id format
+    if(!docId.startsWith('pages/')) {
+      return getErrorObject(`Invalid page document id ${docId}`, 400);
+    }
+
     // validate title. But being non-unique is fine.
     let validTitle = CompileConstants.ALLOWED_PAGE_TITLE_REGEX.test(title);
     if(!validTitle) {
       return getErrorObject(`Invalid page title ${title}`, 400);
     }
 
-    // TODO: sanitize html
+    // sanitize html
+    const cleanHtml = sanitizeHtml(doc.html, sanitizeOptions);
+    doc.html = cleanHtml;
 
     // Set updatedAt and updatedBy
     doc.updatedAt = util.getDateString();
@@ -128,7 +139,7 @@ router.put(CompileConstants.API_HTML_PAGE_MATCH, needsPermissions("GameAdmin"),
     }
   }
   catch(err: any) {
-    return sendError(res, `Error creating page, ${err}`, err.statusCode || (err.status ?? 500));
+    return sendError(res, `Error updating page, ${err}`, err.statusCode || (err.status ?? 500));
   }
 });
 
@@ -229,7 +240,22 @@ router.post(CompileConstants.API_GAMES_MATCH, needsPermissions("ServerManager"),
       return sendError(res, `Error creating db ${gameId}, _design/columns could not be created. ${err.message}`, status || 400);
     }
 
-    // TODO: create pages/frontpage doc. Or could put it in game-template (but might need to replace stuff w/ gameid or displayname)
+    // create pages/frontpage doc. 
+    const frontPage: T.HtmlPageDoc = {
+      _id: CompileConstants.GAME_FRONTPAGE_DOC_ID,
+      html: `<h1>${displayName}</h1><h2>Characters</h2><p>[character-list]</p><h2>Pages</h2><p>[page-list]</p>`,
+      title: '',
+      updatedAt: '',
+      updatedBy: '',
+    }
+
+    const frontPageReq: any = cloneDeep(req);
+    frontPageReq.body = frontPage;
+    frontPageReq.params.gameId = gameId;
+    let error = await updatePage(frontPageReq, '');
+    if(error) {
+      return sendError(res, `Cannot create front page: ${error.message}`, error.status);
+    }
 
     //update _security w read role. Only incomplete dbs not in top make it to this step, so won't overwrite customized perms.
     const secDoc: Security.SecObj = {
