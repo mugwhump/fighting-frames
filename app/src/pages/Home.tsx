@@ -1,5 +1,7 @@
 import React, { useEffect, useState } from 'react';
-import { IonContent, IonList, IonItem, IonLabel, IonNote } from '@ionic/react';
+import { IonContent, IonList, IonListHeader, IonItem, IonLabel, IonNote } from '@ionic/react';
+import { getAddGamePageUrl } from '../services/util';
+import NeedPermissions from '../components/NeedPermissions';
 import HeaderPage from '../components/HeaderPage';
 
 
@@ -22,6 +24,15 @@ const Home: React.FC<{}> = () => {
           <li>Coming soon: Android and IOS versions</li>
         </ul>
         <div>If you are interesting in helping to test, message me or open an issue on <a href="https://github.com/mugwhump/fighting-frames">github</a></div>
+
+        <NeedPermissions permissions={"ServerManager"}>
+          <IonList>
+            <IonListHeader><IonLabel>Admin Links:</IonLabel></IonListHeader>
+
+            <IonItem href={getAddGamePageUrl()}><IonLabel>Add a new game</IonLabel></IonItem>
+          </IonList>
+        </NeedPermissions>
+
       </IonContent>
     </HeaderPage>
   );
