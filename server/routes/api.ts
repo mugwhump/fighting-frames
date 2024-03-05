@@ -58,7 +58,7 @@ router.post(CompileConstants.API_HTML_PAGES_MATCH, needsPermissions("GameAdmin")
     if(error) sendError(res, error.message, error.status);
     else {
       res.location(frontend_url + util.getHtmlPageUrl(req.params.gameId, docId));
-      sendSuccess(res, `Page ${pageId} created`, 201);
+      return sendSuccess(res, `Page ${pageId} created`, 201);
     }
   }
   catch(err: any) {
@@ -135,13 +135,48 @@ router.put(CompileConstants.API_HTML_PAGE_MATCH, needsPermissions("GameAdmin"),
     if(error) sendError(res, error.message, error.status);
     else {
       res.location(frontend_url + util.getHtmlPageUrl(req.params.gameId, docId));
-      sendSuccess(res, `Page ${pageId} updated`, 200);
+      return sendSuccess(res, `Page ${pageId} updated`, 200);
     }
   }
   catch(err: any) {
     return sendError(res, `Error updating page, ${err}`, err.statusCode || (err.status ?? 500));
   }
 });
+
+/**
+ * DELETE. Remove existing HTML page.
+ * Success returns 200
+ */
+router.delete(CompileConstants.API_HTML_PAGE_MATCH, needsPermissions("GameAdmin"),
+           async (req: TypedRequest<{gameId:string, pageId: string}, {}>, res) => {
+  try {
+    const gameId = req.params.gameId;
+    const pageId = req.params.pageId;
+    const docId = util.getHtmlPageDocId(pageId);
+    const db = adminNano.use<T.HtmlPageDoc>(gameId);
+    let _rev: string = '';
+
+    if(pageId === CompileConstants.GAME_FRONTPAGE_PAGE_ID) {
+      return sendError(res, `Cannot delete front page`, 500);
+    }
+    
+    try {
+      const existingDoc = await db.get(docId);
+      _rev = existingDoc._rev;
+    }
+    catch(err: any) {
+      return sendError(res, `Error deleting page, ${err}. Already deleted?`, err.statusCode || (err.status ?? 500));
+    }
+
+    await db.destroy(docId, _rev); 
+
+    return sendSuccess(res, `Page ${pageId} deleted`, 200);
+  }
+  catch(err: any) {
+    return sendError(res, `Error deleting page, ${err}`, err.statusCode || (err.status ?? 500));
+  }
+});
+
 
 /**
  * POST. Creates a new game. Non-atomic operation; partial failure allows users to retry.
@@ -243,7 +278,8 @@ router.post(CompileConstants.API_GAMES_MATCH, needsPermissions("ServerManager"),
     // create pages/frontpage doc. 
     const frontPage: T.HtmlPageDoc = {
       _id: CompileConstants.GAME_FRONTPAGE_DOC_ID,
-      html: `<h1>${displayName}</h1><h2>Characters</h2><p>[character-list]</p><h2>Pages</h2><p>[page-list]</p>`,
+      //html: `<h1>${displayName}</h1><h2>Characters</h2><p>[character-list]</p><h2>Pages</h2><p>[page-list]</p>`,
+      html: `<h1>${displayName}</h1>`,
       title: '',
       updatedAt: '',
       updatedBy: '',
@@ -431,7 +467,7 @@ router.put(CompileConstants.API_CHANGE_MATCH, needsPermissions("Uploader"),
            async (req: Request<{gameId:string, characterId:string, changeTitle:string}>, res) => {
   let error = await uploadChange(req);
   if(error) sendError(res, error.message, error.status);
-  else sendSuccess(res, "Changes uploaded, someone with editor permissions must publish these changes.", 201);
+  else return sendSuccess(res, "Changes uploaded, someone with editor permissions must publish these changes.", 201);
 });
 
 //Returns 422 if submitted changes are based on an outdated character document
@@ -554,7 +590,7 @@ router.patch(CompileConstants.API_CHARACTER_MATCH, needsPermissions("Editor"),
   let testoId: string = req.body.changeTitle;
   let error = await publishChange(req);
   if(error) sendError(res, error.message, error.status);
-  else sendSuccess(res, "Changes published!");
+  else return sendSuccess(res, "Changes published!");
 });
 
 //If justUploaded, can skip error checking on changeDoc. Currently unused.

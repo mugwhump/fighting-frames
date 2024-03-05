@@ -205,6 +205,9 @@ export function getHtmlPageUrl(gameId: string, pageId: string): string {
 export function getEditHtmlPageUrl(gameId: string, pageId: string): string {
   return generatePath(CompileConstants.EDIT_HTML_PAGE_MATCH, {gameId: gameId, pageId: pageId});
 }
+export function getAddGamePageUrl(): string {
+  return CompileConstants.ADD_GAME_PATH;
+}
 
 
 export function getApiUploadChangeUrl(gameId: string, characterId: string, changeTitle: string): [string, HttpMethod] {

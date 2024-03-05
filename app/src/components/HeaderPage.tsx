@@ -28,7 +28,7 @@ const HeaderPage: React.FC<HeaderPageProps > = ({title, children, contentMessage
           <IonButtons slot="start">
           {/* if no menu specified, button attaches to active view/outlet */}
           {/* if specified menu points to inactive/nonexistent view/routeroutlet, button doesn't show */}
-            <IonMenuButton auto-hide={false} />
+            <IonMenuButton auto-hide={true} />
           </IonButtons>
           <IonTitle>{title}</IonTitle>
         </IonToolbar>

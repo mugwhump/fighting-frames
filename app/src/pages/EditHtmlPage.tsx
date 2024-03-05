@@ -163,7 +163,8 @@ export const EditHtmlPage = ({gameDisplayName, existingDoc}: EditHtmlPageProps) 
                   'bold italic link | alignleft aligncenter ' +
                   'alignright alignjustify | bullist numlist outdent indent | ' +
                   'table  tabledelete | tableinsertrowbefore tableinsertrowafter tabledeleterow | tableinsertcolbefore tableinsertcolafter tabledeletecol |' + 
-                  'removeformat ',
+                  'removeformat', // code allows editing html
+                verify_html: true, // false will disable TinyMCE's built-in DOMpurify sanitization (for testing)
                 element_format: 'xhtml', //no unclosed tags
                 entity_encoding: 'raw', //only &"><' are encoded, not &nbsp;
                 link_title: false, //disallow custom link titles
