@@ -1,33 +1,39 @@
-import { IonContent, IonGrid, IonRow, IonCol, IonIcon, IonItem, IonLabel, IonList, IonListHeader, IonMenu, IonMenuToggle, IonNote, IonAccordionGroup, IonAccordion } from '@ionic/react';
-
-import React, { useEffect, useState, ReactNode } from 'react';
+import { IonContent, IonIcon, IonItem, IonLabel, IonList, IonListHeader, IonMenuToggle } from '@ionic/react';
+import React, { ReactNode } from 'react';
 import { useLocation } from 'react-router-dom';
-import { homeOutline, homeSharp, discOutline } from 'ionicons/icons';
+import { homeOutline, homeSharp, newspaperOutline, newspaperSharp, personCircleOutline, personCircleSharp, returnDownForwardSharp } from 'ionicons/icons';
 //import './Menu.css'; //doesn't look much different, and this styling trickles down to child components like login modals
-//import PouchDB from 'pouchdb';
-import { useView, usePouch } from 'use-pouchdb'
+import { useView } from 'use-pouchdb'
 import { useDocumentLocalRemoteSwitching } from '../services/pouch';
 import { CharDocWithMeta, HtmlPageDoc } from '../types/characterTypes';
-import { ListCharactersAndPagesViewRow, SegmentUrl } from '../types/utilTypes';
-import { getCharacterUrl, getHtmlPageUrl, getGameUrl, getEditUrl, getChangesUrl } from '../services/util';
+import { ListCharactersAndPagesViewRow } from '../types/utilTypes';
+import { getCharacterUrl, getHtmlPageUrl, getEditUrl, getChangesUrl } from '../services/util';
 import LoginButton from './LoginButton';
-import { withGameContext, useGameDispatch, Action as GameAction } from './GameProvider';
-import { useGameContext } from './GameProvider';
+import { withGameContext } from './GameProvider';
+import { DBStatus } from './GameProvider';
+import { MenuItem } from './Menu';
 import CompileConstants from '../constants/CompileConstants';
 
+export const GameMenuContainer: React.FC = () => {
+  const WrappedGameMenu = withGameContext((state) => {return {
+    gameId: state.gameId,
+    gameDisplayName: state.gameDisplayName,
+    dbStatus: state.dbStatuses.get(state.gameId),
+  }})(GameMenu);
+  return (<WrappedGameMenu />);
+}
+
 type GameMenuProps = {
+  gameId: string;
+  gameDisplayName: string;
+  dbStatus: DBStatus;
 }
 
 // Query a view to get list of characters
 // Menu can use <IonRoute> without being inside an outlet if desired
 // Could also have top menu at same place with everything inside top-level provider.
-const GameMenu: React.FC = () => {
+const GameMenu: React.FC<GameMenuProps> = ({gameId, gameDisplayName, dbStatus}) => {
   const location = useLocation(); //access current page url and update when it changes
-  const gameContext = useGameContext();
-  const gameId: string = gameContext.gameId; //TODO: Wrapper component
-  const gameDisplayName = gameContext.gameDisplayName;
-  const gameDispatch = useGameDispatch();
-  //const { rows, loading, state, error } = useView<ListCharactersViewRow, CharDocWithMeta>("characters/list-chars"); 
   const { rows, loading, state, error } = useView<ListCharactersAndPagesViewRow, CharDocWithMeta | HtmlPageDoc>("menu_items/list-menu-items"); 
   useDocumentLocalRemoteSwitching(state, error, 'GameMenu');
   let menuContent: ReactNode = (<div>Ky is dishonest</div>);
@@ -46,10 +52,37 @@ const GameMenu: React.FC = () => {
     menuContent = (
       <>
         {rows!.map((row, index) => {
-          const isCharacter = row.key[0];
-          const id = row.key[1];
+          const isPage = !row.key[0];
+          const isFrontPage = !row.key[1];
+          const id = row.key[2];
 
-          if(isCharacter) {
+          if(isPage) {
+
+            const url: string = getHtmlPageUrl(gameId, id);
+            const selected: boolean = location.pathname.includes(url);
+
+            if(isFrontPage) {
+              return (
+                <MenuItem gameId={gameId} gameDisplayName={gameDisplayName} key={index} path={location.pathname} status={dbStatus} />
+              )
+            }
+            else {
+              return (
+                <React.Fragment key={index} >
+                  <IonMenuToggle autoHide={false}>
+                    <IonItem className={selected ? 'selected' : ''} routerLink={url} routerDirection="forward" lines="none" detail={false}>
+                      <IonIcon slot="start" ios={newspaperOutline} md={newspaperSharp} />
+                      <IonLabel>{row.value}</IonLabel>
+                    </IonItem>
+                  </IonMenuToggle>
+                </React.Fragment>
+              );
+            }
+
+          }
+
+          // Characters
+          else {
 
             const url: string = getCharacterUrl(gameId, id);
             const selected: boolean = location.pathname.includes(url);
@@ -60,7 +93,7 @@ const GameMenu: React.FC = () => {
             //return (
               //<IonAccordion key={index}>
                 //<IonItem slot="header" className={location.pathname.includes(url) ? 'selected' : ''} routerLink={url} routerDirection="forward" lines="none" detail={false}>
-                  //[><IonIcon slot="start" ios={bookmarkOutline} md={bookmarkSharp} /><]
+                  //[><IonIcon slot="start" ios={newspaperOutline} md={newspaperSharp} /><]
                   //<IonLabel>{row.value}</IonLabel>
                 //</IonItem>
               //<IonList slot="content">
@@ -73,34 +106,22 @@ const GameMenu: React.FC = () => {
               <React.Fragment key={index} >
                 <IonMenuToggle autoHide={false}>
                   <IonItem className={selected ? 'selected' : ''} routerLink={url} routerDirection="forward" lines="none" detail={false}>
-                    {/*<IonIcon slot="start" ios={bookmarkOutline} md={bookmarkSharp} />*/}
+                    <IonIcon slot="start" ios={personCircleOutline} md={personCircleSharp} />
                     <IonLabel>{row.value}</IonLabel>
                   </IonItem>
                 </IonMenuToggle>
                 {selected &&
                   <IonList className="char-submenu">
-                    <IonItem className={editSelected ? 'selected' : ''} routerLink={editUrl} routerDirection="forward" >Edit</IonItem>
-                    <IonItem className={changeSelected ? 'selected' : ''} routerLink={changeUrl} routerDirection="forward" >Changes</IonItem>
+                    <IonItem className={editSelected ? 'selected' : ''} routerLink={editUrl} routerDirection="forward" >
+                      <IonIcon slot="start" icon={returnDownForwardSharp} />
+                      <IonLabel>Edit</IonLabel>
+                    </IonItem>
+                    <IonItem className={changeSelected ? 'selected' : ''} routerLink={changeUrl} routerDirection="forward" >
+                      <IonIcon slot="start" icon={returnDownForwardSharp} />
+                      <IonLabel>Changes</IonLabel>
+                    </IonItem>
                   </IonList>
                 }
-              </React.Fragment>
-            );
-          }
-
-          else {
-            const url: string = getHtmlPageUrl(gameId, id);
-            const selected: boolean = location.pathname.includes(url);
-            const isFrontPage = id === CompileConstants.GAME_FRONTPAGE_PAGE_ID; 
-
-            // TODO: extract game link here + in top menu to its own component with download icons and functionality 
-            return (
-              <React.Fragment key={index} >
-                <IonMenuToggle autoHide={false}>
-                  <IonItem className={selected ? 'selected' : ''} routerLink={url} routerDirection="forward" lines="none" detail={false}>
-                    {/*<IonIcon slot="start" ios={bookmarkOutline} md={bookmarkSharp} />*/}
-                    <IonLabel>{row.value}</IonLabel>
-                  </IonItem>
-                </IonMenuToggle>
               </React.Fragment>
             );
           }
@@ -112,26 +133,19 @@ const GameMenu: React.FC = () => {
   return (
       <IonContent>
         <IonList id="top-list">
-          <IonListHeader>Select Character</IonListHeader>
+          {/*<IonListHeader>Select Character</IonListHeader>*/}
           {/*<IonNote>ky is dishonest</IonNote>*/}
 
           {/*<IonAccordionGroup multiple>*/}
           {menuContent}
           {/*</IonAccordionGroup>*/}
 
-          {/* Wrap each link with menu toggle to close the menu when clicked 
-          <IonMenuToggle key="game-page" autoHide={false}>
-            <IonItem className={location.pathname === (getGameUrl(gameId)) ? 'selected' : ''} routerLink={getGameUrl(gameId)} routerDirection="back" lines="none" detail={false}>
-              <IonIcon slot="start" icon={discOutline} />
-              <IonLabel>{gameDisplayName} Main Page</IonLabel>
-            </IonItem>
-          </IonMenuToggle>*/}
-          <IonMenuToggle key="home" autoHide={false}>
+          {/*<IonMenuToggle key="home" autoHide={false}>*/}
             <IonItem routerLink={CompileConstants.HOME_PATH} routerDirection="back" lines="none" detail={false}>
               <IonIcon slot="start" ios={homeOutline} md={homeSharp} />
               <IonLabel>Home</IonLabel>
             </IonItem>
-          </IonMenuToggle>
+          {/*</IonMenuToggle>*/}
 
           {(gameId !== null) && <LoginButton />}
 

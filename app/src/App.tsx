@@ -4,7 +4,7 @@ import Test from './pages/Test';
 import { GameProvider } from './components/GameProvider';
 import Game from './pages/Game';
 import DBProvider from './components/DBProvider';
-import GameMenu from './components/GameMenu';
+import { GameMenuContainer } from './components/GameMenu';
 import AddGame from './pages/AddGame';
 import { LocalProvider } from './components/LocalProvider';
 import React from 'react';
@@ -46,10 +46,10 @@ const App: React.FC = () => {
               <IonMenu className="styled-menu" side="start" menuId="top" contentId="main-top" type="overlay" disabled={false}>
                 <Switch> {/* Renders only the first matching pattern instead of every matching route */}
                   <Route path="/game/:gameId">
-                    <GameMenu />
+                    <GameMenuContainer />
                   </Route>
                   <Route>
-                      <MenuContainer />
+                    <MenuContainer />
                   </Route>
                 </Switch>
               </IonMenu>

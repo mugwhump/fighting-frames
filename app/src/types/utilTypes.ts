@@ -43,7 +43,8 @@ export type ListPagesViewRow = ViewRowGeneric<string, string, HtmlPageDoc>;
 //  value is character displayName or page title
 export type ListCharactersAndPagesViewRow = ViewRowGeneric<ListCharactersAndPagesViewRowKey, string, HtmlPageDoc>;
 export type ListCharactersAndPagesViewRowKey = [
-  boolean, // true if is page
+  boolean, // true if is character
+  boolean, // true if isn't frontpage
   string // ID
 ]
 

@@ -5,9 +5,7 @@ import {
   IonLabel,
   IonList,
   IonListHeader,
-  IonMenu,
   IonMenuToggle,
-  IonNote,
   IonButton,
 } from '@ionic/react';
 //import { menuController } from '@ionic/core';
@@ -15,58 +13,53 @@ import {
 import React, { useEffect } from 'react';
 import { useLocation } from 'react-router-dom';
 import { cloudDoneOutline, cloudDownloadOutline, cloudOfflineOutline, skullOutline } from 'ionicons/icons';
-import { CreateAnimation, Animation } from '@ionic/react';
+import { CreateAnimation } from '@ionic/react';
 import './Menu.css'; //doesn't look much different, and this styling trickles down to child components like login modals
 import { useDoc, usePouch } from 'use-pouchdb'
 import { useDocumentLocalRemoteSwitching } from '../services/pouch';
 import { DBListDoc, DBListDocItem } from '../types/characterTypes';
 import LoginButton from './LoginButton';
-import { withLocalContext, useLocalDispatch, Action as LocalAction } from './LocalProvider';
-import { withGameContext, useGameDispatch, DBStatus, DBTransitionState, Action as GameAction } from './GameProvider';
+import { useLocalDispatch, Action as LocalAction } from './LocalProvider';
+import { withGameContext, useGameDispatch, DBStatus, DBTransitionState } from './GameProvider';
+import { DBStatuses } from '../types/GPTypes';
 
 export const MenuContainer: React.FC = () => {
-  //TODO: probably only need gameprovider stuff, not localprovider
   const WrappedMenu = withGameContext((state) => {return {
     usingLocal: state.usingLocal, 
+    dbStatuses: state.dbStatuses,
   }})(Menu);
   return (<WrappedMenu />);
 }
 
 interface MenuProps {
-  usingLocal: boolean
+  usingLocal: boolean,
+  dbStatuses: DBStatuses,
 }
 
 //needs usingLocal. Maybe isOnline. 
-const Menu: React.FC<MenuProps> = ({usingLocal}) => {
-  //console.log("Render menu, usingLocal: " + usingLocal);
+const Menu: React.FC<MenuProps> = ({usingLocal, dbStatuses}) => {
   const location = useLocation(); //access current page url and update when it changes
   const topDB: string = usingLocal ? "localTop" : "remoteTop";
   const currentPouch: PouchDB.Database = usePouch(topDB);
   const { doc, loading, state, error } = useDoc<PouchDB.Core.Document<DBListDoc>>("game-list", {db: topDB}); 
   useDocumentLocalRemoteSwitching(state, error, 'Menu', currentPouch);
-  const gameDispatch = useGameDispatch();
 
   if (state === 'error') {
-    console.log("MENU COMPLAINO");
-    return (<span>heckin errorino in menu: {error?.message}</span>);
+    return (<span>Error in menu: {error?.message}</span>);
   }
   // loading is true even after the doc loads
   if (loading && doc == null) {
-    return (<h1> loadin in menu</h1>);
+    return (<h1>Loading menu...</h1>);
   }
 
-  const WrappedMenuItem = withGameContext((gameContext, props) => { 
-    return {status: gameContext.dbStatuses.get(props.dbListItem.gameId)}
-  })(MenuItem);
   return (
     <>
       <IonContent>
         <IonList id="top-list">
           <IonListHeader>Select Game</IonListHeader>
-          {/*<IonNote>not tekken tho</IonNote>*/}
           {doc!.dbs.map((dbListItem, index) => {
             return (
-              <WrappedMenuItem dbListItem={dbListItem} key={index} path={location.pathname} />
+              <MenuItem gameId={dbListItem.gameId} gameDisplayName={dbListItem.displayName} key={index} path={location.pathname} status={dbStatuses.get(dbListItem.gameId)} />
             );
           })}
           <LoginButton />
@@ -79,10 +72,10 @@ const Menu: React.FC<MenuProps> = ({usingLocal}) => {
 
 
 //TODO: memoize?
-interface MenuItemProps {dbListItem: DBListDocItem, key: number, status: DBStatus, path: string}
-const MenuItem: React.FC<MenuItemProps> = ({dbListItem, key, status, path}) => {
+interface MenuItemProps {gameId: string, gameDisplayName: string, key: number, status: DBStatus, path: string}
+export const MenuItem: React.FC<MenuItemProps> = ({gameId, gameDisplayName, key, status, path}) => {
   const localDispatch = useLocalDispatch();
-  const url: string = "/game/"+dbListItem.gameId;
+  const url: string = "/game/"+gameId;
   const isWanted: boolean = status.userWants;
   const transition: DBTransitionState = status.currentTransition;
   const playAnimation: boolean = transition === 'downloading' || transition === 'deleting';
@@ -91,31 +84,26 @@ const MenuItem: React.FC<MenuItemProps> = ({dbListItem, key, status, path}) => {
 
   const localErrorIcon = (status.localError) ? (<IonIcon slot="end" md={skullOutline} />) : '';
   const remoteErrorIcon = (status.remoteError) ? (<IonIcon slot="end" md={cloudOfflineOutline} />) : '';
-  //if(dbListItem.id==="samsho") console.log(`Menu item, playing=${playAnimation}, dbListItem=${JSON.stringify(dbListItem)}, status=${JSON.stringify(status)}`);
 
   function setUserWants(event: any, wants: boolean) {
     event.preventDefault();
     event.stopPropagation();
-    const action: LocalAction = {actionType: 'setUserWants', db: dbListItem.gameId, userWants: wants};
+    const action: LocalAction = {actionType: 'setUserWants', db: gameId, userWants: wants};
     localDispatch(action);
   }
+
   //TODO: disable button if local not enabled
+  // Users probably want to see menu after navigating to a game, so no toggle
   return (
-    <IonItem className={path.includes(url) ? 'selected' : ''} 
-      routerLink={url} routerDirection="forward" lines="none" detail={false}>
-      {/*<IonMenuToggle key={index} autoHide={false}>*/}
-        {/*onClick={() => openMenu(db.id)}*/} 
-      <IonButton fill="clear" onClick={(e) => setUserWants(e, !isWanted)}>
+    <IonItem routerLink={url} routerDirection="forward" lines="none" detail={false}>
         <CreateAnimation duration={1000} iterations={Infinity} 
           play={playAnimation} stop={!playAnimation} direction={'alternate'} easing={'ease-in-out'}
           fromTo={[{ property: 'transform', fromValue: 'translateY(-3px)', toValue: 'translateY(3px)'}]} >
-          <IonIcon slot="start" md={icon} />
+          <IonIcon slot="start" md={icon} onClick={(e) => setUserWants(e, !isWanted)}/>
         </CreateAnimation>
-      </IonButton> 
       {localErrorIcon}
       {remoteErrorIcon}
-      <IonLabel>{dbListItem.displayName}</IonLabel>
-    {/*</IonMenuToggle> */} 
+      <IonLabel>{gameDisplayName}</IonLabel>
     </IonItem>
   );
 }

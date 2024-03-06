@@ -16,7 +16,6 @@ type HtmlPageRendererProps = {
   doc: HtmlPageDoc;
 }
 export const HtmlPageRenderer = ({doc}: HtmlPageRendererProps) => {
-  //TODO: memoize cleanHtml?
   const cleanHtml = useMemo(() => {
     let dirty = '<div>' + doc.html + '</div>'; 
     return sanitizeHTML(dirty, sanitizeOptions); 
