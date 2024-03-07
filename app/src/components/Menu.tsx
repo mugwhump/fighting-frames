@@ -72,8 +72,8 @@ const Menu: React.FC<MenuProps> = ({usingLocal, dbStatuses}) => {
 
 
 //TODO: memoize?
-interface MenuItemProps {gameId: string, gameDisplayName: string, key: number, status: DBStatus, path: string}
-export const MenuItem: React.FC<MenuItemProps> = ({gameId, gameDisplayName, key, status, path}) => {
+interface MenuItemProps {gameId: string, gameDisplayName: string, status: DBStatus, path: string}
+export const MenuItem: React.FC<MenuItemProps> = ({gameId, gameDisplayName, status, path}) => {
   const localDispatch = useLocalDispatch();
   const url: string = "/game/"+gameId;
   const isWanted: boolean = status.userWants;
