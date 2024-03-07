@@ -34,12 +34,13 @@ export let CompileConstants = {
   CONFIRMATION_PATH: "/page/confirmed", //TODO: make an env var so couch-auth can use it... although frontend currently isn't dockerized
   ADD_GAME_PATH: "/page/add-game",
 
+  API_GAMES_MATCH: "/game", //POST to create new game
+  API_DELETE_GAME_MATCH: "/game/:gameId", //DELETE to delete game (actually hide it)
   API_CHANGE_MATCH: changeMatch, //PUT. Would be POST if it ended at changes/. Using PUT since idempotent.
   API_CHARACTER_MATCH: charMatch, // PATCH with body of change title, since PUT replaces entire resource, patch also used for instructions, diffs. Also DELETE.
   API_CHARACTERS_MATCH: "/game/:gameId/character", //POST to create new char. Body contains charName and displayName.
   API_CONFIG_MATCH: "/game/:gameId/"+configDocId, //PUT new config doc 
   API_AUTHORIZED_USERS_MATCH: "/game/:gameId/_security", //PUT new security doc
-  API_GAMES_MATCH: "/game", //POST to create new game
   API_HTML_PAGES_MATCH: "/game/:gameId/pages", //POST to create new page
   API_HTML_PAGE_MATCH: "/game/:gameId/pages/:pageId", //PUT to update page, DELETE to remove
 

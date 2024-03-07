@@ -312,6 +312,56 @@ router.post(CompileConstants.API_GAMES_MATCH, needsPermissions("ServerManager"),
 });
 
 
+/*
+ * DELETE. Renames database, removes from game-list, and changes permissions to couch admin-only (put server-manager in admin roles).
+ * TODO: test when gameID param not provided
+ */
+router.delete(CompileConstants.API_DELETE_GAME_MATCH, //TODO: needsPermissions("Reader"), ServerManager!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+           async (req: TypedRequest<{gameId: string}, {}>, res) => {
+  try {
+    logger.info(`balet time`);
+    const gameId = req.params.gameId.trim();
+    const backupId = `internal-${gameId}-deleted`;
+
+    const topDB = adminNano.use<T.DBListDoc>('top');
+
+    //check db is in top.
+    const gameListDoc = await topDB.get('game-list');
+    const topGameIds = gameListDoc.dbs.map((item: T.DBListDocItem) => item.gameId);
+    if(!topGameIds.includes(gameId)) {
+      return sendError(res, `Game with id ${gameId} doesn't exist. Use the id in its url, not its displayed name.`);
+    }
+
+    const newGameListDoc = {...gameListDoc, dbs: gameListDoc.dbs.filter((item) => item.gameId !== gameId)};
+    const putListResult = await topDB.insert(newGameListDoc, 'game-list'); 
+    logger.info(`Result of updating game-list: ${putListResult}`);
+
+    //create backup with different name. THIS replication (not based on a replication doc) is synchronous.
+    const db = adminNano.use(gameId);
+    const replicationResponse = await db.replicate( backupId, { create_target:true });
+
+    const createdDB = adminNano.use(backupId);
+
+    //give backup db more restrictive perms
+    const secDoc: Security.SecObj = {
+      admins: { names: [], roles: ['_admin'] },
+      members: { names: [], roles: ['server-manager'] }, //no public read perms
+      uploaders: [],
+    }
+    const putSecResult = await createdDB.insert(secDoc as Nano.MaybeDocument, '_security'); 
+    logger.info(`Result of updating backup _security: ${putSecResult}`);
+
+    //delete the original
+    adminNano.db.destroy(gameId);
+
+    return sendSuccess(res, `Deleted database for ${gameId}`);
+  }
+  catch(err) {
+    const gameId = req.params?.gameId;
+    return sendError(res, `Error deleting game ${gameId}, ${err}`);
+  }
+});
+
 /**
  * PUT. Upload new configuration which defines a game's columns, their restrictions, the game's displayed name, etc.
  * Body contains configuration document.

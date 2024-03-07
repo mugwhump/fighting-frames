@@ -11,6 +11,7 @@ import { StringSet } from '../types/utilTypes';
 import { DBStatuses } from '../types/GPTypes';
 import { useLocalDispatch, Action as LocalAction} from './LocalProvider';
 import { Credentials } from '../types/utilTypes';
+import { DBListDoc, DBListDocItem } from '../types/characterTypes';
 import LoginProvider from './LoginProvider';
 import LoginModal from './LoginModal';
 import { setTimeout, clearTimeout } from 'timers';
@@ -322,8 +323,8 @@ function useDBsForRouteMatch(routeMatch: match<{gameId: string}> | null): [strin
 
 export const InnerGameProvider: React.FC<GameProviderProps> = ({children, storedCredentials, wantedDbs, localEnabled}) => {
   const location = useLocation();
+  const localDispatch = useLocalDispatch();
   const [initialized, setInitialized] = useState<boolean>(false);
-  //const [loggingIn, setLoggingIn] = useState<boolean>(false);
   const [state, dispatch] = useReducer(Reducer, initialState, initializeState); //initializes state with wantedDbs
   const routeMatch = useRouteMatch<{gameId: string}>(CompileConstants.GAME_MATCH); //note for hooks, this returns new object every render
   const [gameId, dbListRef, deletionCallback] = useDBsForRouteMatch(routeMatch);
@@ -372,6 +373,27 @@ export const InnerGameProvider: React.FC<GameProviderProps> = ({children, stored
   useEffect(()=> {
     initialize();
   }, []);
+  
+
+  // Called when a wanted db fails to download. If this is because the db was deleted from the server,
+  // remove it from the list of wanted dbs so local files are cleaned up.
+  async function unwantIfNotInTopList(gameId: string) {
+    if(gameId === "top") return;
+
+    const top: PouchDB.Database = dbListRef.current["remoteTop"];
+    try {
+      const list = await top.get<DBListDoc>('game-list');
+      const inTopList = list.dbs.find((item) => item.gameId === gameId)
+      if(!inTopList) {
+        console.log(`Game ${gameId} was wanted, but isn't in top's game-list. Setting to unwanted.`);
+        const action: LocalAction = {actionType: 'setUserWants', db: gameId, userWants: false};
+        localDispatch(action);
+      }
+    }
+    catch(err: any) {
+      console.warn(`Error checking top game-list: ${err}`);
+    }
+  }
 
 
   useEffect(()=> {
@@ -413,6 +435,9 @@ export const InnerGameProvider: React.FC<GameProviderProps> = ({children, stored
     function downloadDB(db: string, dontDownloadIfError: boolean): boolean {
       const status: DBStatus = state.dbStatuses.get(db);
       if(hasErrorPreventingDownload(status)) {
+        // Check if it's a db that was removed from the server and should be deleted
+        unwantIfNotInTopList(db);
+
         if(dontDownloadIfError) {
           console.log(`NOT downloading db ${db} due to existing error. Remote: ${status.remoteError}`);
           return false;
