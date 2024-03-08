@@ -313,10 +313,10 @@ router.post(CompileConstants.API_GAMES_MATCH, needsPermissions("ServerManager"),
 
 
 /*
- * DELETE. Renames database, removes from game-list, and changes permissions to couch admin-only (put server-manager in admin roles).
+ * DELETE. Renames database, removes from game-list, and changes read permissions to couch admin-only (put server-manager in member roles).
  * TODO: test when gameID param not provided
  */
-router.delete(CompileConstants.API_DELETE_GAME_MATCH, //TODO: needsPermissions("Reader"), ServerManager!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+router.delete(CompileConstants.API_DELETE_GAME_MATCH, needsPermissions("ServerManager"), 
            async (req: TypedRequest<{gameId: string}, {}>, res) => {
   try {
     logger.info(`balet time`);
@@ -354,7 +354,7 @@ router.delete(CompileConstants.API_DELETE_GAME_MATCH, //TODO: needsPermissions("
     //delete the original
     adminNano.db.destroy(gameId);
 
-    return sendSuccess(res, `Deleted database for ${gameId}`);
+    return sendSuccess(res, `Removed game ${gameId}`);
   }
   catch(err) {
     const gameId = req.params?.gameId;

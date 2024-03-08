@@ -7,10 +7,11 @@ import { useDoc } from 'use-pouchdb';
 //import * as myPouch from '../services/pouch';
 //import CharacterSegments  from '../components/CharacterSegments';
 import { CharacterContextProvider, MiddlewareContext, MiddlewareSetterContext, Middleware } from '../services/CharacterReducer';
-import { useGameContext, useGameDispatch, Action as GameAction } from '../components/GameProvider';
+import { withGameContext, useGameDispatch, Action as GameAction } from '../components/GameProvider';
 import { calculateHideBreakpoints } from '../services/renderUtil';
 import * as util from '../services/util';
 import * as T from '../types/characterTypes';
+import { useMyToast } from '../services/hooks';
 import { insertDefsSortGroupsCompileRegexes   } from '../services/columnUtil';
 import { CharacterDocAccess } from '../components/CharacterDocAccess';
 import CompileConstants from '../constants/CompileConstants';
@@ -27,13 +28,21 @@ import { EditHtmlPage, EditExistingHtmlPage } from './EditHtmlPage';
 import { HtmlPage } from './HtmlPage';
 import FrontPage from './FrontPage';
 
-type GameProps = {
+export const GameContainer: React.FC = () => {
+  const WrappedGame = withGameContext((state) => {return {
+    gameId: state.gameId,
+  }})(Game);
+  return (<WrappedGame />);
 }
 
-const Game: React.FC<GameProps> = () => {
-  const gameContext = useGameContext();
-  const gameId: string = gameContext.gameId; //TODO: Wrapper component. Note this will update after the provider switches DBs.
+type GameProps = {
+  gameId: string;
+}
+
+const Game: React.FC<GameProps> = ({gameId}) => {
   const gameDispatch = useGameDispatch();
+  const [presentMyToast, ] = useMyToast(); 
+  const [showedDeletedNotification, setShowedDeletedNotification] = useState<boolean>(false);
   const [middleware, setMiddleware] = useState<Middleware>({});
   const [previewDoc, setPreviewDoc] = useState<T.ConfigDoc | null>(null);
   const configPageMatch = useRouteMatch<{gameId: string}>(CompileConstants.CONFIGURATION_MATCH); //force remote db if on configuration page
@@ -57,6 +66,17 @@ const Game: React.FC<GameProps> = () => {
   useEffect(() => {
     gameDispatch({actionType: 'setGameDisplayName', gameId: gameId, displayName: displayName} as GameAction);
   }, [displayName, gameId, gameDispatch]);
+
+  useEffect(() => {
+    // Display warnings if viewing a deleted game
+    if(!showedDeletedNotification && gameId && gameId.startsWith('internal-') && gameId.endsWith('-deleted')) {
+      presentMyToast('This game is marked for deletion and not visible to the public', 'warning', 999999);
+      setShowedDeletedNotification(true);
+    }
+  }, [gameId, showedDeletedNotification]);
+  useEffect(() => {
+    // Display warnings if previewing
+  }, [previewDoc]);
 
   //TODO: would need to give character state info about whether it's a preview doc so players can't save or upload changes based on faulty defs
   //and display a banner saying "you're previewing your definitions"
@@ -153,4 +173,4 @@ const Game: React.FC<GameProps> = () => {
   );
 }
 
-export default Game
+export default GameContainer;

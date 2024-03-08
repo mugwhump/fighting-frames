@@ -163,6 +163,9 @@ export function trimStringProperties(record: Record<string, unknown>) {
 export function getGameUrl(gameId: string): string {
   return generatePath(CompileConstants.GAME_MATCH, {gameId: gameId});
 }
+export function getGameDeletedUrl(gameId: string): string {
+  return generatePath(CompileConstants.DELETED_GAME_MATCH, {gameId: gameId});
+}
 export function getCharacterUrl(gameId: string, characterId: string): string {
   return generatePath(CompileConstants.CHARACTER_MATCH, {gameId: gameId, characterId: characterId});
 }
@@ -208,6 +211,9 @@ export function getEditHtmlPageUrl(gameId: string, pageId: string): string {
 export function getAddGamePageUrl(): string {
   return CompileConstants.ADD_GAME_PATH;
 }
+export function getDeleteGamePageUrl(): string {
+  return CompileConstants.DELETE_GAME_PATH;
+}
 
 
 export function getApiUploadChangeUrl(gameId: string, characterId: string, changeTitle: string): [string, HttpMethod] {
@@ -230,6 +236,9 @@ export function getApiAuthorizedUsersUrl(gameId: string): [string, HttpMethod] {
 }
 export function getApiAddGameUrl(): [string, HttpMethod] {
   return [CompileConstants.API_GAMES_MATCH, "POST"];
+}
+export function getApiDeleteGameUrl(gameId: string): [string, HttpMethod] {
+  return [generatePath(CompileConstants.API_DELETE_GAME_MATCH, {gameId: gameId}), "DELETE"];
 }
 export function getApiAddHtmlPageUrl(gameId: string): [string, HttpMethod] {
   return [generatePath(CompileConstants.API_HTML_PAGES_MATCH, {gameId: gameId}), "POST"];

@@ -2,10 +2,11 @@ import { MenuContainer } from './components/Menu';
 import Home from './pages/Home';
 import Test from './pages/Test';
 import { GameProvider } from './components/GameProvider';
-import Game from './pages/Game';
+import { GameContainer } from './pages/Game';
 import DBProvider from './components/DBProvider';
 import { GameMenuContainer } from './components/GameMenu';
 import AddGame from './pages/AddGame';
+import DeleteGame from './pages/DeleteGame';
 import { LocalProvider } from './components/LocalProvider';
 import React from 'react';
 import { IonApp, IonMenu, IonItem, IonLabel, IonRouterOutlet, IonSplitPane, setupIonicReact } from '@ionic/react';
@@ -58,7 +59,7 @@ const App: React.FC = () => {
                 {/* https://stackoverflow.com/a/59256779/2643645 writeup on route child methods */}
                 <Switch> {/* need switch or forward navigation is messed up. Though ionic docs say Switch inside outlet does nothing? */}
                   <Route path="/game/:gameId">
-                    <Game />
+                    <GameContainer />
                   </Route>
                   <Route path="/page/Test" component={Test} exact /> 
                   <Route path={CompileConstants.CONFIRMATION_PATH} exact >
@@ -66,6 +67,9 @@ const App: React.FC = () => {
                   </Route>
                   <Route path={CompileConstants.ADD_GAME_PATH} exact >
                     <AddGame />
+                  </Route>
+                  <Route path={CompileConstants.DELETE_GAME_PATH} exact >
+                    <DeleteGame />
                   </Route>
                   <Route path={CompileConstants.HOME_PATH} component={Home} exact />
                   {/*<Route path="/game/:gameId" render={({match}) => etc etc to use the match here */}

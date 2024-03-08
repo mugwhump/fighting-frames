@@ -16,6 +16,7 @@ export let CompileConstants = {
 
   //URLs
   GAME_MATCH: "/game/:gameId",
+  DELETED_GAME_MATCH: "/game/internal-:gameId-deleted",
   CHARACTER_MATCH: charMatch,
   SEGMENT_MATCH: "/game/:gameId/character/:characterId/:segment", //TODO: nuke it
   EDIT_MATCH: charMatch+"/local-edit",
@@ -33,6 +34,7 @@ export let CompileConstants = {
   HOME_PATH: "/page/home",
   CONFIRMATION_PATH: "/page/confirmed", //TODO: make an env var so couch-auth can use it... although frontend currently isn't dockerized
   ADD_GAME_PATH: "/page/add-game",
+  DELETE_GAME_PATH: "/page/remove-game",
 
   API_GAMES_MATCH: "/game", //POST to create new game
   API_DELETE_GAME_MATCH: "/game/:gameId", //DELETE to delete game (actually hide it)

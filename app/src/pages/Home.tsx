@@ -1,6 +1,6 @@
 import React, { useEffect, useState } from 'react';
 import { IonContent, IonList, IonListHeader, IonItem, IonLabel, IonNote } from '@ionic/react';
-import { getAddGamePageUrl } from '../services/util';
+import { getAddGamePageUrl, getDeleteGamePageUrl } from '../services/util';
 import NeedPermissions from '../components/NeedPermissions';
 import HeaderPage from '../components/HeaderPage';
 
@@ -30,6 +30,7 @@ const Home: React.FC<{}> = () => {
             <IonListHeader><IonLabel>Admin Links:</IonLabel></IonListHeader>
 
             <IonItem href={getAddGamePageUrl()}><IonLabel>Add a new game</IonLabel></IonItem>
+            <IonItem href={getDeleteGamePageUrl()}><IonLabel>Remove an existing game</IonLabel></IonItem>
           </IonList>
         </NeedPermissions>
 
