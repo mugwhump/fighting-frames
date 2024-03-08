@@ -1,0 +1,8 @@
+/*
+ * Module for general styling
+ */
+
+/* padding for top-level stuff inside IonContent */
+.content-padding {
+    padding: 8px 5px 8px 16px;
+}

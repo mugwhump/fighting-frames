@@ -7,6 +7,7 @@ import { sanitizeOptions } from '../constants/validHtml';
 import * as util from '../services/util';
 import HeaderPage from '../components/HeaderPage';
 import { HtmlPageDoc } from '../types/characterTypes'; //==
+import styles from '../theme/General.module.css'
 
 
 
@@ -22,7 +23,7 @@ export const HtmlPageRenderer = ({doc}: HtmlPageRendererProps) => {
   }, [doc]);
 
   return ( 
-    <div className="htmlContainer" dangerouslySetInnerHTML={{__html: cleanHtml}} />
+    <div  className={styles['content-padding']} dangerouslySetInnerHTML={{__html: cleanHtml}} />
   )
 }
 

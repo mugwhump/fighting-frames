@@ -8,6 +8,7 @@ import * as myPouch from '../services/pouch';
 import * as util from '../services/util';
 import CompileConstants from '../constants/CompileConstants';
 import { useMyAlert, useLoadingPromise } from '../services/hooks';
+import styles from '../theme/General.module.css'
 
 
 const DeleteGame: React.FC<{}> = () => {
@@ -15,7 +16,7 @@ const DeleteGame: React.FC<{}> = () => {
   const [gameIdErr, setGameIdErr] = useState<string | null>(null); 
   const [serverErr, setServerErr] = useState<string | null>(null); 
   const [presentMyAlert, dismissAlert] = useMyAlert(); 
-  const [loadingPromiseWrapper, dismissLoading] = useLoadingPromise(); 
+  const [loadingPromiseWrapper, ] = useLoadingPromise(); 
   const history = useHistory();
   const canSubmit = !gameIdErr;
 
@@ -61,7 +62,7 @@ const DeleteGame: React.FC<{}> = () => {
         <NeedPermissions permissions={"ServerManager"} ifYes={(
 
           <>
-          <div>{"Enter the id of the game you want to mark for deletion. The game will be moved to a new hidden url of the form '/game/internal-[game id]-deleted' and will only be visible to server managers. Its database will be fully removed after a month. Contact the superadmin if you wish to cancel this deletion during that time."}</div>
+          <div className={styles['content-padding']}>{"Enter the id of the game you want to mark for deletion. The game will be moved to a new hidden url of the form '/game/internal-[game id]-deleted' and will only be visible to server managers. Its database will be fully removed after a month. Contact the superadmin if you wish to cancel this deletion during that time."}</div>
 
           <IonList onKeyPress={(event: any) => {if(canSubmit && event.key === "Enter") promptDelete(gameId)}}>
 
