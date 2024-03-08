@@ -37,11 +37,11 @@ const FrontPage = ({gameId, displayName}: FrontPageProps) => {
           <IonList>
             <IonListHeader><IonLabel>Admin Links:</IonLabel></IonListHeader>
 
-            <IonItem href={util.getConfigurationUrl(gameId)}><IonLabel>Configure game columns and settings</IonLabel></IonItem>
-            <IonItem href={util.getAddCharacterUrl(gameId)}><IonLabel>Add Character</IonLabel></IonItem>
-            <IonItem href={util.getDeleteCharacterUrl(gameId)}><IonLabel>Delete Character</IonLabel></IonItem>
-            <IonItem href={util.getAuthorizedUsersUrl(gameId)}><IonLabel>Change Authorized Users</IonLabel></IonItem>
-            <IonItem href={util.getManageHtmlPagesUrl(gameId)}><IonLabel>Manage Pages</IonLabel></IonItem>
+            <IonItem routerLink={util.getConfigurationUrl(gameId)}><IonLabel>Configure game columns and settings</IonLabel></IonItem>
+            <IonItem routerLink={util.getAddCharacterUrl(gameId)}><IonLabel>Add Character</IonLabel></IonItem>
+            <IonItem routerLink={util.getDeleteCharacterUrl(gameId)}><IonLabel>Delete Character</IonLabel></IonItem>
+            <IonItem routerLink={util.getAuthorizedUsersUrl(gameId)}><IonLabel>Change Authorized Users</IonLabel></IonItem>
+            <IonItem routerLink={util.getManageHtmlPagesUrl(gameId)}><IonLabel>Manage Pages</IonLabel></IonItem>
           </IonList>
         </NeedPermissions>
 
