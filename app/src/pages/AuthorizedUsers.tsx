@@ -295,7 +295,7 @@ const NameList: React.FC<NameListProps> = ({permKey, names, promptRemoveCallback
       }) }
 
       <IonItem key="_add-name" button onClick={() => promptAddCallback(permKey)} >
-        <IonLabel>{(names.length === 0) && `This game has no ${title}s. `}Click to add {title}</IonLabel>
+        <IonLabel className="ion-text-wrap">{(names.length === 0) && `This game has no ${title}s. `}Click to add {title}</IonLabel>
         <IonIcon slot="start" color="success" icon={add} />
       </IonItem>
 
