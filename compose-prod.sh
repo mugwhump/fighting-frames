@@ -12,7 +12,7 @@ if docker context ls | grep -q ff; then
         docker --context ff compose -f docker-compose.yml -f docker-compose.production.yml up --build --force-recreate -d
     else
         echo "Executing compose in remote context with args $*"
-        docker --context ff compose -f docker-compose.yml -f docker-compose.production.yml $*
+        docker --context ff compose -f docker-compose.yml -f docker-compose.production.yml "$@"
     fi
 else
     >&2 echo "Error: You must create a docker context named 'ff' for your production server."
