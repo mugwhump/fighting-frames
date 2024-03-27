@@ -3,14 +3,11 @@ import React, { useState, useEffect } from 'react';
 import { useLocalDispatch, Action } from './LocalProvider';
 import { Credentials } from '../types/utilTypes';
 import Registration from './Registration';
-import PouchDB from 'pouchdb';
-import PouchAuth from 'pouchdb-authentication';
-import CompileConstants from '../constants/CompileConstants';
 
 type LoginModalProps = {
   show: boolean;
-  storedCredentials: Credentials | undefined, //if none found, undefined
-  onDismiss: () => void; //callbacks defined in caller using this 
+  storedCredentials: Credentials | null, 
+  onDismiss: () => void; 
   logInModalCallback : (username: string, password: string) => Promise<PouchDB.Authentication.LoginResponse>;
 }
 
@@ -45,8 +42,7 @@ const LoginModal: React.FC<LoginModalProps> = ({show, storedCredentials, onDismi
   }
 
   function willPresent() {
-    console.log("ionModalWillPresent fired");
-    if (storedCredentials === undefined || storedCredentials.username === CompileConstants.DEFAULT_CREDENTIALS.username) {
+    if (storedCredentials === null) {
       console.log("No stored credentials found");
     }
     else {

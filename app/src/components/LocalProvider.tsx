@@ -17,7 +17,7 @@ export type Preferences = {
 // TODO: handling for if old version is saved but a new property is added to LocalData. 
 //Should have transformers for each version that changes state structure
 export type LocalData = {
-  credentials: Credentials,
+  credentials: Credentials | null,
   preferences: Preferences,
   tutorials: StringSet, //if the name of the tutorial is here, you saw it.
   wantedDbs: StringSet, //if name of DB is here, user wants it. Includes top.
@@ -29,7 +29,7 @@ type LatestPageDoc = PouchDB.Core.Document<LatestPage>;
 
 
 const initialState: LocalData = {
-  credentials: CompileConstants.DEFAULT_CREDENTIALS,
+  credentials: null,
   preferences: {
     localEnabled: CompileConstants.DEFAULT_LOCAL_ENABLED, 
     preferLocal: CompileConstants.DEFAULT_PREFER_LOCAL, 
@@ -48,7 +48,6 @@ export type Action =
   | { actionType: 'updatePreferences', preferences: Preferences }
   | { actionType: 'setUserWants', db: string, userWants: boolean } //Confirm user's cool with db size before this. If anything's here, top is here.
 
-// Reducers are preferably pure, but anything that needs to trigger updates must change its reference/value
 // objects are by-reference, so don't store reference anywhere, do state.credentials[game].username every time
 function LocalReducer(state: LocalData, action: Action): LocalData {
   //let newState: LocalData = cloneData(state); //this makes everything believe all sub-values changed
@@ -61,7 +60,7 @@ function LocalReducer(state: LocalData, action: Action): LocalData {
       break;
     }
     case 'resetCredentials': {
-      newState.credentials = CompileConstants.DEFAULT_CREDENTIALS;
+      newState.credentials = null;
       break;
     }
     case 'loadState': {
@@ -129,11 +128,11 @@ export const LocalProvider: React.FC = ({children}) => {
   }, [state.preferences.localEnabled]);
 
 
-  //async function getLatestPageDoc(): Promise<LatestPageDoc & PouchDB.Core.GetMeta> {
   const getLatestPageDoc = useCallback(async () => {
     if(!state.preferences.localEnabled) throw new Error("Called getLatestPageDoc() when local not enabled");
     return await database.get<LatestPageDoc>(locationDocId);
   }, [state.preferences.localEnabled]);
+
 
   const writeLocalDoc = useCallback(async (docExists: boolean) => {
     if(!state.preferences.localEnabled) {

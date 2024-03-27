@@ -1,8 +1,7 @@
-import React, { useRef, Ref, useReducer, ReducerAction, Dispatch, useState, useEffect, useMemo, MutableRefObject, useCallback } from 'react';
-import { useLocation, useHistory, useRouteMatch, matchPath, match } from 'react-router';
+import React, { useReducer, ReducerAction, Dispatch, useState, useEffect, useMemo, MutableRefObject } from 'react';
+import { useLocation, useRouteMatch, matchPath, match } from 'react-router';
 import { Provider } from 'use-pouchdb'
-import PouchDB from 'pouchdb';
-import { Network, ConnectionStatus, ConnectionType } from '@capacitor/network';
+import { Network } from '@capacitor/network';
 import { Capacitor } from '@capacitor/core';
 import * as myPouch from '../services/pouch';
 import CompileConstants from '../constants/CompileConstants';
@@ -11,16 +10,14 @@ import { StringSet } from '../types/utilTypes';
 import { DBStatuses } from '../types/GPTypes';
 import { useLocalDispatch, Action as LocalAction} from './LocalProvider';
 import { Credentials } from '../types/utilTypes';
-import { DBListDoc, DBListDocItem } from '../types/characterTypes';
+import { DBListDoc } from '../types/characterTypes';
 import LoginProvider from './LoginProvider';
-import LoginModal from './LoginModal';
-import { setTimeout, clearTimeout } from 'timers';
 //This component will become the container for a game with corresponding db,
 //within which chars/docs will be displayed. Has <Provider> with overriding db
 
 type GameProviderProps  = {
   children: React.ReactNode,
-  storedCredentials: Credentials,
+  storedCredentials: Credentials | null,
   wantedDbs: StringSet,
   localEnabled: boolean,
 }

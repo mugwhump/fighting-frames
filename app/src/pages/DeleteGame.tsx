@@ -62,7 +62,7 @@ const DeleteGame: React.FC<{}> = () => {
         <NeedPermissions permissions={"ServerManager"} ifYes={(
 
           <>
-          <div className={styles['content-padding']}>{"Enter the id of the game you want to mark for deletion. The game will be moved to a new hidden url of the form '/game/internal-[game id]-deleted' and will only be visible to server managers. Its database will be fully removed after a month. Contact the superadmin if you wish to cancel this deletion during that time."}</div>
+          <div className={styles['content-padding']}>{"Enter the id of the game you want to mark for deletion. The game will be moved to a new hidden url of the form '/game/internal-deleted-[game id]' and will only be visible to server managers. Its database will be fully removed after a month. Contact the superadmin if you wish to cancel this deletion during that time."}</div>
 
           <IonList onKeyPress={(event: any) => {if(canSubmit && event.key === "Enter") promptDelete(gameId)}}>
 

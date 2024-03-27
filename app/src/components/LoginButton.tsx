@@ -17,8 +17,8 @@ const LoginButton: React.FC<LoginButtonProps> = () => {
     console.log("LoginButton's loginInfo changed: "+JSON.stringify(loginInfo));
   }, [loginInfo])
 
-  if(loginInfo.currentUser !== CompileConstants.DEFAULT_CREDENTIALS.username) {
-    //If logged in as non-default user
+  if(loginInfo.currentUser !== null) {
+    //If logged in 
     return (
       <>
       <div>Logged in as {loginInfo.currentUser}</div>

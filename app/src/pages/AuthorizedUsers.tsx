@@ -10,10 +10,9 @@ import NeedPermissions from '../components/NeedPermissions';
 import * as myPouch from '../services/pouch';
 import * as util from '../services/util';
 import { SecObj, userHasPerms } from '../services/security';
-import { cloneDeep, isEqual, set } from 'lodash';
-import CompileConstants from '../constants/CompileConstants';
+import { cloneDeep, isEqual } from 'lodash';
 
-type PermKey = 'admins' | 'members' | 'uploaders';
+type PermKey = 'game_admins' | 'editors' | 'uploaders';
 type AuthorizedUsersProps = {
   gameId: string;
 }
@@ -40,11 +39,7 @@ const AuthorizedUsers: React.FC<AuthorizedUsersProps> = ({gameId}) => {
 
 
   function getNamesIn(key: PermKey, secObj: SecObj): string[] {
-    if(key === 'uploaders') return secObj.uploaders ?? [];
-    else if(key === 'members') return secObj.members?.names ?? [];
-    else if(key === 'admins') return secObj.admins?.names ?? [];
-
-    else throw new Error(`Unknown key ${key} in getNamesOf`);
+    return secObj[key] ?? [];
   }
 
 
@@ -57,7 +52,6 @@ const AuthorizedUsers: React.FC<AuthorizedUsersProps> = ({gameId}) => {
           // First check that _security wasn't updated while working 
           const result = await db.get<SecObj>('_security');
           if(!isEqual(serverSecObj, result)) { //isEqual cares about order of array items, but not object properties
-            console.warn("NO MATCHERINO");
             setServerSecObj(result);
             setWorkingSecObj(cloneDeep<SecObj>(result));
             throw new Error("Someone else updated permissions while you were working! Please re-do your changes.");
@@ -97,7 +91,7 @@ const AuthorizedUsers: React.FC<AuthorizedUsersProps> = ({gameId}) => {
     }
     let message: string = `Would you like to remove user ${name} from ${roleTitles[key]}s?`;
     //TODO: warn game admins removing selves, unless server admin
-    if(key === 'admins' && name === loginInfo.currentUser && !userHasPerms(loginInfo, "ServerManager")) {
+    if(key === 'game_admins' && name === loginInfo.currentUser && !userHasPerms(loginInfo, "ServerManager")) {
       message = "WARNING: you are about to remove your own game admin privileges! If you submit these changes, you won't be able to access this page any more or get your permissions back!"
     }
 
@@ -115,21 +109,21 @@ const AuthorizedUsers: React.FC<AuthorizedUsersProps> = ({gameId}) => {
   const promptAddNameCallback = useCallback((key: PermKey) => {
     if(!workingSecObj) return;
     const newSecObj = cloneDeep<SecObj>(workingSecObj);
-    const path = (key === 'uploaders') ? 'uploaders' : `${key}.names`;
+    //const path = (key === 'uploaders') ? 'uploaders' : `${key}.names`;
     const nameArrayToAttach = getNamesIn(key, workingSecObj);
 
     function addName(name: string) {
       if(!name) return false;
 
       //notify that 'public' and 'user' can't be admins
-      if(key === 'admins' && (name === 'public' || name === 'user')) {
+      if(key === 'game_admins' && (name === 'public' || name === 'user')) {
         presentMyToast("Only individual registered users may be admins", "warning");
         return false;
       }
 
       //check that users aren't added to multiple arrays
-      if(getNamesIn('admins', newSecObj).includes(name)
-        || getNamesIn('members', newSecObj).includes(name)
+      if(getNamesIn('game_admins', newSecObj).includes(name)
+        || getNamesIn('editors', newSecObj).includes(name)
         || getNamesIn('uploaders', newSecObj).includes(name)) {
           presentMyToast(`User ${name} already has a role. Only give users one role. 
                         Higher levels automatically grant the privileges of lower levels.`, 'warning');
@@ -149,7 +143,7 @@ const AuthorizedUsers: React.FC<AuthorizedUsersProps> = ({gameId}) => {
       //}
 
       nameArrayToAttach.push(name);
-      set(newSecObj, path, nameArrayToAttach);
+      newSecObj[key] = nameArrayToAttach;
       setWorkingSecObj(newSecObj);
       return true;
     }
@@ -186,13 +180,13 @@ const AuthorizedUsers: React.FC<AuthorizedUsersProps> = ({gameId}) => {
       <IonContent fullscreen>
         <NeedPermissions permissions={"GameAdmin"}>
 
-          <NameList permKey="admins" names={getNamesIn("admins", workingSecObj)} promptRemoveCallback={promptRemoveNameCallback} promptAddCallback={promptAddNameCallback} />
+          <NameList permKey="game_admins" names={getNamesIn("game_admins", workingSecObj)} promptRemoveCallback={promptRemoveNameCallback} promptAddCallback={promptAddNameCallback} />
           <br />
-          <NameList permKey="members" names={getNamesIn("members", workingSecObj)} promptRemoveCallback={promptRemoveNameCallback} 
-          promptAddCallback={promptAddNameCallback} publicInEditors={workingSecObj?.members?.names?.includes('public')} />
+          <NameList permKey="editors" names={getNamesIn("editors", workingSecObj)} promptRemoveCallback={promptRemoveNameCallback} 
+          promptAddCallback={promptAddNameCallback} publicInEditors={workingSecObj?.editors?.includes('public')} />
           <br />
           <NameList permKey="uploaders" names={getNamesIn("uploaders", workingSecObj)} promptRemoveCallback={promptRemoveNameCallback} 
-          promptAddCallback={promptAddNameCallback} publicInEditors={getNamesIn("members", workingSecObj).includes('public')} />
+          promptAddCallback={promptAddNameCallback} publicInEditors={getNamesIn("editors", workingSecObj).includes('public')} />
 
           {serverErr && 
             <IonItem ref={serverErrRef} color="danger">
@@ -217,13 +211,13 @@ const AuthorizedUsers: React.FC<AuthorizedUsersProps> = ({gameId}) => {
 
 
 const roleTitles: Record<PermKey, string> = {
-  "admins": "Game Admin",
-  "members": "Editor",
+  "game_admins": "Game Admin",
+  "editors": "Editor",
   "uploaders": "Uploader",
 }
 const roleDescription: Record<PermKey, string> = {
-  "admins": "These users have all permissions for this game, which includes all Editor and Uploader permissions, adding and deleting characters, changing the game's configuration and column definitions, and the ability to access this page and grant or revoke permissions for this game.",
-  "members": "These users can upload changes for a character, and are also able to apply changes that others have uploaded, or revert previously applied changes.",
+  "game_admins": "These users have all permissions for this game, which includes all Editor and Uploader permissions, adding and deleting characters, changing the game's configuration and column definitions, and the ability to access this page and grant or revoke permissions for this game.",
+  "editors": "These users can upload changes for a character, and are also able to apply changes that others have uploaded, or revert previously applied changes.",
   "uploaders": "These users can upload changes for a character, but only someone with Editor permissions or higher can apply those changes.",
 }
 
@@ -238,7 +232,7 @@ const NameList: React.FC<NameListProps> = ({permKey, names, promptRemoveCallback
   const title = roleTitles[permKey];
   const desc = roleDescription[permKey];
 
-  const publicHasPerm = names.includes(CompileConstants.DEFAULT_CREDENTIALS.username);
+  const publicHasPerm = names.includes("public");
   let publicPermColor = "primary";
   let publicPermMsg = `Add 'public' to this list to give EVERYONE ${title} permissions, even without creating an account.`
   if(publicHasPerm) {
@@ -268,7 +262,7 @@ const NameList: React.FC<NameListProps> = ({permKey, names, promptRemoveCallback
         </IonLabel>
       </IonListHeader>
 
-      {(permKey === "members" || permKey === "uploaders") && (
+      {(permKey === "editors" || permKey === "uploaders") && (
         <>
         <IonItem key="_public" className="ion-text-wrap" color="light" lines="none" >
           <IonLabel className="ion-text-wrap" >{publicPermMsg}</IonLabel>

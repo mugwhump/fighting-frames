@@ -20,6 +20,18 @@
             },
             "type": "object"
         },
+        "editors": {
+            "items": {
+                "type": "string"
+            },
+            "type": "array"
+        },
+        "game_admins": {
+            "items": {
+                "type": "string"
+            },
+            "type": "array"
+        },
         "members": {
             "additionalProperties": false,
             "properties": {

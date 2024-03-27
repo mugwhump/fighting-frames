@@ -1,18 +1,20 @@
 //ServerManager and ServerAdmin are for all databases and thus determined by user role rather than presence of user's name in db's secobj
-//uhhh what does a SL server admin even do
+//SL server admin has _admin role so would be actual couch admin of most dbs. Currently unused.
 //Note that SuperLogin users in the "names" list only have priveleges via my API; from couch's perspective their username is a random string.
 
 export type SecObj = {
-  admins?: {
-    names?: string[], //GameAdmins
+  admins?: { // not used
+    names?: string[], 
     roles?: string[],
   };
+  members?: { // empty, which allows universal read access
+    names?: string[], 
+    roles?: string[],
+  };
+  game_admins?: string[]
   //For Editors or Uploaders, can add 'public' for anyone, or 'user' for any registered user
-  members?: {
-    //TODO: enforce that users have >= perms than public? Won't cause problems but does make sense.
-    names?: string[], //Editors
-    roles?: string[],
-  };
+  //TODO: enforce that users have >= perms than public? Won't cause problems but does make sense.
+  editors?: string[]; //Editors
   uploaders?: string[]; //Uploaders. 
 }
 
@@ -25,7 +27,7 @@ export function permissionGTE(perm1: PermissionLevel = "Reader", perm2: Permissi
 }
 
 //matches shape of LoginInfo but can be used by backend
-export function userHasPerms(info: {secObj: SecObj | null, currentUser?: string, roles?: string[]}, permissions: PermissionLevel): boolean {
+export function userHasPerms(info: {secObj: SecObj | null, currentUser: string | null, roles?: string[]}, permissions: PermissionLevel): boolean {
   let {currentUser, roles, secObj} = info; 
   switch(permissions) {
     case "Reader": {
@@ -50,30 +52,28 @@ export function userHasPerms(info: {secObj: SecObj | null, currentUser?: string,
   throw new Error("Unrecognized permission level: "+permissions);
 }
 
-export function userIsUploaderOrHigher(user?: string, roles?: string[], secObj?: SecObj): boolean {
+export function userIsUploaderOrHigher(user: string | null, roles?: string[], secObj?: SecObj): boolean {
   if(!user) return false;
-  //return ( (user === 'public' && permissionGTE(secObj?.publicPerms, "Uploader")) || (isSLUser(roles) && permissionGTE(secObj?.userPerms, "Uploader")) )
   return secObj?.uploaders?.includes('public') 
     || (isSLUser(roles) && secObj?.uploaders?.includes('user'))
     || userIsEditorOrHigher(user, roles, secObj);
 }
-export function userIsEditorOrHigher (user?: string, roles?: string[], secObj?: SecObj): boolean {
-  //return user && secObj?.members?.names && secObj?.members.names.includes(user) 
+export function userIsEditorOrHigher (user: string | null, roles?: string[], secObj?: SecObj): boolean {
   if(!user) return false;
-  //return ( (user === 'public' && permissionGTE(secObj?.publicPerms, "Editor")) || (isSLUser(roles) && permissionGTE(secObj?.userPerms, "Editor")) )
-  return secObj?.members?.names?.includes('public') 
-    || (isSLUser(roles) && secObj?.members?.names?.includes('user')) 
-    || secObj?.members?.names?.includes(user) 
+  return secObj?.editors?.includes('public') 
+    || (isSLUser(roles) && secObj?.editors?.includes('user')) 
+    || secObj?.editors?.includes(user) 
     || userIsGameAdminOrHigher(user, roles, secObj);
 }
-export function userIsGameAdminOrHigher(user?: string, roles?: string[], secObj?: SecObj): boolean {
+export function userIsGameAdminOrHigher(user: string | null, roles?: string[], secObj?: SecObj): boolean {
   if(!user) return false;
-  return (secObj?.admins?.names && secObj?.admins.names.includes(user)) || userIsServerManagerOrHigher(user, roles, secObj);
+  return secObj?.game_admins?.includes(user) 
+    || userIsServerManagerOrHigher(user, roles, secObj);
 }
-export function userIsServerManagerOrHigher(user?: string, roles?: string[], secObj?: SecObj): boolean {
+export function userIsServerManagerOrHigher(user: string | null, roles?: string[], secObj?: SecObj): boolean {
   return (roles && roles.includes("server-manager")) || userIsServerAdmin(user, roles, secObj);
 }
-export function userIsServerAdmin(user?: string, roles?: string[], secObj?: SecObj): boolean {
+export function userIsServerAdmin(user: string | null, roles?: string[], secObj?: SecObj): boolean {
   return !!roles && roles.includes("_admin");
 }
 
@@ -85,9 +85,4 @@ function isSLUser(roles?: string[]) {
 export function anySLUserHasPerms(permissions: "Uploader" | "Editor", secObj: SecObj | null | undefined): boolean {
   if(!secObj) return false;
   return userHasPerms({secObj: secObj, currentUser: "user", roles: ["user"]}, permissions);
-  //if(permissions === "Uploader") {
-    //if(secObj?.uploaders?.includes('user')) return true;
-  //}
-  //if(permissions === "Editor") {
-  //}
 }

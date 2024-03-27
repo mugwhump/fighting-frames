@@ -6,7 +6,7 @@ import PouchDB from 'pouchdb';
 import * as myPouch from '../services/pouch';
 import * as E from '../constants/exampleData';
 import { reduceChanges, resolveMoveOrder, rebaseChangeDoc, mergeChangeDocs, getMergeConflicts, getRebaseConflicts, applyResolutions, autoResolveConflicts } from '../services/merging';
-import { remote, getDB, pullDB, pushDB, remoteWithBasicCreds } from '../services/pouch';
+import { getDB, pullDB, pushDB, remote } from '../services/pouch';
 //import { ColumnChange, Modify, Changes, Conflict, ConflictMoveOrder, ConflictMoveOrderMergeBothChange, ConflictMoveOrderMergeTheyChange, ConflictMoveOrderRebaseBothChange, MoveChanges, MoveChangeList, ChangeDoc, ColumnData, MoveOrder, CharDoc } from '../types/characterTypes';
 import type * as T from '../types/characterTypes'; //==
 import * as util from '../services/util';
@@ -228,7 +228,7 @@ const Test: React.FC<TestProps> = ({propNum, propStr}) => {
 
   async function loginTest() {
     //logging into one DB object that initially used basic auth will cause all DB objects for the same remote DB to use session auth
-    const pouch1: PouchDB.Database = myPouch.getDB(myPouch.remoteWithBasicCreds+"sc6");
+    const pouch1: PouchDB.Database = myPouch.getDB(myPouch.remote+"sc6");
     let result = await pouch1.logIn("public","password");
     const pouch2: PouchDB.Database = myPouch.getDB(myPouch.remote+"sc6");
     let result2 = await pouch2.getSession();

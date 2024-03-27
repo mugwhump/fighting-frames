@@ -13,22 +13,18 @@ type LoginProviderProps  = {
   children: React.ReactNode,
   //TODO: pass these for now (causing re-renders) until these providers are switched to tracked selectors
   gameId: string,
-  storedCredentials: Credentials,
+  storedCredentials: Credentials | null,
 }
 
 
-//const useValue: (({ gameId: any; storedCredentials: any; }) => [any, any] ) = ({gameId, storedCredentials}) => {
-//function useValue({ gameId, storedCredentials}: LoginProviderProps): [any, any] {
+//TODO: switch to a reducer if consuming components' interactions go beyond logging in/out
 export const InnerLoginProvider: React.FC<LoginProviderProps> = ({children, gameId, storedCredentials}) => {
   const gameDispatch = useGameDispatch();
   const [initialized, setInitialized] = useState<boolean>(false);
-  //TODO: switch to a reducer if consuming components' interactions go beyond logging in/out
   const [showModal, setShowModal] = useState(false);
-  //const [currentCreds, setCurrentCreds] = useState<Credentials>(CompileConstants.DEFAULT_CREDENTIALS);
-  const [currentUser, setCurrentUser] = useState<string>(CompileConstants.DEFAULT_CREDENTIALS.username);
+  const [currentUser, setCurrentUser] = useState<string | null>(null);
   const [secObj, setSecObj] = useState<SecObj | null>(null);
-  const [roles, setRoles] = useState<string[]>(CompileConstants.DEFAULT_USER_ROLES);
-  //const [loginInfo, setLoginInfoUsingFunction] = useState<LoginInfo>(getInitialLoginInfo); //Must use functional updates to not constantly re-set stale state!
+  const [roles, setRoles] = useState<string[]>([]);
   const loginInfo = useMemo<LoginInfo>(() => {
     return {currentUser: currentUser, secObj: secObj, roles: roles, setShowModal: setShowModal, logout: logout}
   }, [currentUser, secObj, roles, setShowModal, logout]); //TODO: logout fn isn't actually callback, changes every render, memoization is useless.
@@ -42,7 +38,6 @@ export const InnerLoginProvider: React.FC<LoginProviderProps> = ({children, game
   }, )
 
   useEffect(()=> {
-    //setLoginInfoUsingFunction((prevInfo)=>{return {...prevInfo, logout: logoutCallback}});
     setInitialized(true);
     return (() => {
       if(loginTimer.current) clearTimeout(loginTimer.current);
@@ -52,29 +47,23 @@ export const InnerLoginProvider: React.FC<LoginProviderProps> = ({children, game
 
 
   useEffect(()=> {
-
     async function fetchCurrentSecObj (startingGameId : string): Promise<void> {
       try {
-        //setLoginInfoUsingFunction((prevInfo)=>{return {...prevInfo, secObj: null}});
         setSecObj(null);
-        //const dbAtStart = getCurrentDB();
         console.log(`fetching SecObj for db ${startingGameId}`);
         let res = await database.get<SecObj>('_security');
         // if rapidly switching between dbs and one occurs before the other, set to null if they arrive out-of-order
         if(startingGameId === gameIdRef.current) {
           console.log("Setting secObj for "+startingGameId+" to " + JSON.stringify(res));
-          //setLoginInfoUsingFunction((prevInfo)=>{return {...prevInfo, secObj: res}});
           setSecObj(res);
         }
         else {
           console.warn(`Received SecObj for db ${startingGameId} but current db is ${gameIdRef.current}`); 
-          //setLoginInfoUsingFunction((prevInfo)=>{return {...prevInfo, secObj: null}});
           setSecObj(null);
         }
       }
       catch (err) {
         console.error(`Error getting secObj for db ${startingGameId }, setting to null ${err}`);
-        //setLoginInfoUsingFunction((prevInfo)=>{return {...prevInfo, secObj: null}});
         setSecObj(null);
       }
     }
@@ -83,41 +72,38 @@ export const InnerLoginProvider: React.FC<LoginProviderProps> = ({children, game
   }, [gameId, database, setSecObj]); 
 
   useEffect(()=> {
-    let creds = storedCredentials;
-    if(!initialized) { //if initial load 
-      logIn(creds.username, creds.password).then((response) => { 
-        console.log("Initial login success as " + creds.username);
+    if(!initialized && storedCredentials !== null) { //if initial load 
+      logIn(storedCredentials.username, storedCredentials.password).then((response) => { 
+        console.log("Initial login success as " + storedCredentials.username);
       }).catch((err) => { 
-        console.log("Initial login failure as " + creds.username);
+        console.log("Initial login failure as " + storedCredentials.username);
       });
     }
   }, [initialized, logIn, storedCredentials]); 
 
+  // OUTDATED, no more public
   // Handle logging in. Default auth cookie determined by my couchDB settings (I set 1 hour for convenience).
   // Start session as default user, who can read all DBs with same cookie. Stored creds start as default creds.
   // I give db basic non-session authorization which is used in initial calls, then login, and it switches to session auth.
   // Mostly use pouchdb-authentication to log in with public user for reading. Other accounts are superlogin accounts.
   // Superlogin/couch-auth accounts use pouchdb-authentication to get cookie authentication.
   // Manually manage refreshing login via setTimeout.
-  // Setting require_valid_user in couch means every request, including to _session, needs auth. So if default creds are wrong,
+  // Setting require_valid_user in couch (it's not set) means every request, including to _session, needs auth. So if default creds are wrong,
   // all requests are sending wrong basic auth headers, and you can't login with right creds. So no point in extensive error handling.
 
 
   // Always returns couchdb's login response, not superlogin's
   // TODO: test closure capture on setTimeout
   async function logIn(name: string, password: string): Promise<PouchDB.Authentication.LoginResponse> {
-  //const logIn = useCallback(async (name: string, password: string) => {
     type sessionType = {token: string, password: string, roles: string[]};
 
     // Called after logging into couch as default or SL as other user. Sets timer to login again.
     function onSuccess(responseOrSession: PouchDB.Authentication.LoginResponse | sessionType) { 
       console.log(`Successful login to ${gameId} as ${name}:${password}. Response: ${JSON.stringify(responseOrSession)}`); //`
-      //if(name !== loginInfo.currentCreds.username) {
       if(name !== currentUser) {
-        //setLoginInfoUsingFunction((prevInfo)=>{return {...prevInfo, currentCreds: {username:name, password: password} as Credentials}});
         setCurrentUser(name);
       }
-      setRoles(responseOrSession.roles || CompileConstants.DEFAULT_USER_ROLES);
+      setRoles(responseOrSession.roles || []);
       gameDispatch({actionType: 'loginSuccess', db: gameId} as GameAction);
       //set timer to refresh login
       if(loginTimer.current) clearTimeout(loginTimer.current);
@@ -145,18 +131,19 @@ export const InnerLoginProvider: React.FC<LoginProviderProps> = ({children, game
       });
     }
 
-    // Default user does not use superlogin
-    if(name === CompileConstants.DEFAULT_CREDENTIALS.username) {
-      return database.logIn(name, password).then((response) => {
-        onSuccess(response);
-        return response;
-      }).catch((loginError) => {
-        onFailure(loginError);
-        throw loginError;
-      });
-    }
-    else {
-      //Check for existing locally-stored SL session
+    // Default user does not use superlogin. NO MORE DEFAULT USER
+    //if(name === CompileConstants.DEFAULT_CREDENTIALS.username) {
+      //return database.logIn(name, password).then((response) => {
+        //onSuccess(response);
+        //return response;
+      //}).catch((loginError) => {
+        //onFailure(loginError);
+        //throw loginError;
+      //});
+    //}
+    //else {
+
+      //Check for existing locally-stored SL session. Don't worry, not async.
       myPouch.superlogin.checkExpired(); //deletes sess if expired
       let session = myPouch.superlogin.getSession();
       if(session && name === session.user_id) {
@@ -172,19 +159,11 @@ export const InnerLoginProvider: React.FC<LoginProviderProps> = ({children, game
           onFailure(loginError);
           throw loginError;
         }
-        // Don't mix await with promises like this
-        //session = await myPouch.superlogin.login({username: name, password: password}).then((response) => {
-          //return response;
-        //}).catch((loginError) => {
-          //onFailure(loginError);
-          //throw loginError;
-        //});
       }
       onSuccess(session);
       return superloginCouchSession(session);
-    }
+    //}
   }
-  //}, [loginInfo]); 
 
   function logInModalCallback(name: string, password: string): Promise<PouchDB.Authentication.LoginResponse> {
     return logIn(name, password).then((response) => {
@@ -202,13 +181,17 @@ export const InnerLoginProvider: React.FC<LoginProviderProps> = ({children, game
     }).catch((logoutError) => {
       console.log("Error logging out of SL account: " + JSON.stringify(logoutError));
     }).finally(() => {
-      logIn(CompileConstants.DEFAULT_CREDENTIALS.username, CompileConstants.DEFAULT_CREDENTIALS.password).catch((loginError) => {
-        console.error("Error logging in as default after logging out of SL account, setting current creds to default so user can login again");
         if(loginTimer.current) clearTimeout(loginTimer.current);
-        //setLoginInfoUsingFunction((prevInfo)=>{return {...prevInfo, currentCreds: CompileConstants.DEFAULT_CREDENTIALS}});
-        setCurrentUser(CompileConstants.DEFAULT_CREDENTIALS.username);
-        setRoles(CompileConstants.DEFAULT_USER_ROLES);
-      });
+        setCurrentUser(null);
+        setRoles([]);
+
+      //logIn(CompileConstants.DEFAULT_CREDENTIALS.username, CompileConstants.DEFAULT_CREDENTIALS.password).catch((loginError) => {
+        //console.error("Error logging in as default after logging out of SL account, setting current creds to default so user can login again");
+        //if(loginTimer.current) clearTimeout(loginTimer.current);
+        ////setLoginInfoUsingFunction((prevInfo)=>{return {...prevInfo, currentCreds: CompileConstants.DEFAULT_CREDENTIALS}});
+        //setCurrentUser(CompileConstants.DEFAULT_CREDENTIALS.username);
+        //setRoles(CompileConstants.DEFAULT_USER_ROLES);
+      //});
     });
   }
   //}, [loginInfo]); //prob should be modal honestly
@@ -223,13 +206,11 @@ export const InnerLoginProvider: React.FC<LoginProviderProps> = ({children, game
     //LoginModal (but not {children}) will re-render whenever this updates
     return (
       <LoginInfoContext.Provider value={loginInfo}>
-      {/*<LoginInfoContext.Provider value={{currentCreds: currentCreds, secObj: secObj, setShowModal: setShowModal, logout: logoutCallback}}>*/}
         <LoginModal show={showModal} storedCredentials={storedCredentials} onDismiss={() => setShowModal(false)} logInModalCallback={logInModalCallback} />
         {children}
       </LoginInfoContext.Provider>
     );
   }
-  //return [loginInfo, setLoginInfo]; //TODO: instead of setter give function that returns exception like documentation, saying to use provided callbacks?
 }
 
 export const LoginProvider = React.memo(InnerLoginProvider); //makes LoginProvider render 4 instead of 7 times
@@ -237,8 +218,7 @@ export const LoginProvider = React.memo(InnerLoginProvider); //makes LoginProvid
 //If needed, can expand to pass memoized API object with multiple callbacks 
 //see https://medium.com/trabe/passing-callbacks-down-with-react-hooks-4723c4652aff
 export type LoginInfo = {
-  //currentCreds: Credentials, //actually, context should only offer username, not pw
-  currentUser: string, 
+  currentUser: string | null, 
   secObj: SecObj | null,
   roles: string[],
   setShowModal: (showModal: boolean)=>void,
@@ -255,18 +235,3 @@ export function useLoginInfoContext(): LoginInfo {
 }
 
 export default LoginProvider;
-
-//export const {
-  //Provider,
-  //useTracked, // state+dispatch tuple
-  //useUpdate, //just dispatch
-  //useTrackedState, //just state
-  //useSelector,
-//} = createContainer(useValue);
-
-// Uhhh can I even use the state in same component that provides it?
-//const useValue = (propState: LoginInfo) => {
-  //const [state, dispatch] = useState<LoginInfo>(propState);
-  //return [state, dispatch];
-//}
-

@@ -6,7 +6,7 @@ echo "Generating schema..."
 #npx typescript-json-schema ./tsconfig.json CharDoc -o schema/CharDoc.json --include src/types/characterTypes.ts --required
 # TODO: check if I need --strictNullChecks
 npx typescript-json-schema ./tsconfig.json ChangeDocServer -o schema/ChangeDocServer.json --include shared/types/characterTypes.ts --required --noExtraProps
-npx typescript-json-schema ./tsconfig.json DesignDoc -o schema/DesignDoc.json --include shared/types/characterTypes.ts --required --noExtraProps
+npx typescript-json-schema ./tsconfig.json ConfigDoc -o schema/ConfigDoc.json --include shared/types/characterTypes.ts --required --noExtraProps
 npx typescript-json-schema ./tsconfig.json SecObj -o schema/SecObj.json --include shared/services/security.ts --required --noExtraProps
 
 # when an optional property has never as its type, schema generator chokes and says its type is undefined, which ajv rejects.
@@ -19,7 +19,7 @@ jq '(.. | select(.type == "undefined")?) |= false' schema/ChangeDocServer.json >
 # setting --remove-additional=true will strip extra props instead of throwing errors, but it's mistakenly stripping extra stuff
 echo "Generating validators..."
 npx ajv compile -s schema/ChangeDocServer.json -o schema/ChangeDocServer-validator.js --allowUnionTypes --all-errors
-npx ajv compile -s schema/DesignDoc.json -o schema/DesignDoc-validator.js --allowUnionTypes --all-errors
+npx ajv compile -s schema/ConfigDoc.json -o schema/ConfigDoc-validator.js --allowUnionTypes --all-errors
 npx ajv compile -s schema/SecObj.json -o schema/SecObj-validator.js --allowUnionTypes --all-errors
 
 #npx ajv compile -s schema/CharDoc.json -o schema/CharDoc-validator.js

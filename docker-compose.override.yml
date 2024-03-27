@@ -28,6 +28,8 @@ services:
             # For production, code is copied into image during build.
         depends_on:
             - mailhog
+        networks:
+            - backend # needed for mailhog
         secrets: #need this so the override secrets are used instead of parent secrets
             - couch_password
             - couch_replicator_password

@@ -66,6 +66,9 @@ export const EditHtmlPage = ({gameDisplayName, existingDoc}: EditHtmlPageProps) 
       updatedAt: ''
     }
 
+    // If uploading images, call this, which either invokes defined images_upload_handler func, or does POST request to images_upload_url
+    //editorRef.current.uploadImages() {}
+
     loadingPromiseWrapper(
 
         myPouch.makeApiCall(url, method, doc).then((resp) => {
@@ -152,6 +155,9 @@ export const EditHtmlPage = ({gameDisplayName, existingDoc}: EditHtmlPageProps) 
               onRedo={(evt, editor) => {setDirty(true)}}
               initialValue={existingDoc?.html ?? "<p>Enter page content here</p>"}
               init={{
+
+                //images_upload_url: string // POST endpoint that takes the image and returns a location
+                //images_upload_handler: (blobInfo: BlobInfo, progress: fn): Promise //my handler invoked when upload_images() called
                 height: 500,
                 menubar: false,
                 plugins: [

@@ -12,7 +12,7 @@ console.log("NODE_ENV is " + process.env.NODE_ENV );
 const couch_host = process.env.REACT_APP_COUCH_HOST!;
 const api_host = process.env.REACT_APP_API_HOST!;
 
-export const remoteWithBasicCreds: string = `${protocol}://${CompileConstants.DEFAULT_CREDENTIALS.username}:${CompileConstants.DEFAULT_CREDENTIALS.password}@${couch_host}/`;
+//export const remoteWithBasicCreds: string = `${protocol}://${CompileConstants.DEFAULT_CREDENTIALS.username}:${CompileConstants.DEFAULT_CREDENTIALS.password}@${couch_host}/`;
 
 // also have admin:password for local dev
 export const remoteWithTestAdminCreds: string = `${protocol}://admin:password@${couch_host}/`;
@@ -134,7 +134,7 @@ export async function pullDB(db: string) {
   if(db.indexOf("local-") !== -1) throw new Error("Provide only db id with no local- prefix");
   const database: PouchDB.Database = getDB("local-"+db);
   console.log("Initiating download for "+db);
-  return database.replicate.from(remoteWithBasicCreds + db, {selector: {"$not": {"_id": "_design/validate"}}}); //use selector blacklist
+  return database.replicate.from(remote + db, {selector: {"$not": {"_id": "_design/validate"}}}); //use selector blacklist
 }
 
 // Only for testing
@@ -170,7 +170,7 @@ export function usePersistentDBRefs(gameId: string): [MutableRefObject<{[key: st
     return {
     "local-top": getDB("local-top"),
     "local-personal": getDB("local-personal"),
-    "remote-top": getDB(remoteWithBasicCreds + "top"), //remote indexes will just be "remote-gameId"
+    "remote-top": getDB(remote + "top"), //remote indexes will just be "remote-gameId"
     }
   }); 
   //Only using state above because for some reason useRef isn't allowed to have an initialization function that only runs once
@@ -209,7 +209,7 @@ export function usePersistentDBRefs(gameId: string): [MutableRefObject<{[key: st
     const curr: Record<string, PouchDB.Database> = usedDBs.current;
     //if DBs haven't been used before, create them
     if(!curr[localKey]) curr[localKey] = getDB("local-" + gameId); 
-    if(!curr[remoteKey]) curr[remoteKey] = getDB(remoteWithBasicCreds + gameId); 
+    if(!curr[remoteKey]) curr[remoteKey] = getDB(remote + gameId); 
 
     dbAll.current.local = usedDBs.current[localKey];
     dbAll.current.remote = usedDBs.current[remoteKey];

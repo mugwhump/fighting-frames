@@ -8,6 +8,7 @@ import { GameMenuContainer } from './components/GameMenu';
 import AddGame from './pages/AddGame';
 import DeleteGame from './pages/DeleteGame';
 import { LocalProvider } from './components/LocalProvider';
+import ConfirmedEmail from './pages/ConfirmedEmail';
 import React from 'react';
 import { IonApp, IonMenu, IonItem, IonLabel, IonRouterOutlet, IonSplitPane, setupIonicReact } from '@ionic/react';
 import { IonReactRouter } from '@ionic/react-router';
@@ -63,7 +64,7 @@ const App: React.FC = () => {
                   </Route>
                   <Route path="/page/Test" component={Test} exact /> 
                   <Route path={CompileConstants.CONFIRMATION_PATH} exact >
-                    <IonItem><IonLabel>Email confirmed! Your account is now verified.</IonLabel></IonItem>
+                    <ConfirmedEmail />
                   </Route>
                   <Route path={CompileConstants.ADD_GAME_PATH} exact >
                     <AddGame />

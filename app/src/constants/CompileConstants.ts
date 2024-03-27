@@ -16,7 +16,7 @@ export let CompileConstants = {
 
   //URLs
   GAME_MATCH: "/game/:gameId",
-  DELETED_GAME_MATCH: "/game/internal-:gameId-deleted",
+  DELETED_GAME_MATCH: "/game/internal-deleted-:gameId",
   CHARACTER_MATCH: charMatch,
   SEGMENT_MATCH: "/game/:gameId/character/:characterId/:segment", //TODO: nuke it
   EDIT_MATCH: charMatch+"/local-edit",
@@ -48,8 +48,8 @@ export let CompileConstants = {
 
   //Auth
   AUTH_TIMEOUT_SECONDS: 3600,
-  DEFAULT_CREDENTIALS: {username: "public", password: "password"} as Credentials,
-  DEFAULT_USER_ROLES: ["read"] as string[],
+  //DEFAULT_CREDENTIALS: {username: "public", password: "password"} as Credentials,
+  //DEFAULT_USER_ROLES: ["read"] as string[],
 
   //UI
   TEXT_AREA_CHARACTERS: 80, //string columns get a textarea input if maxSize is >= this value

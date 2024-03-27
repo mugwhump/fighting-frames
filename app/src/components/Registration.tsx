@@ -43,10 +43,10 @@ const Registration: React.FC<RegistrationProps> = ({closeIfModal}) => {
       //Check whether the user document exists. If there was an issue sending the confirmation email, the server will delete the user, making the email unused.
       //So this call is supposed to fail.
       myPouch.superlogin.validateEmail(email).then(() => {
-        setErrorText("Registration error: confirmation email could not be sent.");
-      }).catch(() => { 
         console.log("Confirmation email sent successfully");
         setSuccess(true);
+      }).catch(() => { 
+        setErrorText("Registration error: confirmation email could not be sent.");
       });
     }).catch((error) => {
       console.log("Registration error: " + JSON.stringify(error));

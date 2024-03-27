@@ -26,7 +26,7 @@ const couch_replicator_user = secrets.couch_replicator_user;
 const couch_replicator_password = secrets.couch_replicator_password;
 
 //TODO: what if multiple requests use these objects at once?
-const ConfigDocValidator = require('../schema/DesignDoc-validator').default;
+const ConfigDocValidator = require('../schema/ConfigDoc-validator').default;
 const ChangeDocValidator = require('../schema/ChangeDocServer-validator').default;
 const SecObjValidator = require('../schema/SecObj-validator').default;
 
@@ -294,9 +294,12 @@ router.post(CompileConstants.API_GAMES_MATCH, needsPermissions("ServerManager"),
     }
 
     //update _security w read role. Only incomplete dbs not in top make it to this step, so won't overwrite customized perms.
+    // TODO: is this necessary now that there's no read role? Is it necessary to add _admin?
     const secDoc: Security.SecObj = {
       admins: { names: [], roles: ['_admin'] },
-      members: { names: [], roles: ['read'] },
+      members: { names: [], roles: [] },
+      game_admins: [],
+      editors: [],
       uploaders: [],
     }
     const putResult = await createdDB.insert(secDoc as Nano.MaybeDocument, '_security'); 
@@ -321,7 +324,7 @@ router.delete(CompileConstants.API_DELETE_GAME_MATCH, needsPermissions("ServerMa
   try {
     logger.info(`balet time`);
     const gameId = req.params.gameId.trim();
-    const backupId = `internal-${gameId}-deleted`;
+    const backupId = `internal-deleted-${gameId}`;
 
     const topDB = adminNano.use<T.DBListDoc>('top');
 
@@ -439,9 +442,9 @@ router.put(CompileConstants.API_CONFIG_MATCH, needsPermissions("GameAdmin"),
 
 
 /**
- * PUT. Upload new _security document. Only applies given admins.names, members.names, and uploaders. 
+ * PUT. Upload new _security document. Only applies given game_admins, editors, and uploaders. 
  * Body contains SecObj document.
- * TODO: should Game Admins be allowed to remove Game Admins?
+ * TODO: should Game Admins be allowed to remove Game Admins? It does let them have the same interface+logic as server managers.
  */
 router.put(CompileConstants.API_AUTHORIZED_USERS_MATCH, needsPermissions("GameAdmin"), 
            async (req: TypedRequest<{gameId:string}, Security.SecObj>, res) => {
@@ -457,13 +460,13 @@ router.put(CompileConstants.API_AUTHORIZED_USERS_MATCH, needsPermissions("GameAd
     const currentSecObj = await gameDb.get('_security') as Security.SecObj;
 
     //check that no public/user in admins. Wouldn't do anything but it's confusing.
-    if(submittedSecObj.admins?.names?.includes('public') || submittedSecObj.admins?.names?.includes('user')) {
+    if(submittedSecObj.game_admins?.includes('public') || submittedSecObj.game_admins?.includes('user')) {
       return sendError(res, "Cannot include public or user in game admins", 400);
     }
 
     //user should only be in one of admins/members/uploaders. 
     //OK to be server manager and also something else, otherwise would need to remove them from all db perms upon giving manager role
-    const sharedElements = findSharedElements([submittedSecObj.admins?.names ?? [], submittedSecObj.members?.names ?? [], submittedSecObj.uploaders ?? []]);
+    const sharedElements = findSharedElements([submittedSecObj.game_admins ?? [], submittedSecObj.editors ?? [], submittedSecObj.uploaders ?? []]);
     if(sharedElements.length > 0) {
       return sendError(res, "Error, users "+sharedElements.join(", ")+" are present in multiple roles. Only include users in the highest role you want them to have.", 400);
     }
@@ -481,7 +484,7 @@ router.put(CompileConstants.API_AUTHORIZED_USERS_MATCH, needsPermissions("GameAd
     //check that right names are either "public", "user", or a SL user
     //TODO: write custom view that only returns verified accounts? Even if they get perms, non-verified accounts still get rejected by credential middleware
     const allUsers: Nano.DocumentViewResponse<null, unknown> = await couchAuthDb.view('auth', 'key');
-    let submittedUsers = [...submittedSecObj.admins?.names ?? [], ...submittedSecObj.members?.names ?? [], ...submittedSecObj.uploaders ?? []];
+    let submittedUsers = [...submittedSecObj.game_admins ?? [], ...submittedSecObj.editors ?? [], ...submittedSecObj.uploaders ?? []];
     submittedUsers = [...new Set(submittedUsers)];
     const realUsers = allUsers.rows.map((row) => row.key);
     const fakeSubmittedUsers = submittedUsers.filter((submitted) => submitted !== 'public' && submitted !== 'user' && !realUsers.includes(submitted));
@@ -490,8 +493,8 @@ router.put(CompileConstants.API_AUTHORIZED_USERS_MATCH, needsPermissions("GameAd
     }
 
     //merge submitted names onto current doc
-    if(submittedSecObj.admins?.names) set(currentSecObj, 'admins.names', submittedSecObj.admins.names);
-    if(submittedSecObj.members?.names) set(currentSecObj, 'members.names', submittedSecObj.members.names);
+    if(submittedSecObj.game_admins) currentSecObj.game_admins = submittedSecObj.game_admins;
+    if(submittedSecObj.editors) currentSecObj.editors = submittedSecObj.editors;
     if(submittedSecObj.uploaders) currentSecObj.uploaders = submittedSecObj.uploaders;
 
     //upload new _security doc
@@ -600,8 +603,6 @@ async function uploadChange(req: Request<{gameId:string, characterId:string, cha
     merging.applyChangeDoc(newCharDoc, invertedChanges);
     if(!isEqual(charDoc, newCharDoc)) {
       const diffString = util.recursiveCompare('', charDoc, newCharDoc);
-      //logger.info("Before >> "+JSON.stringify(charDoc));
-      //logger.info("After >> "+JSON.stringify(newCharDoc));
       return getErrorObject("charDoc is not same after changes are applied then unapplied. Differences >> "+diffString);
     }
 
@@ -618,7 +619,6 @@ async function uploadChange(req: Request<{gameId:string, characterId:string, cha
 
     //finally upload changeDoc
     try {
-      //logger.info("TESTING, not actually inserting. Doc is "+JSON.stringify(uploadDoc));
       await db.insert(uploadDoc); 
     }
     catch(err: any) {
@@ -788,7 +788,7 @@ router.post(CompileConstants.API_CHARACTERS_MATCH, needsPermissions("GameAdmin")
 /**
  * DELETE. Delete character *and* all changes. 
  */
-router.delete(CompileConstants.API_CHARACTER_MATCH, needsPermissions("Reader"), //TODO: change back to GameAdmin once testing done
+router.delete(CompileConstants.API_CHARACTER_MATCH, needsPermissions("GameAdmin"), 
            async (req: Request<{gameId:string, characterId:string}>, res) => {
   try {
     const {gameId, characterId} = req.params;

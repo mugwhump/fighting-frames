@@ -75,7 +75,7 @@ export function needsPermissions(perms: Security.PermissionLevel) {
         couchAuth.requireAuth(req, res, () => { //this is the next() function I'm giving to couchAuth that it calls upon success
           //Don't think there's any need for couchAuth.requireRole('user'), requireAuth only works with SL users
           const user: CouchAuthTypes.SlRequestUser = req.user!;
-          let hasPerms = Security.userHasPerms({secObj: sec, currentUser: user._id, roles: user.roles}, perms);
+          let hasPerms = Security.userHasPerms({secObj: sec, currentUser: user._id || null, roles: user.roles}, perms);
           if(hasPerms) {
             next(); //I let the chain progress
           }
@@ -85,7 +85,7 @@ export function needsPermissions(perms: Security.PermissionLevel) {
         }); //if couchAuth.requireAuth() rejects, it sets res to 401 and doesn't call next.
       }
       else {
-        let hasPerms = Security.userHasPerms({secObj: sec, currentUser: 'public'}, perms);
+        let hasPerms = Security.userHasPerms({secObj: sec, currentUser: null}, perms);
         if(hasPerms) {
           next();
         }
